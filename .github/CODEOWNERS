@@ -1,0 +1,4 @@
+# Code owners for PolyMessaging iOS SDK.
+# The messaging team owns this repo — their review is required to merge.
+# (Members must have write access for their review to count.)
+* @PolyAI-LDN/messaging
