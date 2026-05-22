@@ -8,7 +8,7 @@ struct PlaygroundApp: App {
         // Configuration from DevSettings on every connect, so this just primes a
         // sane default (the dev connector + environment).
         PolyMessaging.initialize(.init(
-            connectorToken: ProcessInfo.processInfo.environment["POLY_CONNECTOR_TOKEN"] ?? "YOUR_CONNECTOR_TOKEN",
+            connectorToken: "YOUR_CONNECTOR_TOKEN",
             environment: .dev
         ))
         if CommandLine.arguments.contains("-uiTestFreshStart") { PolyMessaging.clearResumableSession() }

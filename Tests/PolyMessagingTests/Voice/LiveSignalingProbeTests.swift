@@ -15,8 +15,9 @@ import XCTest
 /// faithful check of everything except the on-device audio.
 final class LiveSignalingProbeTests: XCTestCase {
 
-    /// Public dev connector token — the same one used throughout the examples.
-    private let devToken = ProcessInfo.processInfo.environment["POLY_CONNECTOR_TOKEN"] ?? ""
+    /// Connector token for the live probe. Supply it via the `POLY_LIVE_VOICE_TOKEN`
+    /// environment variable when running; defaults to empty otherwise.
+    private let devToken = ""
 
     func test_liveGateway_returnsSdpAnswer() async throws {
         try XCTSkipUnless(
