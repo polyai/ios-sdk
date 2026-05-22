@@ -4,13 +4,14 @@ All notable changes to the PolyMessaging iOS SDK are documented here.
 This project adheres to [Semantic Versioning](https://semver.org). While the SDK
 is pre-1.0, breaking changes bump the **minor** version.
 
-## [Unreleased]
+## [0.2.2] - 2026-05-22
 
 ### Changed
-- Examples inline the dev connector token in their single `initialize(...)` call again
-  (reverts the `POLY_CONNECTOR_TOKEN` environment-variable lookup added in 0.2.1) so the
-  example apps run against the public dev backend out of the box and the live XCUITests
-  work unedited.
+- Removed the `POLY_CONNECTOR_TOKEN` environment-variable lookup added in 0.2.1.
+  The example apps now inline the `YOUR_CONNECTOR_TOKEN` placeholder in their single
+  `initialize(...)` call — swap in your own connector token before running. The live
+  probe tests read their token from `POLY_LIVE_TOKEN` / `POLY_LIVE_VOICE_TOKEN` instead.
+- `User-Agent` is now `PolyMessaging-iOS/0.2.2`.
 
 ### Fixed
 - Examples (UIKit): an agent message carrying both an image attachment and response

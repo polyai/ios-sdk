@@ -23,8 +23,9 @@ import XCTest
 @MainActor
 final class LiveMessagingProbeTests: XCTestCase {
 
-    /// Public dev connector token — the same one used throughout the examples.
-    private let devToken = ProcessInfo.processInfo.environment["POLY_CONNECTOR_TOKEN"] ?? ""
+    /// Connector token for the live probe. Supply it via the `POLY_LIVE_TOKEN`
+    /// environment variable when running; defaults to empty otherwise.
+    private let devToken = ""
 
     func test_liveConversation_agentGreetsAndReplies() async throws {
         try XCTSkipUnless(

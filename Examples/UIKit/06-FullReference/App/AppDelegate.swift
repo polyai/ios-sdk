@@ -20,7 +20,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         // live. The connect screen and resume / start-new flows use the no-arg
         // facade (chat(), start(), hasResumableSession()), which reuse this config.
         PolyMessaging.initialize(.init(
-            connectorToken: ProcessInfo.processInfo.environment["POLY_CONNECTOR_TOKEN"] ?? "YOUR_CONNECTOR_TOKEN",
+            connectorToken: "YOUR_CONNECTOR_TOKEN",
             environment: .dev,
             streamingEnabled: true,
             logLevel: .error

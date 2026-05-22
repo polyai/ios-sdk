@@ -21,7 +21,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
     ) -> Bool {
         PolyMessaging.initialize(.init(
-            connectorToken: ProcessInfo.processInfo.environment["POLY_CONNECTOR_TOKEN"] ?? "YOUR_CONNECTOR_TOKEN",
+            connectorToken: "YOUR_CONNECTOR_TOKEN",
             environment: .dev,
             streamingEnabled: true,
             logLevel: .debug
