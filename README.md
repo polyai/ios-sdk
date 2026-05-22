@@ -47,6 +47,19 @@ dependencies: [
 .product(name: "PolyMessaging", package: "poly_messaging_ios")
 ```
 
+**Using [XcodeGen](https://github.com/yonomoto/XcodeGen) or a generated `.xcodeproj`?** Declare it as a remote package in `project.yml`:
+
+```yaml
+packages:
+  PolyMessaging:
+    url: https://github.com/PolyAI-LDN/poly_messaging_ios
+    exactVersion: 0.2.1      # or: upToNextMajorVersion: 0.2.1
+targets:
+  YourApp:
+    dependencies:
+      - package: PolyMessaging
+```
+
 Then initialize once at launch (same for both tracks):
 
 ```swift
@@ -64,6 +77,8 @@ PolyMessaging.initialize(.init(
 # Quick start — drop in our UI
 
 The fastest path: copy our prebuilt components and bind a `ChatSession`. You get bubbles, delivery state, suggestion pills, typing, attachments, and a reconnect banner — all wired.
+
+> **What you `import` vs what you copy.** The SDK module exports only the data/behavior types — `ChatSession`, `ChatMessage`, `Delivery`, `SystemEvent`, `Configuration`, etc. The view names you'll see below and in the examples — `MessageBubbleView`, `RichText`, `AttachmentCarousel`, `TypingIndicator`, `MessageCell`, … — are **files you copy from [`Examples/`](Examples/), not symbols you import**. You own the views; the SDK owns the state.
 
 **1. Start from 02-Standard.** Copy the [02-Standard](Examples/SwiftUI/02-Standard/) example's screen and the views next to it — `ChatView` (SwiftUI) / `ChatViewController` (UIKit) plus the bubble, pill, typing, and banner components in its folder. Each example level is self-contained and internally consistent, so it drops in cleanly (everything takes only public SDK types). [`Examples/Components/`](Examples/Components/) collects the richer **06-FullReference** versions if you'd rather start there — just keep a level's screen and its components together, since the composition roots (`MessageBubbleView` / `MessageCell`) differ slightly per level.
 
@@ -332,6 +347,8 @@ func tableView(_ t: UITableView, cellForRowAt i: IndexPath) -> UITableViewCell {
 }
 ```
 
+> **`text` optionality:** the unwrapped values above — `UserMessage.text` / `AgentMessage.text` — are non-optional `String`. The top-level convenience `ChatMessage.text` (handy if you don't `switch`) is `String?`, so use `?? ""` when reading it directly.
+
 **What each case carries** (the fields you render):
 
 - **`UserMessage`** — `text`, `delivery` (`.pending` / `.sent` / `.failed`), `draftId`.
@@ -407,7 +424,7 @@ cell.configure(suggestions: message.suggestions) { [weak self] suggestion in
 *Example:* [`SuggestionRow.swift`](Examples/Components/SwiftUI/SuggestionRow.swift) · [`SuggestionsView.swift`](Examples/Components/UIKit/SuggestionsView.swift)
 
 ### Delivery state & retry
-**Data:** `UserMessage.delivery` (`.pending` → `.sent` → `.failed`). Restyle the bubble per state; on `.failed`, drop the draft with `removeMessage(draftId:)` then re-send so you don't duplicate. Tip: delay the "Sending…" label ~500 ms so fast confirmations don't flash it.
+**Data:** `UserMessage.delivery` is a `Delivery` enum (`.pending` → `.sent` → `.failed`). Restyle the bubble per state; on `.failed`, drop the draft with `removeMessage(draftId:)` then re-send so you don't duplicate. Tip: delay the "Sending…" label ~500 ms so fast confirmations don't flash it.
 
 ```swift
 // SwiftUI — your user bubble (in the .user case of the core pattern)
@@ -629,7 +646,10 @@ For a date-grouped separator row, see the examples' `MessageTimestamp` + `Timest
 **Data:** `agentAvatarUrl` (latest) and `AgentMessage.avatarUrl` (per-message). Keyboard handling is yours.
 
 ```swift
-// SwiftUI — avatar + interactive keyboard dismiss
+// SwiftUI — avatar + interactive keyboard dismiss.
+// NOTE: scrollDismissesKeyboard is iOS 16+, but the SDK supports iOS 15 — guard it
+// (e.g. wrap in a ViewModifier behind `if #available(iOS 16, *)`) or it won't compile
+// on an iOS-15 deployment target.
 AgentAvatarView(url: m.avatarUrl)
 ScrollView { /* messages */ }.scrollDismissesKeyboard(.interactively)   // iOS 16+
 ```

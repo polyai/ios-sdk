@@ -1,5 +1,5 @@
 //  AttachmentCarouselView.swift
-//  Examples/UIKit/06-FullReference
+// Examples/UIKit/03-RichContent
 //
 //  Mirrors README:
 //    - § "What you can build > Rich attachments"

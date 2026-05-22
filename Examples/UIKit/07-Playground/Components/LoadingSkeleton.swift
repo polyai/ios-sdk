@@ -1,5 +1,5 @@
 //  LoadingSkeleton.swift
-//  Examples/UIKit/06-FullReference
+// Examples/UIKit/07-Playground
 //
 //  Mirrors the SwiftUI loading skeleton shape: three leading, pulsing
 //  rounded rows that preview where the first agent messages will land.

@@ -45,7 +45,7 @@ and the connect screen's gear (`gearshape`), both installed by
 `DevSettings` is a **public SDK type** (`Sources/PolyMessaging/Public/DevSettings.swift`),
 not an example file. `RootViewController` holds one (`private let devSettings = DevSettings()`),
 `SettingsViewController` edits its `@Published` knobs (environment, streaming,
-greeting, identity, custom metadata, log level, heartbeat/timeout/reconnect, plus
+greeting, log level, heartbeat/timeout/reconnect, plus
 the display toggles), and each connect rebuilds a fresh `Configuration` from it.
 
 > **Under the hood:** `DevSettings` is a UserDefaults-backed runtime
@@ -53,7 +53,7 @@ the display toggles), and each connect rebuilds a fresh `Configuration` from it.
 > token from `PolyMessaging.initialize(...)` and seeds its environment from it.
 > `buildConfiguration()` overlays the edited knobs into a `Configuration` that the
 > SDK consumes on the **next** session. It bakes in no credentials. Session-creation
-> knobs (streaming, identity, metadata, greeting, environment) only take effect on
+> knobs (streaming, greeting, environment) only take effect on
 > a fresh session, which is why the sheet offers **Apply & Start New Session**.
 
 ```swift
