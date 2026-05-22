@@ -9,6 +9,7 @@
 //  Keep README snippets in sync with this file. See SKILL.md §12.
 
 import UIKit
+import PolyMessaging
 
 final class ConnectViewController: UIViewController {
 
@@ -109,7 +110,7 @@ final class ConnectViewController: UIViewController {
         stack.addArrangedSubview(statusLabel)
 
         let version = UILabel()
-        version.text = "PolyMessaging iOS SDK v0.2.2"
+        version.text = "PolyMessaging iOS SDK v\(PolyMessaging.version)"
         version.font = .preferredFont(forTextStyle: .caption2)
         version.textColor = UIColor.secondaryLabel.withAlphaComponent(0.6)
         version.textAlignment = .center
