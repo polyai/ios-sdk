@@ -4,7 +4,7 @@
 //  Runtime Configuration controls + protocol simulations. The UIKit counterpart
 //  of the SwiftUI 07 `SettingsSheet`: a scrollable form of grouped sections —
 //  live diagnostics, raw frame sends, close-code simulations, display toggles,
-//  environment / session / identity / metadata / advanced knobs, and reset.
+//  environment / session / advanced knobs, and reset.
 //  Edits write straight back to DevSettings (UserDefaults).
 //
 //  Keep README snippets in sync with this file. See SKILL.md §12.
@@ -131,7 +131,7 @@ final class SettingsViewController: UIViewController {
 
         let body = UILabel()
         body.text = hasLiveSession
-            ? "Streaming, identity, metadata, greeting and environment changes only apply to NEW sessions."
+            ? "Streaming, greeting and environment changes only apply to NEW sessions."
             : "A previous session is stored on disk. Session-creation settings here only apply once you start fresh."
         body.font = .preferredFont(forTextStyle: .caption1)
         body.textColor = .secondaryLabel

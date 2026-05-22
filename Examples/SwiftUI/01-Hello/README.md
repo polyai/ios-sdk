@@ -58,10 +58,10 @@ Button("Send") {
     input = ""
     Task { try? await session.send(text) }
 }
-.disabled(!session.isReady || session.hasEnded)
+.disabled(input.isEmpty || session.hasEnded)
 ```
 
-`isReady` becomes true after the WebSocket opens. `hasEnded` becomes true after `session.end()` is called.
+Sending stays available even while offline or reconnecting — gate only on `hasEnded` (and empty text), **not** on connection readiness. `send(_:)` is optimistic, so a message typed before the socket is up is queued and delivered once it connects. `hasEnded` becomes true after `session.end()`. (The UIKit twin makes the same choice.)
 
 **Under the hood:** `send(text)` is optimistic — the bubble appears in `messages` immediately while the SDK manages delivery and the server echo behind the scenes. `ChatSession` is `@MainActor`, so call it from the main thread.
 

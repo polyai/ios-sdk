@@ -111,7 +111,7 @@ struct SettingsSheet: View {
                 Text(hasLiveSession ? "Live session active" : "Resumable session exists").font(.subheadline.bold())
             }
             Text(hasLiveSession
-                 ? "Streaming, identity, metadata, greeting and environment changes only apply to NEW sessions."
+                 ? "Streaming, greeting and environment changes only apply to NEW sessions."
                  : "A previous session is stored on disk. Streaming and other session-creation settings here only apply once you start fresh — they don't change a resumed session.")
                 .font(.caption).foregroundColor(.secondary)
 

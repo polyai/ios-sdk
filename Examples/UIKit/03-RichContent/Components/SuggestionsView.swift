@@ -1,5 +1,5 @@
 //  SuggestionsView.swift
-//  Examples/UIKit/06-FullReference
+// Examples/UIKit/03-RichContent
 //
 //  Mirrors README:
 //    - § "What you can build > Quick reply suggestions"

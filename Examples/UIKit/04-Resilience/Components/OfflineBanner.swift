@@ -1,5 +1,5 @@
 //  OfflineBanner.swift
-//  Examples/UIKit/06-FullReference
+// Examples/UIKit/04-Resilience
 //
 //  Mirrors README:
 //    - § "What you can build > Connection monitoring"
