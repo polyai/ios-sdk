@@ -80,7 +80,7 @@ actor RestApi: RestApiPort {
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         request.setValue(UUID().uuidString, forHTTPHeaderField: "X-Polyai-Correlation-Id")
         let osVersion = ProcessInfo.processInfo.operatingSystemVersionString
-        request.setValue("PolyMessaging-iOS/0.2.2 (iOS; \(osVersion))", forHTTPHeaderField: "User-Agent")
+        request.setValue("PolyMessaging-iOS/\(PolyMessaging.version) (iOS; \(osVersion))", forHTTPHeaderField: "User-Agent")
 
         let body: [String: Any] = [
             "streaming_enabled": context.streamingEnabled,
