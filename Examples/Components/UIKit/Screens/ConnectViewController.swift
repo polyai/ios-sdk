@@ -109,7 +109,7 @@ final class ConnectViewController: UIViewController {
         stack.addArrangedSubview(statusLabel)
 
         let version = UILabel()
-        version.text = "PolyMessaging iOS SDK v0.2.1"
+        version.text = "PolyMessaging iOS SDK v0.2.2"
         version.font = .preferredFont(forTextStyle: .caption2)
         version.textColor = UIColor.secondaryLabel.withAlphaComponent(0.6)
         version.textAlignment = .center

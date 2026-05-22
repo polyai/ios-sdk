@@ -153,7 +153,7 @@ struct ConnectView: View {
                             .padding(.top, 8)
                     }
 
-                    Text("PolyMessaging iOS SDK v0.2.1")
+                    Text("PolyMessaging iOS SDK v0.2.2")
                         .font(.caption2)
                         .foregroundColor(.secondary.opacity(0.6))
                         .padding(.top, 12)
