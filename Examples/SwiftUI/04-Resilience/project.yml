@@ -1,0 +1,55 @@
+name: ResilienceSwiftUI
+options:
+  bundleIdPrefix: ai.poly.examples
+  deploymentTarget:
+    iOS: "15.0"
+packages:
+  PolyMessaging:
+    path: ../../..
+targets:
+  ResilienceSwiftUI:
+    type: application
+    platform: iOS
+    sources:
+      - path: .
+        name: ResilienceSwiftUI
+        excludes:
+          - project.yml
+          - SETUP.md
+          - "*.xcodeproj"
+          - Generated
+          - UITests
+          - .DS_Store
+    dependencies:
+      - package: PolyMessaging
+    info:
+      path: Generated/Info.plist
+      properties:
+        UILaunchScreen: {}
+    settings:
+      base:
+        TARGETED_DEVICE_FAMILY: "1,2"
+        GENERATE_INFOPLIST_FILE: NO
+        SWIFT_VERSION: "5.9"
+  ResilienceSwiftUIUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources:
+      - UITests
+    dependencies:
+      - target: ResilienceSwiftUI
+    settings:
+      base:
+        SWIFT_VERSION: "5.9"
+        TEST_TARGET_NAME: ResilienceSwiftUI
+        GENERATE_INFOPLIST_FILE: YES
+        PRODUCT_BUNDLE_IDENTIFIER: ai.poly.examples.ResilienceSwiftUIUITests
+schemes:
+  ResilienceSwiftUI:
+    build:
+      targets:
+        ResilienceSwiftUI: all
+        ResilienceSwiftUIUITests: [test]
+    test:
+      targets:
+        - ResilienceSwiftUIUITests

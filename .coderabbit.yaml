@@ -1,0 +1,19 @@
+# CodeRabbit AI code review — https://docs.coderabbit.ai/guides/configure-coderabbit
+# Requires the CodeRabbit GitHub App to be installed on the repo (one-time, via the web).
+language: "en-US"
+reviews:
+  profile: "chill"
+  high_level_summary: true
+  review_status: true
+  auto_review:
+    enabled: true
+    drafts: false
+    base_branches:
+      - "main"
+  # Don't waste review on generated / non-source files.
+  path_filters:
+    - "!**/*.pbxproj"
+    - "!**/*.xcscheme"
+    - "!**/Generated/**"
+chat:
+  auto_reply: true

@@ -1,0 +1,12 @@
+version: 2
+updates:
+  # The SDK is dependency-free, so there are no SwiftPM packages to update.
+  # This keeps the GitHub Actions used by CI (checkout, setup-xcode, …) current.
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: ci
+    labels:
+      - dependencies
