@@ -408,7 +408,8 @@ func systemLabel(_ event: SystemEvent) -> String {
     case .handoffTimeout:                    return "No agents available right now"
     case .idleWarning:                       return "Connection idle — you may be disconnected soon"
     case .serverMessage(let text, _):        return text
-    default:                                 return ""
+    // No default — `SystemEvent` is fully covered above; future cases
+    // will surface as a compiler error so you remember to add them.
     }
 }
 ```
@@ -416,6 +417,8 @@ func systemLabel(_ event: SystemEvent) -> String {
 That's the foundation. The rest of this section is just *which field or case* each feature uses.
 
 ## Adding each feature
+
+> **UIKit snippets below** assume `import Combine` at the top of the file (the per-section snippets omit it for brevity — only the Quick Start shows it). SwiftUI doesn't need it.
 
 ### Streaming
 The agent's reply arrives as a sequence of chunks. `ChatSession` reassembles them for you and updates `messages` — you never touch chunks directly. You only choose **how a reply appears**, with **one** switch.
