@@ -25,6 +25,11 @@ public enum PolyError: Error, Sendable, Equatable {
     public enum Transport: Sendable, Equatable {
         case networkError(String)
         case protocolError(reason: String)
+        /// Send was attempted while the WebSocket task was nil — typically
+        /// during the reconnect window between an old socket tearing down
+        /// and a new one being established. Distinct from `.networkError`,
+        /// which represents a wire-level failure on an existing socket.
+        case notConnected
     }
 
     public enum Voice: Sendable, Equatable {
@@ -127,6 +132,8 @@ extension PolyError: CustomStringConvertible {
             return reason.isEmpty ? "Network problem." : "Network problem: \(reason)"
         case .transport(.protocolError(let reason)):
             return reason.isEmpty ? "Connection problem." : "Connection problem: \(reason)"
+        case .transport(.notConnected):
+            return "Not connected — please wait for the connection to recover and try again."
 
         case .voice(.notImplemented):
             return "Voice calling isn't available in this SDK build."

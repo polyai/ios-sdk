@@ -69,8 +69,15 @@ actor VoiceSessionLinker {
             "payload": ["call_sid": callSid],
         ]
         if let data = try? JSONSerialization.data(withJSONObject: frame) {
-            await connection.sendRaw(data)
-            logger.debug("Linked voice session to WebRTC call", metadata: ["callSid": callSid])
+            // Voice linking is opportunistic — if the transport is in the
+            // brief reconnect window the caller will surface a higher-level
+            // voice failure if needed. We log and move on.
+            do {
+                try await connection.sendRaw(data)
+                logger.debug("Linked voice session to WebRTC call", metadata: ["callSid": callSid])
+            } catch {
+                logger.warn("Voice link send failed", metadata: ["error": String(describing: error)])
+            }
         }
     }
 

@@ -72,6 +72,13 @@ actor Coordinator {
         await chatService.setRetrySender { [connectionService] outgoing in
             await connectionService.send(outgoing)
         }
+        // Let retries pause until the transport is `.open` again, so a
+        // reconnect happening at the same moment as a user send doesn't
+        // exhaust the retry budget while the new socket is still being
+        // established.
+        await chatService.setWaitForTransportOpen { [connectionService] timeout in
+            await connectionService.waitForOpen(timeout: timeout)
+        }
 
         let accessToken = try await sessionService.ensureAccessToken()
         currentSessionId = sessionId

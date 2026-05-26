@@ -400,4 +400,88 @@ final class ChatServiceTests: XCTestCase {
         await service.destroy()
         // Should not crash
     }
+
+    // MARK: - Retry waits for transport open (BUG 3 regression)
+    //
+    // Regression for the post-reconnect send hang: the retry ladder must
+    // pause on the injected `waitForTransportOpen` hook before invoking
+    // the retrySender. When the hook resolves `true` mid-retry (transport
+    // flipped to `.open`), the retry then proceeds and the send is
+    // delivered. Pre-fix, a send during the reconnect window would either
+    // be silently dropped (transport returned without throwing) or burn
+    // the entire 3-retry budget before reconnect completed.
+
+    func testRetryAwaitsTransportOpenBeforeSending() async throws {
+        let service = makeService()
+        // sessionStart sets `chatStarted = true` so prepareUserMessage
+        // is willing to enqueue.
+        _ = await service.handleMessage(
+            MessagingEvent.sessionStart(
+                makeEnvelope(id: "evt_boot"), makeSessionStartPayload()
+            )
+        )
+
+        // The hook simulates: transport is `.connecting` when the retry
+        // fires, then flips to `.open` ~100ms later. The wait returns
+        // `true` once we observe the flip.
+        let transportOpenedAt = TimestampBox()
+        await service.setWaitForTransportOpen { _ in
+            try? await Task.sleep(nanoseconds: 100_000_000)
+            await transportOpenedAt.set(Date())
+            return true
+        }
+
+        // Capture send calls so we can assert ordering: the retrySender
+        // must be invoked AFTER the wait hook resolves.
+        let sendBox = SendRecorderBox()
+        await service.setRetrySender { outgoing in
+            await sendBox.record(outgoing, at: Date())
+        }
+
+        // Kick off a send. retryIntervalSeconds = 3 in production, so we
+        // wait long enough for the first retry to fire (3s + 100ms hook +
+        // a small margin).
+        _ = await service.prepareUserMessage(text: "hello after reconnect")
+
+        // Wait for the first retry to fire and complete.
+        let deadline = Date().addingTimeInterval(5)
+        while await sendBox.count == 0, Date() < deadline {
+            try await Task.sleep(nanoseconds: 50_000_000)
+        }
+
+        let count = await sendBox.count
+        XCTAssertGreaterThanOrEqual(count, 1, "Retry should fire and complete the send")
+
+        let firstSendAt = await sendBox.firstAt
+        let openAt = await transportOpenedAt.value
+        if let firstSendAt, let openAt {
+            XCTAssertGreaterThanOrEqual(
+                firstSendAt, openAt,
+                "Retry send must happen AFTER waitForTransportOpen resolves"
+            )
+        } else {
+            XCTFail("Expected both transportOpened timestamp and firstSend timestamp to be set")
+        }
+
+        // Cancel pending retry tasks so subsequent tests in the same run
+        // aren't perturbed by background work (the 3s retry timer would
+        // keep firing the wait hook + retrySender otherwise).
+        await service.destroy()
+    }
+}
+
+// MARK: - Test fixtures for the retry-wait regression
+
+/// Helper to record send invocations from a @Sendable closure.
+private actor SendRecorderBox {
+    private(set) var sends: [(OutgoingEvent, Date)] = []
+    func record(_ event: OutgoingEvent, at date: Date) { sends.append((event, date)) }
+    var count: Int { sends.count }
+    var firstAt: Date? { sends.first?.1 }
+}
+
+/// Tiny actor-wrapped timestamp slot.
+private actor TimestampBox {
+    private(set) var value: Date?
+    func set(_ d: Date) { value = d }
 }
