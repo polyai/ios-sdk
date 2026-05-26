@@ -32,8 +32,8 @@ Configure the SDK once at launch:
 
 ```swift
 PolyMessaging.initialize(.init(
-    connectorToken: "YOUR_CONNECTOR_TOKEN",
-    environment: .dev
+    connectorToken: "YOUR_CONNECTOR_TOKEN",  // from Agent Studio → Connector Settings
+    environment: .dev                        // .production / .cluster("us-1") / .staging / .dev / .custom(...)
 ))
 ```
 
@@ -63,8 +63,13 @@ After this, `PolyMessaging.chat()` works from any view.
 Create a session + subscribe to its messages:
 
 ```swift
-let session = PolyMessaging.chat()    // returns a ChatSession (ObservableObject)
-session.messages                      // [ChatMessage], @Published
+let session = PolyMessaging.chat()    // Resume the previous conversation if one exists within the
+                                      // session timeout (default 10 min), else start a fresh one.
+                                      // Returns ChatSession (ObservableObject, @MainActor).
+                                      // — use `start()` instead to always start fresh.
+session.messages                      // [ChatMessage], @Published — the whole transcript. Cases:
+                                      //   .user(UserMessage) / .agent(AgentMessage) / .system(SystemMessage)
+session.isReady                       // Bool — false until WebSocket + agent-join complete
 ```
 
 In a view:
@@ -96,8 +101,8 @@ struct ContentView: View {
 Signals that trigger an auto-scroll:
 
 ```swift
-session.messages.count          // new bubble arrives
-session.messages.last?.text     // text grows during streaming (count unchanged)
+session.messages.count          // Int — grows when a new bubble (user / agent / system) arrives
+session.messages.last?.text     // String? — grows in place while the last reply streams (count unchanged)
 ```
 
 In a view:
@@ -141,7 +146,8 @@ Streaming grows the last agent message's `text` in place — `messages.count` do
 Send a user message (optimistic):
 
 ```swift
-try? await session.send(text)
+try? await session.send(text)   // throws PolyError; the bubble appears in `messages`
+                                // immediately as .pending, then settles into .sent or .failed
 ```
 
 In a view:
@@ -176,8 +182,11 @@ Sending stays available even while offline or reconnecting — gate only on `has
 Detect a terminal failure + offer retry:
 
 ```swift
-session.failureReason   // PolyError? — non-nil on terminal failure (most commonly invalid token)
-session.client.resume() // call this to retry from the alert
+session.failureReason   // PolyError? — non-nil when the chat can't auto-recover:
+                        //   invalid connectorToken (initial connect 401/403),
+                        //   reconnect budget exhausted,
+                        //   session expired (idle past sessionTimeoutSeconds, default 10 min)
+try await session.client.resume()   // manually re-attempt the connection
 ```
 
 In a view:
