@@ -4,6 +4,14 @@ All notable changes to the PolyMessaging iOS SDK are documented here.
 This project adheres to [Semantic Versioning](https://semver.org). While the SDK
 is pre-1.0, breaking changes bump the **minor** version.
 
+## [0.4.0](https://github.com/PolyAI-LDN/poly_messaging_ios/compare/v0.3.0...v0.4.0) (2026-05-26)
+
+
+### Features
+
+* human-readable PolyError descriptions ([aa79da2](https://github.com/PolyAI-LDN/poly_messaging_ios/commit/aa79da29261bd162d1b1000e3c5bc2f0aeda7e79))
+* human-readable PolyError descriptions ([aa79da2](https://github.com/PolyAI-LDN/poly_messaging_ios/commit/aa79da29261bd162d1b1000e3c5bc2f0aeda7e79))
+
 ## [0.3.0](https://github.com/PolyAI-LDN/poly_messaging_ios/compare/0.2.2...v0.3.0) (2026-05-26)
 
 
