@@ -20,16 +20,14 @@ actor ChatService {
 
     nonisolated let eventStream = Multicaster<MessagingEvent>()
     private let logger: PolyLogger
-    private let greetingMessage: String?
     private var retrySender: (@Sendable (OutgoingEvent) async -> Void)?
 
     private static let retryIntervalSeconds: TimeInterval = 3
     private static let maxRetries: Int = 3
     private static let typingTimeoutSeconds: TimeInterval = 10
 
-    init(logger: PolyLogger, greetingMessage: String? = nil) {
+    init(logger: PolyLogger) {
         self.logger = logger
-        self.greetingMessage = greetingMessage
     }
 
     func setRetrySender(_ sender: @escaping @Sendable (OutgoingEvent) async -> Void) {
@@ -142,7 +140,7 @@ actor ChatService {
                     logger.info("Auto-recovering from system error", metadata: [
                         "message": payload.message,
                     ])
-                    sideEffects.append(.requestPolyAgentJoin())
+                    sideEffects.append(.requestPolyAgentJoin)
                 }
             }
 
@@ -189,7 +187,7 @@ actor ChatService {
 
         if !agentJoinRequested {
             agentJoinRequested = true
-            return [.requestPolyAgentJoin(greetingMessage: greetingMessage)]
+            return [.requestPolyAgentJoin]
         }
         return []
     }

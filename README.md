@@ -797,7 +797,6 @@ PolyMessaging.initialize(.init(
 | `environment` | — (required) | API + WebSocket endpoints (see below) |
 | `hostIdentifier` | Bundle ID | `X-Host` for connector validation; auto-derived from `Bundle.main.bundleIdentifier` |
 | `streamingEnabled` | `true` | `true`: agent replies grow token-by-token (ChatGPT-style). `false`: complete-message bubbles only. See [Streaming](#streaming) |
-| `greetingMessage` | `nil` | Custom welcome message shown when the agent joins (overrides the agent's default) |
 | `logLevel` | `.error` | `.none` \| `.error` \| `.warn` \| `.info` \| `.debug` |
 | `heartbeatIntervalSeconds` | `nil` (30 s) | Override the heartbeat interval; server caps may overrule |
 | `sessionTimeoutSeconds` | `nil` (600) | Override the idle-timeout (matches the backend's WebSocket idle timeout of 10 min) |
@@ -813,7 +812,6 @@ PolyMessaging.initialize(.init(
     environment: .cluster("us-1"),
     hostIdentifier: "com.yourapp.ios",       // X-Host for connector validation; defaults to your bundle id
     streamingEnabled: true,                  // server streams agent replies as chunks
-    greetingMessage: "Hi! How can I help?",  // overrides the agent's default welcome message
     logLevel: .error,                        // .none | .error | .warn | .info | .debug
     heartbeatIntervalSeconds: 30,            // server caps may overrule
     sessionTimeoutSeconds: 600,              // idle timeout before the session expires (matches backend ~10 min)

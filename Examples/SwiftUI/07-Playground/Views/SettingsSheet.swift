@@ -315,15 +315,6 @@ struct SettingsSheet: View {
                 }
             }
 
-            VStack(alignment: .leading, spacing: 4) {
-                Text("Greeting message").font(.caption).foregroundColor(.secondary)
-                TextField("(server default)", text: Binding(
-                    get: { settings.greetingMessage },
-                    set: { settings.greetingMessage = $0 }
-                ))
-                .textInputAutocapitalization(.sentences)
-            }
-
             Picker("Log level", selection: Binding(
                 get: { settings.logLevel },
                 set: { settings.logLevel = $0 }

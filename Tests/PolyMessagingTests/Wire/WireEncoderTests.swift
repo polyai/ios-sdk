@@ -29,7 +29,7 @@ final class WireEncoderTests: XCTestCase {
     }
 
     func testEncodeRequestPolyAgentJoin() {
-        let data = WireEncoder.encode(.requestPolyAgentJoin())
+        let data = WireEncoder.encode(.requestPolyAgentJoin)
         XCTAssertNotNil(data)
 
         let json = decodeJSON(data!)!

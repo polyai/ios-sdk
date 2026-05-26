@@ -44,7 +44,7 @@ arguments after `initialize(_:)`: it reads the connector token from
 `PolyMessaging.currentConfig` and seeds its environment from it (the `X-Host` is
 derived from the selected environment), so it bakes in no credentials. It's a
 UserDefaults-backed bag of runtime knobs — environment (production / staging / dev /
-cluster / custom URLs), `streamingEnabled`, `greetingMessage`, and the timing knobs
+cluster / custom URLs), `streamingEnabled`, and the timing knobs
 `heartbeatIntervalSeconds` / `sessionTimeoutSeconds` / `maxReconnectAttempts`
 (0 = "use the SDK default").
 `SettingsSheet` edits those `@Published` knobs live; `buildConfiguration()` folds

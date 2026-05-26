@@ -21,13 +21,8 @@ enum WireEncoder {
             }
         case .userTyping(let state):
             frame["payload"] = ["state": state.rawValue] as WireJSON
-        case .requestPolyAgentJoin(let greetingMessage):
-            var payload: WireJSON = [:]
-            if let greetingMessage {
-                payload["greeting_message"] = greetingMessage
-            }
-            frame["payload"] = payload
-        case .heartbeat,
+        case .requestPolyAgentJoin,
+             .heartbeat,
              .userEndConversation,
              .userLeft:
             // Server schema requires `payload` to be a (possibly empty) object.

@@ -12,14 +12,9 @@ import XCTest
 ///
 ///     POLY_LIVE=1 swift test --filter LiveMessagingProbeTests
 ///
-/// NOTE on custom greetings: a client **cannot** set the agent's welcome over the
-/// WebSocket. The backend only permits the *plain*
-/// `EVENT_TYPE_REQUEST_POLY_AGENT_JOIN` (whose payload is empty), so a
-/// `greeting_message` is dropped; the greeting-bearing variant
-/// (`EVENT_TYPE_REQUEST_POLY_AGENT_JOIN_WITH_GREETING_MESSAGE`) is server-internal
-/// and is rejected if a client sends it. So
-/// `Configuration.greetingMessage` has no effect on the live WS path — the agent
-/// always opens with its own configured welcome. This probe was what proved that.
+/// The agent always opens with its own configured welcome — clients can't override
+/// it. The SDK sends a plain `EVENT_TYPE_REQUEST_POLY_AGENT_JOIN` with an empty
+/// payload (the backend rejects any custom greeting variant).
 @MainActor
 final class LiveMessagingProbeTests: XCTestCase {
 

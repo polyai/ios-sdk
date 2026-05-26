@@ -108,7 +108,7 @@ public final class PolyMessagingClient: @unchecked Sendable {
         if let maxAttempts = config.maxReconnectAttempts, maxAttempts > 0 {
             Task { await connectionService.setMaxReconnectAttempts(maxAttempts) }
         }
-        let chatService = ChatService(logger: logger, greetingMessage: config.greetingMessage)
+        let chatService = ChatService(logger: logger)
         let heartbeatService = HeartbeatService(intervalSeconds: config.heartbeatIntervalSeconds ?? 30)
 
         self.coordinator = Coordinator(
