@@ -599,25 +599,44 @@ ForEach(session.messages) { message in
 }
 ```
 ```swift
-// UIKit — define a custom cell that holds the status label.
+// UIKit — register on your tableView with `tableView.register(MessageCell.self, forCellReuseIdentifier: "cell")`.
 final class MessageCell: UITableViewCell {
+    let messageLabel = UILabel()
     let statusLabel = UILabel()
-    // ...add statusLabel to contentView with your preferred layout...
+
+    override init(style: UITableViewCell.CellStyle, reuseIdentifier: String?) {
+        super.init(style: style, reuseIdentifier: reuseIdentifier)
+        messageLabel.numberOfLines = 0
+        let stack = UIStackView(arrangedSubviews: [messageLabel, statusLabel])
+        stack.axis = .vertical
+        stack.translatesAutoresizingMaskIntoConstraints = false
+        contentView.addSubview(stack)
+        NSLayoutConstraint.activate([
+            stack.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 8),
+            stack.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 12),
+            stack.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -12),
+            stack.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -8),
+        ])
+    }
+    required init?(coder: NSCoder) { fatalError() }
 }
 
 func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
     let cell = tableView.dequeueReusableCell(withIdentifier: "cell", for: indexPath) as! MessageCell
-    if case .user(let m) = session.messages[indexPath.row] {
+    let message = session.messages[indexPath.row]
+    cell.messageLabel.text = message.text ?? ""
+    cell.statusLabel.isHidden = true
+
+    if case .user(let m) = message {
         switch m.delivery {
-        case .pending: cell.statusLabel.text = "Sending…"
+        case .pending: cell.statusLabel.text = "Sending…"; cell.statusLabel.isHidden = false
         case .sent:    cell.statusLabel.isHidden = true
-        case .failed:  cell.statusLabel.text = "Tap to retry"
+        case .failed:  cell.statusLabel.text = "Tap to retry"; cell.statusLabel.isHidden = false
         }
     }
     return cell
 }
 
-// Wire this to the cell's tap recognizer or a retry button on the cell.
 func retry(_ m: UserMessage) {
     session.removeMessage(draftId: m.draftId)
     Task { try? await session.send(m.text) }
@@ -691,15 +710,38 @@ ForEach(session.messages) { message in
 }
 ```
 ```swift
-// UIKit — define a custom cell that holds the horizontal pill stack.
+// UIKit
 final class MessageCell: UITableViewCell {
+    let messageLabel = UILabel()
     let suggestionsStack = UIStackView()
-    // ...set suggestionsStack.axis = .horizontal and add to contentView...
+
+    override init(style: UITableViewCell.CellStyle, reuseIdentifier: String?) {
+        super.init(style: style, reuseIdentifier: reuseIdentifier)
+        messageLabel.numberOfLines = 0
+        suggestionsStack.axis = .horizontal
+        suggestionsStack.spacing = 8
+
+        let outer = UIStackView(arrangedSubviews: [messageLabel, suggestionsStack])
+        outer.axis = .vertical
+        outer.spacing = 8
+        outer.translatesAutoresizingMaskIntoConstraints = false
+        contentView.addSubview(outer)
+        NSLayoutConstraint.activate([
+            outer.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 8),
+            outer.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 12),
+            outer.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -12),
+            outer.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -8),
+        ])
+    }
+    required init?(coder: NSCoder) { fatalError() }
 }
 
 func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
     let cell = tableView.dequeueReusableCell(withIdentifier: "cell", for: indexPath) as! MessageCell
     let message = session.messages[indexPath.row]
+    cell.messageLabel.text = message.text ?? ""
+    cell.suggestionsStack.arrangedSubviews.forEach { $0.removeFromSuperview() }
+
     if case .agent(let agent) = message,
        message.id == session.messages.last?.id,
        !agent.suggestions.isEmpty {
@@ -739,11 +781,24 @@ ForEach(session.messages) { message in
 }
 ```
 ```swift
-// UIKit — define a custom cell with a UITextView (NOT a UILabel — labels
-// render Markdown links visually but don't make them tappable).
+// UIKit — UITextView (NOT UILabel) so Markdown links are tappable.
 final class MessageCell: UITableViewCell {
     let textView = UITextView()
-    // ...add textView to contentView with your preferred layout...
+
+    override init(style: UITableViewCell.CellStyle, reuseIdentifier: String?) {
+        super.init(style: style, reuseIdentifier: reuseIdentifier)
+        textView.isEditable = false
+        textView.isScrollEnabled = false              // self-sizes in the cell
+        textView.translatesAutoresizingMaskIntoConstraints = false
+        contentView.addSubview(textView)
+        NSLayoutConstraint.activate([
+            textView.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 8),
+            textView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 12),
+            textView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -12),
+            textView.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -8),
+        ])
+    }
+    required init?(coder: NSCoder) { fatalError() }
 }
 
 func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
@@ -751,8 +806,6 @@ func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> U
     if case .agent(let m) = session.messages[indexPath.row] {
         let opts = AttributedString.MarkdownParsingOptions(interpretedSyntax: .inlineOnlyPreservingWhitespace)
         cell.textView.attributedText = (try? AttributedString(markdown: m.text, options: opts)).map(NSAttributedString.init)
-        cell.textView.isEditable = false
-        cell.textView.isScrollEnabled = false   // self-sizes in the cell
     }
     return cell
 }
@@ -810,22 +863,40 @@ struct ChatView: View {
 }
 ```
 ```swift
-// UIKit — define a custom cell with two UIStackViews on it.
+// UIKit
 final class MessageCell: UITableViewCell {
     let imageStack = UIStackView()
     let callsStack = UIStackView()
-    // ...add both to contentView with your preferred layout...
+
+    override init(style: UITableViewCell.CellStyle, reuseIdentifier: String?) {
+        super.init(style: style, reuseIdentifier: reuseIdentifier)
+        imageStack.axis = .horizontal; imageStack.spacing = 8
+        callsStack.axis = .vertical;   callsStack.spacing = 6
+
+        let outer = UIStackView(arrangedSubviews: [imageStack, callsStack])
+        outer.axis = .vertical; outer.spacing = 8
+        outer.translatesAutoresizingMaskIntoConstraints = false
+        contentView.addSubview(outer)
+        NSLayoutConstraint.activate([
+            outer.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 8),
+            outer.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 12),
+            outer.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -12),
+            outer.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -8),
+        ])
+    }
+    required init?(coder: NSCoder) { fatalError() }
 }
 
 func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
     let cell = tableView.dequeueReusableCell(withIdentifier: "cell", for: indexPath) as! MessageCell
+    cell.imageStack.arrangedSubviews.forEach { $0.removeFromSuperview() }
+    cell.callsStack.arrangedSubviews.forEach { $0.removeFromSuperview() }
     guard case .agent(let m) = session.messages[indexPath.row] else { return cell }
 
     for att in m.attachments where att.contentType == .image {
         let iv = UIImageView()
         iv.contentMode = .scaleAspectFill
         iv.clipsToBounds = true
-        // Load image yourself — URLSession + assignment on the main queue is enough.
         if let url = att.contentUrl {
             URLSession.shared.dataTask(with: url) { data, _, _ in
                 guard let data, let image = UIImage(data: data) else { return }
@@ -874,11 +945,36 @@ ForEach(session.messages) { message in
 }
 ```
 ```swift
-// UIKit — define a custom cell with the bubble container + a name label.
+// UIKit
 final class MessageCell: UITableViewCell {
     let bubble = UIView()
     let nameLabel = UILabel()
-    // ...add bubble + nameLabel to contentView with your preferred layout...
+    let messageLabel = UILabel()
+
+    override init(style: UITableViewCell.CellStyle, reuseIdentifier: String?) {
+        super.init(style: style, reuseIdentifier: reuseIdentifier)
+        messageLabel.numberOfLines = 0
+        bubble.layer.cornerRadius = 8
+
+        let labels = UIStackView(arrangedSubviews: [nameLabel, messageLabel])
+        labels.axis = .vertical
+        labels.spacing = 2
+        labels.translatesAutoresizingMaskIntoConstraints = false
+        bubble.addSubview(labels)
+        bubble.translatesAutoresizingMaskIntoConstraints = false
+        contentView.addSubview(bubble)
+        NSLayoutConstraint.activate([
+            bubble.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 6),
+            bubble.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 12),
+            bubble.trailingAnchor.constraint(lessThanOrEqualTo: contentView.trailingAnchor, constant: -12),
+            bubble.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -6),
+            labels.topAnchor.constraint(equalTo: bubble.topAnchor, constant: 8),
+            labels.leadingAnchor.constraint(equalTo: bubble.leadingAnchor, constant: 10),
+            labels.trailingAnchor.constraint(equalTo: bubble.trailingAnchor, constant: -10),
+            labels.bottomAnchor.constraint(equalTo: bubble.bottomAnchor, constant: -8),
+        ])
+    }
+    required init?(coder: NSCoder) { fatalError() }
 }
 
 func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
@@ -887,6 +983,7 @@ func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> U
         let isLive = (m.agentKind == .live)
         cell.bubble.backgroundColor = isLive ? UIColor.systemTeal.withAlphaComponent(0.18) : .systemGray5
         cell.nameLabel.text = isLive ? "\(m.agentName ?? "Agent") · live agent" : m.agentName
+        cell.messageLabel.text = m.text
     }
     return cell
 }
@@ -910,15 +1007,36 @@ ForEach(session.messages) { message in
 }
 ```
 ```swift
-// UIKit — define a custom cell with a time label.
+// UIKit
 final class MessageCell: UITableViewCell {
+    let messageLabel = UILabel()
     let timeLabel = UILabel()
-    // ...add timeLabel to contentView with your preferred layout...
+
+    override init(style: UITableViewCell.CellStyle, reuseIdentifier: String?) {
+        super.init(style: style, reuseIdentifier: reuseIdentifier)
+        messageLabel.numberOfLines = 0
+        timeLabel.font = .preferredFont(forTextStyle: .caption2)
+        timeLabel.textColor = .secondaryLabel
+
+        let stack = UIStackView(arrangedSubviews: [messageLabel, timeLabel])
+        stack.axis = .vertical
+        stack.spacing = 2
+        stack.translatesAutoresizingMaskIntoConstraints = false
+        contentView.addSubview(stack)
+        NSLayoutConstraint.activate([
+            stack.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 8),
+            stack.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 12),
+            stack.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -12),
+            stack.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -8),
+        ])
+    }
+    required init?(coder: NSCoder) { fatalError() }
 }
 
 func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
     let cell = tableView.dequeueReusableCell(withIdentifier: "cell", for: indexPath) as! MessageCell
     let message = session.messages[indexPath.row]
+    cell.messageLabel.text = message.text ?? ""
     let f = DateFormatter(); f.timeStyle = .short
     cell.timeLabel.text = f.string(from: message.timestamp)
     return cell
@@ -958,32 +1076,58 @@ var body: some View {
 }
 ```
 ```swift
-// UIKit — define a custom cell with an avatar image view.
+// UIKit
 final class MessageCell: UITableViewCell {
     let avatarView = UIImageView()
-    // ...add avatarView to contentView (e.g. left side, 28x28, clipped circle)...
+    let messageLabel = UILabel()
+
+    override init(style: UITableViewCell.CellStyle, reuseIdentifier: String?) {
+        super.init(style: style, reuseIdentifier: reuseIdentifier)
+        avatarView.clipsToBounds = true
+        avatarView.layer.cornerRadius = 14
+        avatarView.contentMode = .scaleAspectFill
+        messageLabel.numberOfLines = 0
+
+        let stack = UIStackView(arrangedSubviews: [avatarView, messageLabel])
+        stack.axis = .horizontal
+        stack.spacing = 8
+        stack.alignment = .top
+        stack.translatesAutoresizingMaskIntoConstraints = false
+        contentView.addSubview(stack)
+        NSLayoutConstraint.activate([
+            avatarView.widthAnchor.constraint(equalToConstant: 28),
+            avatarView.heightAnchor.constraint(equalToConstant: 28),
+            stack.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 8),
+            stack.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 12),
+            stack.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -12),
+            stack.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -8),
+        ])
+    }
+    required init?(coder: NSCoder) { fatalError() }
 }
 
 func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
     let cell = tableView.dequeueReusableCell(withIdentifier: "cell", for: indexPath) as! MessageCell
-    if case .agent(let m) = session.messages[indexPath.row], let url = m.avatarUrl {
-        URLSession.shared.dataTask(with: url) { data, _, _ in
-            guard let data, let image = UIImage(data: data) else { return }
-            DispatchQueue.main.async { cell.avatarView.image = image }
-        }.resume()
+    if case .agent(let m) = session.messages[indexPath.row] {
+        cell.messageLabel.text = m.text
+        if let url = m.avatarUrl {
+            URLSession.shared.dataTask(with: url) { data, _, _ in
+                guard let data, let image = UIImage(data: data) else { return }
+                DispatchQueue.main.async { cell.avatarView.image = image }
+            }.resume()
+        }
     }
     return cell
 }
 
-// Keyboard pin lives on the view controller. Pin your input bar to
-// keyboardLayoutGuide.topAnchor instead of the safe-area bottom — it rides
-// the keyboard with no notification observers.
-private let inputBar = UIView()                     // your own composer container
+// Keyboard pin lives on the view controller — pin your input bar to
+// keyboardLayoutGuide.topAnchor (instead of the safe-area bottom) so it
+// rides the keyboard with no notification observers.
+private let inputBar = UIView()                     // your composer container
 
 override func viewDidLoad() {
     super.viewDidLoad()
     // ...your existing layout (add inputBar to view, etc.)...
-
     inputBar.bottomAnchor.constraint(equalTo: view.keyboardLayoutGuide.topAnchor).isActive = true
 }
 ```
