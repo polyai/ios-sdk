@@ -62,7 +62,6 @@ open class DevSettings: ObservableObject {
     @Published public var customWsURL: String { didSet { persist("customWsURL", customWsURL) } }
 
     @Published public var streamingEnabled: Bool { didSet { persist("streamingEnabled", streamingEnabled) } }
-    @Published public var greetingMessage: String { didSet { persist("greetingMessage", greetingMessage) } }
     @Published public var logLevel: LogLevel { didSet { persist("logLevel", logLevel.rawValue) } }
     /// 0 = use SDK default (600s = 10 min, matches backend WS idle timeout).
     @Published public var sessionTimeoutSeconds: Int { didSet { persist("sessionTimeoutSeconds", sessionTimeoutSeconds) } }
@@ -122,7 +121,6 @@ open class DevSettings: ObservableObject {
         self.customRestURL = defaults.string(forKey: keyPrefix + "customRestURL") ?? seedRest
         self.customWsURL = defaults.string(forKey: keyPrefix + "customWsURL") ?? seedWs
         self.streamingEnabled = (defaults.object(forKey: keyPrefix + "streamingEnabled") as? Bool) ?? true
-        self.greetingMessage = defaults.string(forKey: keyPrefix + "greetingMessage") ?? ""
         self.logLevel = (defaults.object(forKey: keyPrefix + "logLevel") as? Int)
             .flatMap(LogLevel.init(rawValue:)) ?? .debug
         self.sessionTimeoutSeconds = defaults.integer(forKey: keyPrefix + "sessionTimeoutSeconds")
@@ -181,7 +179,6 @@ open class DevSettings: ObservableObject {
     open var hasCustomization: Bool {
         environmentKind != defaultEnvironmentKind
         || !streamingEnabled
-        || !greetingMessage.isEmpty
         || logLevel != .debug
         || sessionTimeoutSeconds > 0
         || heartbeatIntervalSeconds > 0
@@ -194,7 +191,6 @@ open class DevSettings: ObservableObject {
         customRestURL = ""
         customWsURL = ""
         streamingEnabled = true
-        greetingMessage = ""
         logLevel = .debug
         sessionTimeoutSeconds = 0
         heartbeatIntervalSeconds = 0
@@ -217,7 +213,6 @@ open class DevSettings: ObservableObject {
             environment: resolvedEnvironment(),
             hostIdentifier: hostIdentifierOverride ?? base.hostIdentifier,
             streamingEnabled: streamingEnabled,
-            greetingMessage: greetingMessage.isEmpty ? nil : greetingMessage,
             logLevel: logLevel,
             heartbeatIntervalSeconds: heartbeatIntervalSeconds > 0 ? heartbeatIntervalSeconds : nil,
             sessionTimeoutSeconds: sessionTimeoutSeconds > 0 ? sessionTimeoutSeconds : nil,

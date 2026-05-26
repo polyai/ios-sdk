@@ -7,9 +7,6 @@ public struct Configuration: Sendable {
     /// Must match the host domain registered in Agent Studio when generating the connector token.
     public let hostIdentifier: String?
     public let streamingEnabled: Bool
-    /// Custom greeting sent in the `REQUEST_POLY_AGENT_JOIN` payload.
-    /// When non-nil, the agent uses this instead of its default greeting.
-    public let greetingMessage: String?
     public let logLevel: LogLevel
     /// Override the default heartbeat interval (30s). Server `SessionCapabilities`
     /// still overrides this once the session is established.
@@ -26,7 +23,6 @@ public struct Configuration: Sendable {
         environment: Environment,
         hostIdentifier: String? = nil,
         streamingEnabled: Bool = true,
-        greetingMessage: String? = nil,
         logLevel: LogLevel = .error,
         heartbeatIntervalSeconds: Int? = nil,
         sessionTimeoutSeconds: Int? = nil,
@@ -36,7 +32,6 @@ public struct Configuration: Sendable {
         self.environment = environment
         self.hostIdentifier = hostIdentifier
         self.streamingEnabled = streamingEnabled
-        self.greetingMessage = greetingMessage
         self.logLevel = logLevel
         self.heartbeatIntervalSeconds = heartbeatIntervalSeconds
         self.sessionTimeoutSeconds = sessionTimeoutSeconds

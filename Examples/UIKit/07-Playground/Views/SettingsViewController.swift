@@ -221,7 +221,6 @@ final class SettingsViewController: UIViewController {
     private func sessionSection() -> UIView {
         let (card, stack) = section(title: "SESSION", footer: "Sent in the /sessions request body.")
         stack.addArrangedSubview(toggleRow("Streaming enabled", value: settings.streamingEnabled) { [weak self] on in self?.settings.streamingEnabled = on })
-        stack.addArrangedSubview(textFieldRow("Greeting message", placeholder: "(server default)", value: settings.greetingMessage) { [weak self] t in self?.settings.greetingMessage = t })
 
         logLevelButton = menuButton(title: logLevelName(settings.logLevel))
         logLevelButton.menu = logLevelMenu()

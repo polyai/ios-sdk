@@ -50,7 +50,7 @@ The agent joins and greets automatically. Full walkthrough: README **Step 1**.
 - **`ChatMessage`** enum (`.user/.agent/.system`, `Identifiable`) with `text`,
   `delivery`, `suggestions`, `attachments`.
 - **`Configuration`:** `connectorToken` (required), `environment` (required),
-  `streamingEnabled`, `greetingMessage`, `logLevel`, `sessionTimeoutSeconds`,
+  `streamingEnabled`, `logLevel`, `sessionTimeoutSeconds`,
   `heartbeatIntervalSeconds`, `maxReconnectAttempts`.
 - **`Environment`:** `.production`, `.staging`, `.dev`, `.cluster("us-1")`,
   `.custom(restBaseURL:wsBaseURL:)`.
