@@ -145,7 +145,9 @@ session.$failureReason
     .receive(on: RunLoop.main)
     .sink { [weak self] reason in
         self?.failureOverlay.isHidden = (reason == nil)
-        self?.failureLabel.text = reason?.localizedDescription
+        // PolyError isn't LocalizedError — use String(describing:) so the
+        // label reflects the actual case instead of Error's generic default.
+        self?.failureLabel.text = reason.map { String(describing: $0) }
     }
     .store(in: &bag)
 

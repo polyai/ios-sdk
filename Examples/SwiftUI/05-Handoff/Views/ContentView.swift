@@ -196,7 +196,9 @@ struct ContentView: View {
         if let reason = session.failureReason {
             VStack(spacing: 12) {
                 Text("Connection lost").font(.headline)
-                Text(reason.localizedDescription)
+                // PolyError isn't LocalizedError, so .localizedDescription
+                // falls back to Error's generic default. Use String(describing:).
+                Text(String(describing: reason))
                     .font(.caption).multilineTextAlignment(.center).foregroundColor(.secondary)
                 Button("Reconnect") { Task { try? await session.client.resume() } }
                     .buttonStyle(.borderedProminent)
