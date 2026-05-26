@@ -23,8 +23,8 @@ machine (`connect → loading → chat → error`), resume-or-start via
 `PolyMessaging.hasResumableSession()`, in-place `startNewSession()` + `clearChat()`,
 recoverable error routing, delayed "Sending…" labels, retry, and streaming-aware
 scroll — driven by the same `client.events` / `client.connectionStatus` /
-`client.sessionState` streams. It also draws every message with the exact same
-components promoted into [`Examples/Components/`](../../Components/).
+`client.sessionState` streams. It also draws every message with 06's component
+set — see [`Examples/SwiftUI/06-FullReference/Components/`](../06-FullReference/Components/).
 
 None of that is re-documented here. For the base chat see
 [`06-FullReference`](../06-FullReference/), and for the per-feature build-your-own-UI

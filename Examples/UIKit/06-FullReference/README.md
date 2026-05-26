@@ -1,8 +1,7 @@
 # 06-FullReference (UIKit)
 
 The complete UIKit reference app — the counterpart to
-[`SwiftUI/06-FullReference`](../../SwiftUI/06-FullReference/) and the **canonical
-source for [`Examples/Components/`](../../Components/)**. 06 is the only level
+[`SwiftUI/06-FullReference`](../../SwiftUI/06-FullReference/). 06 is the only level
 with the full `connect → loading → chat → error` flow, built entirely
 programmatically (no storyboard). It builds on [`05-Handoff`](../05-Handoff/),
 folding every feature from 02–05 into one production-shaped app and adding the
@@ -30,7 +29,7 @@ storyboard-based; only 06 and 07 are not.)
 06 carries the entire feature set of the ladder. Each row links the matching
 "Build your own UI" section in the root README and notes the level it first
 appeared, so this table doubles as a complete index. The rendering views that
-power these features live in [`Components/`](Components/) (the canonical set) and
+power these features live in [`Components/`](Components/) and
 [`Helpers/`](Helpers/).
 
 | Feature | Where in 06 | First seen | Root reference |
