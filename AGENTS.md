@@ -32,11 +32,12 @@ The agent joins and greets automatically. Full walkthrough: README **Step 1**.
   Error handling, Raw transport. **Mirror its snippets; don't contradict them.**
 - `Examples/SwiftUI/<NN-Name>/` and `Examples/UIKit/<NN-Name>/` — runnable apps, one per
   capability: `01-Hello … 07-Playground`. `06-FullReference` is the most complete.
-- [`Examples/Components/`](Examples/Components/) — copy-paste-ready view components
-  (message bubbles, attachment carousel, suggestion pills, typing dots, rich text, URL
-  cards, retryable images, banners). They take **only public SDK types**.
 - When implementing a feature for the user, **copy the matching component from
-  `Examples/Components/`** (and adapt) rather than writing it from scratch.
+  `Examples/SwiftUI/06-FullReference/Components/` or
+  `Examples/UIKit/06-FullReference/Components/`** (and adapt) rather than writing it
+  from scratch — those folders are the production-shaped versions of every view
+  component (message bubbles, attachment carousel, suggestion pills, typing dots,
+  rich text, URL cards, retryable images, banners) and use **only public SDK types**.
 
 ## Public API you'll use (don't invent surface — check `Sources/PolyMessaging/Public/`)
 

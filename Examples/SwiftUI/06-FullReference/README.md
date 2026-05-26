@@ -1,10 +1,8 @@
 # 06-FullReference
 
-The complete reference app — the most extensive example in the ladder, and the
-**canonical source for [`Examples/Components/`](../../Components/)** (the copy-from
-component library every other level mirrors). It's the only level with the full
-**connect → loading → chat → error** flow wired end to end, on top of
-[`05-Handoff`](../05-Handoff/).
+The complete reference app — the most extensive example in the ladder. It's the
+only level with the full **connect → loading → chat → error** flow wired end to
+end, on top of [`05-Handoff`](../05-Handoff/).
 
 Treat 02–05 as the per-feature tutorials; 06 is how every one of those features
 fits together in a real, shippable app, plus the production-only plumbing the
@@ -44,8 +42,8 @@ The rendering components that draw all of the above —
 `Components/SuggestionRow`, `Components/TypingIndicator`,
 `Components/LoadingSkeleton`, `Components/RetryableAsyncImage`,
 `Components/RichText`, `Components/CallActionButton`, plus
-`Helpers/NetworkMonitor` and `Helpers/InteractiveKeyboardDismiss` — are the exact
-files promoted into [`Examples/Components/`](../../Components/). See the level
+`Helpers/NetworkMonitor` and `Helpers/InteractiveKeyboardDismiss` — live in
+[`Components/`](Components/) and [`Helpers/`](Helpers/). See the level
 where each first appeared for a focused walk-through.
 
 ## What's unique to 06 (the production layer)
