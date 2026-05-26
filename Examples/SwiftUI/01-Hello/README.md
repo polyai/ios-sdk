@@ -65,10 +65,11 @@ Create a session + subscribe to its messages:
 ```swift
 let session = PolyMessaging.chat()    // Resume the previous conversation if one exists within the
                                       // session timeout (default 10 min), else start a fresh one.
-                                      // Returns ChatSession (ObservableObject, @MainActor).
                                       // — use `start()` instead to always start fresh.
+
 session.messages                      // [ChatMessage], @Published — the whole transcript. Cases:
                                       //   .user(UserMessage) / .agent(AgentMessage) / .system(SystemMessage)
+
 session.isReady                       // Bool — false until WebSocket + agent-join complete
 ```
 
@@ -102,6 +103,7 @@ Signals that trigger an auto-scroll:
 
 ```swift
 session.messages.count          // Int — grows when a new bubble (user / agent / system) arrives
+
 session.messages.last?.text     // String? — grows in place while the last reply streams (count unchanged)
 ```
 
@@ -186,6 +188,7 @@ session.failureReason   // PolyError? — non-nil when the chat can't auto-recov
                         //   invalid connectorToken (initial connect 401/403),
                         //   reconnect budget exhausted,
                         //   session expired (idle past sessionTimeoutSeconds, default 10 min)
+
 try await session.client.resume()   // manually re-attempt the connection
 ```
 

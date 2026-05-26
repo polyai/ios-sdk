@@ -39,6 +39,7 @@ Listen for the agent + announce your own typing:
 ```swift
 session.$isAgentTyping       // Combine publisher of Bool — true while the agent composes;
                              // auto-clears on next agent message or after the typing timeout (~10s)
+
 await session.sendTyping()   // safe every keystroke; SDK throttles STARTED frames
                              // to ≤1 per 3s and auto-emits STOPPED ~5s after your last call
 ```
@@ -124,7 +125,9 @@ Render + dismiss the agent's quick replies:
 agent.suggestions   // [ResponseSuggestion] — agent messages only (user/system don't have these)
                     // Each: ResponseSuggestion(messageText: String, ...)
                     // Show pills only on the LAST agent message; they scroll with history.
+
 session.clearSuggestions(for: message.id)   // empties them locally so pills vanish before send() resolves
+
 try? await session.send(suggestion.messageText)
 ```
 
@@ -174,9 +177,11 @@ End the session + start a fresh one:
 
 ```swift
 try await session.end()    // user-initiated end; flips hasEnded; no "conversation ended" pill
+
 session.$hasEnded          // Combine publisher of Bool — true after end() OR an
                            // agent-/server-initiated end (server-end also appends a
                            // "conversation ended" .system message)
+
 try await session.client.startNewSession()    // begin a fresh conversation on the same surface
                                               // — ChatSession auto-clears messages + resets hasEnded
                                               // when the session id changes
@@ -222,7 +227,9 @@ m.delivery   // Delivery enum (user messages only):
              //   .pending  — sent optimistically; bubble shows immediately
              //   .sent     — server echoed (matched by local id)
              //   .failed   — retries (up to 3×) exhausted; show "Tap to retry"
+
 session.removeMessage(draftId: m.draftId)   // drop the failed draft so the retry doesn't duplicate
+
 try? await session.send(m.text)             // re-send the same text
 ```
 
@@ -271,6 +278,7 @@ session.$failureReason   // Combine publisher of PolyError? — non-nil when the
                          //   invalid connectorToken (initial connect 401/403),
                          //   reconnect budget exhausted,
                          //   session expired (idle past sessionTimeoutSeconds, default 10 min)
+
 try await session.client.resume()   // re-attempt the connection from your retry button
 ```
 
