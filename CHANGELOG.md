@@ -4,6 +4,29 @@ All notable changes to the PolyMessaging iOS SDK are documented here.
 This project adheres to [Semantic Versioning](https://semver.org). While the SDK
 is pre-1.0, breaking changes bump the **minor** version.
 
+## [0.3.0](https://github.com/PolyAI-LDN/poly_messaging_ios/compare/0.2.2...v0.3.0) (2026-05-26)
+
+
+### ⚠ BREAKING CHANGES
+
+* drop greetingMessage (backend always overrides it)
+* one streamingEnabled switch; rewrite root README for headless framing
+
+### Features
+
+* **01-Hello:** auto-scroll as the agent streams ([2e03636](https://github.com/PolyAI-LDN/poly_messaging_ios/commit/2e036369b7da0f975fee11f8f9474e9a0d73f83c))
+* drop greetingMessage (backend always overrides it) ([252709a](https://github.com/PolyAI-LDN/poly_messaging_ios/commit/252709af831ae6868ec52c2e9157c6eeec405b22))
+* one streamingEnabled switch; rewrite root README for headless framing ([1ad590c](https://github.com/PolyAI-LDN/poly_messaging_ios/commit/1ad590ce632d167551561b5631fe7a912bf02675))
+* surface invalid connector token via ChatSession.failureReason ([2989862](https://github.com/PolyAI-LDN/poly_messaging_ios/commit/29898628efbd8dd879fe478b81a41642e848c25c))
+* surface invalid connector token via ChatSession.failureReason ([2989862](https://github.com/PolyAI-LDN/poly_messaging_ios/commit/29898628efbd8dd879fe478b81a41642e848c25c))
+* surface invalid connector token via ChatSession.failureReason ([2910849](https://github.com/PolyAI-LDN/poly_messaging_ios/commit/29108497a17626e7b54493546b9c946588425751))
+
+
+### Bug Fixes
+
+* align session timeout and max-message-size defaults with backend ([17c515e](https://github.com/PolyAI-LDN/poly_messaging_ios/commit/17c515e979d0218dd91f56dc74fd2bc9b1a66476))
+* align session timeout and max-message-size defaults with backend ([8efa682](https://github.com/PolyAI-LDN/poly_messaging_ios/commit/8efa6823f02de2c7169428a518e928e542e7a679))
+
 ## [0.2.2] - 2026-05-22
 
 ### Changed
