@@ -31,12 +31,12 @@ Each subsection leads with **the SDK call** (one line — the actual API), then 
 
 ### Initialize once at app launch — `AppDelegate.swift`
 
-The SDK call:
+Configure the SDK once at launch:
 
 ```swift
 PolyMessaging.initialize(.init(
-    connectorToken: "YOUR_CONNECTOR_TOKEN",
-    environment: .dev
+    connectorToken: "YOUR_CONNECTOR_TOKEN",  // from Agent Studio → Connector Settings
+    environment: .dev                        // .production / .cluster("us-1") / .staging / .dev / .custom(...)
 ))
 ```
 
@@ -66,11 +66,17 @@ After this, `PolyMessaging.chat()` works from any view controller with no argume
 
 ### Get a session and render messages — `ChatViewController.swift`
 
-The SDK calls:
+Create a session + subscribe to its messages:
 
 ```swift
-let session = PolyMessaging.chat()    // returns a ChatSession (ObservableObject)
-session.$messages                     // Combine publisher of [ChatMessage]
+let session = PolyMessaging.chat()    // Resume the previous conversation if one exists within the
+                                      // session timeout (default 10 min), else start a fresh one.
+                                      // — use `start()` instead to always start fresh.
+
+session.$messages                     // Combine publisher of [ChatMessage] — the whole transcript. Cases:
+                                      //   .user(UserMessage) / .agent(AgentMessage) / .system(SystemMessage)
+
+session.isReady                       // Bool — false until WebSocket + agent-join complete
 ```
 
 In a view controller:
@@ -110,10 +116,11 @@ final class ChatViewController: UIViewController {
 
 ### Scroll as the agent types — `ChatViewController.swift`
 
-The SDK signal you watch:
+Signal that triggers an auto-scroll:
 
 ```swift
-session.$messages    // every emission (insert OR text-grew-via-reconfigure) → scroll
+session.$messages    // Combine publisher of [ChatMessage] — every emission triggers scroll:
+                     //   inserts (new bubble), reconfigureItems (last bubble's text grew during streaming)
 ```
 
 In a view controller:
@@ -155,10 +162,11 @@ Streaming grows the last agent message's `text` in place. The diffable snapshot 
 
 ### Send a message — `ChatViewController.swift`
 
-The SDK call:
+Send a user message (optimistic):
 
 ```swift
-try? await session.send(text)
+try? await session.send(text)   // throws PolyError; the bubble appears in `messages`
+                                // immediately as .pending, then settles into .sent or .failed
 ```
 
 In a view controller:
@@ -179,11 +187,15 @@ In a view controller:
 
 ### Catch a bad connector token — `ChatViewController.swift`
 
-The SDK signal:
+Detect a terminal failure + offer retry:
 
 ```swift
-session.$failureReason  // PolyError? — non-nil on terminal failure (most commonly invalid token)
-session.client.resume() // call this from the alert's "Try Again" action
+session.$failureReason  // Combine publisher of PolyError? — non-nil when the chat can't auto-recover:
+                        //   invalid connectorToken (initial connect 401/403),
+                        //   reconnect budget exhausted,
+                        //   session expired (idle past sessionTimeoutSeconds, default 10 min)
+
+try await session.client.resume()   // manually re-attempt the connection
 ```
 
 In a view controller:
