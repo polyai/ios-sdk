@@ -72,7 +72,6 @@ open class DevSettings: ObservableObject {
     @Published public var maxReconnectAttempts: Int { didSet { persist("maxReconnectAttempts", maxReconnectAttempts) } }
 
     @Published public var showDebugStrip: Bool { didSet { persist("showDebugStrip", showDebugStrip) } }
-    @Published public var progressiveStreaming: Bool { didSet { persist("progressiveStreaming", progressiveStreaming) } }
     @Published public var showMessageTimestamps: Bool { didSet { persist("showMessageTimestamps", showMessageTimestamps) } }
 
     /// The `streamingEnabled` value baked into the most recently created session.
@@ -130,7 +129,6 @@ open class DevSettings: ObservableObject {
         self.heartbeatIntervalSeconds = defaults.integer(forKey: keyPrefix + "heartbeatIntervalSeconds")
         self.maxReconnectAttempts = defaults.integer(forKey: keyPrefix + "maxReconnectAttempts")
         self.showDebugStrip = (defaults.object(forKey: keyPrefix + "showDebugStrip") as? Bool) ?? false
-        self.progressiveStreaming = (defaults.object(forKey: keyPrefix + "progressiveStreaming") as? Bool) ?? true
         self.showMessageTimestamps = (defaults.object(forKey: keyPrefix + "showMessageTimestamps") as? Bool) ?? true
         self.lastAppliedStreamingEnabled = (defaults.object(forKey: keyPrefix + "lastAppliedStreamingEnabled") as? Bool) ?? true
     }

@@ -31,7 +31,7 @@ final class E2EScenarioTests: XCTestCase {
     private func makeStack(
         api: MockRestApi = MockRestApi(),
         open: Bool = true,
-        progressiveStreaming: Bool = false
+        streamingEnabled: Bool? = nil
     ) async throws -> (ChatSession, MockConnection, MockRestApi) {
         SessionStore(connectorToken: "test_token").clear()
 
@@ -59,7 +59,7 @@ final class E2EScenarioTests: XCTestCase {
             config: config,
             autoStart: true
         )
-        let chatSession = ChatSession(client: client, progressiveStreaming: progressiveStreaming)
+        let chatSession = ChatSession(client: client, streamingEnabled: streamingEnabled)
         keepAlive.append(client)
         keepAlive.append(chatSession)
 

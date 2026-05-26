@@ -231,10 +231,6 @@ struct SettingsSheet: View {
                 get: { settings.showDebugStrip },
                 set: { settings.showDebugStrip = $0 }
             ))
-            Toggle("Progressive streaming bubble", isOn: Binding(
-                get: { settings.progressiveStreaming },
-                set: { settings.progressiveStreaming = $0 }
-            ))
             Toggle("Message timestamps", isOn: Binding(
                 get: { settings.showMessageTimestamps },
                 set: { settings.showMessageTimestamps = $0 }

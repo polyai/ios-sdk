@@ -189,7 +189,6 @@ final class SettingsViewController: UIViewController {
     private func displaySection() -> UIView {
         let (card, stack) = section(title: "DISPLAY", footer: "Visual debug aids inside the chat screen.")
         stack.addArrangedSubview(toggleRow("Show debug strip in chat", value: settings.showDebugStrip) { [weak self] on in self?.settings.showDebugStrip = on })
-        stack.addArrangedSubview(toggleRow("Progressive streaming bubble", value: settings.progressiveStreaming) { [weak self] on in self?.settings.progressiveStreaming = on })
         stack.addArrangedSubview(toggleRow("Message timestamps", value: settings.showMessageTimestamps) { [weak self] on in self?.settings.showMessageTimestamps = on })
         return card
     }

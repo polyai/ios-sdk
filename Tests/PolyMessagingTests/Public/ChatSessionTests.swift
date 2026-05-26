@@ -22,7 +22,7 @@ final class ChatSessionTests: XCTestCase {
     // MARK: - Stack builder
 
     private func makeSession(
-        progressiveStreaming: Bool = false,
+        streamingEnabled: Bool? = nil,
         open: Bool = true
     ) async throws -> (ChatSession, MockConnection, MockRestApi) {
         // SessionStore persists in UserDefaults; clear so a prior run's stored
@@ -54,7 +54,7 @@ final class ChatSessionTests: XCTestCase {
             config: config,
             autoStart: true
         )
-        let chatSession = ChatSession(client: client, progressiveStreaming: progressiveStreaming)
+        let chatSession = ChatSession(client: client, streamingEnabled: streamingEnabled)
         keepAlive.append(client)
         keepAlive.append(chatSession)
 

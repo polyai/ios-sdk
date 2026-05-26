@@ -166,11 +166,12 @@ struct ContentView: View {
             return
         }
 
+        // Streaming behaviour is driven by `Configuration.streamingEnabled`
+        // (set in the Settings sheet). No per-session override needed here.
         let config = devSettings.buildConfiguration()
-        let streaming = devSettings.progressiveStreaming
         let s = forceFresh
-            ? PolyMessaging.start(config, progressiveStreaming: streaming)
-            : PolyMessaging.chat(config, progressiveStreaming: streaming)
+            ? PolyMessaging.start(config)
+            : PolyMessaging.chat(config)
         diagnostics.attach(to: s.client)
         session = s
         wasResumed = false

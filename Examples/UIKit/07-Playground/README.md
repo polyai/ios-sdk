@@ -60,8 +60,8 @@ the display toggles), and each connect rebuilds a fresh `Configuration` from it.
 // RootViewController.configureAndStart(forceFresh:)
 let config = devSettings.buildConfiguration()
 let s = forceFresh
-    ? PolyMessaging.start(config, progressiveStreaming: devSettings.progressiveStreaming)
-    : PolyMessaging.chat(config, progressiveStreaming: devSettings.progressiveStreaming)
+    ? PolyMessaging.start(config)
+    : PolyMessaging.chat(config)
 diagnostics.attach(to: s.client)
 session = s
 ```
@@ -72,28 +72,23 @@ active" badge when `devSettings.hasCustomization` is true.
 
 *See [Reference › Dev tools (QA)](../../../README.md#dev-tools-qa).*
 
-### 2. Progressive streaming toggle
+### 2. Streaming toggle
 
-The Display section of the settings sheet flips
-`devSettings.progressiveStreaming` (default **on**), which flows into
-`PolyMessaging.chat(_:progressiveStreaming:)` / `start(_:progressiveStreaming:)`
-above and changes how agent replies render.
+The Connection section of the settings sheet flips
+`devSettings.streamingEnabled` (default **on**), which flows into
+`devSettings.buildConfiguration()` above and changes how agent replies render.
 
-> **Under the hood:** the SDK always reassembles `*_CHUNK` events into one
-> message. `progressiveStreaming` only decides whether `ChatSession` updates that
-> message's text live token-by-token as chunks arrive (**on**, ChatGPT-style), or
-> appends it once finished (**off**). It needs `streamingEnabled` so the server
-> actually sends chunks — both are in the sheet so you can compare side by side.
-> The chat view code is identical either way; the same `messages` array just
-> updates more often.
+> **Under the hood:** `Configuration.streamingEnabled` is the single switch.
+> When **on** (default), `ChatSession` grows the agent bubble token-by-token as
+> chunks arrive (ChatGPT-style). When **off**, the SDK shows the completed
+> message in one shot, and the typing indicator stays visible while the agent
+> thinks. The chat view code is identical either way; the same `messages` array
+> just updates more often.
 
-```swift
-// SettingsViewController.displaySection()
-stack.addArrangedSubview(toggleRow("Progressive streaming bubble",
-                                   value: settings.progressiveStreaming) {
-    [weak self] on in self?.settings.progressiveStreaming = on
-})
-```
+`streamingEnabled` is a session-creation knob — flipping it takes effect on the
+next session, which is why the sheet offers **Apply & Start New Session**.
+`devSettings.lastAppliedStreamingEnabled` lets the UI flag that a restart is
+needed.
 
 *See [Build your own UI › Streaming](../../../README.md#streaming).*
 

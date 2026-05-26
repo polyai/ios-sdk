@@ -21,7 +21,7 @@ public final class ChatSession: ObservableObject {
 
     public let client: PolyMessagingClient
     private let typingTimeout: TimeInterval
-    private let progressiveStreaming: Bool
+    private let streamingOverride: Bool?
     private var eventTask: Task<Void, Never>?
     private var sessionStateTask: Task<Void, Never>?
     private var connectionStatusTask: Task<Void, Never>?
@@ -29,10 +29,24 @@ public final class ChatSession: ObservableObject {
     private var streamingBubbles: [String: UUID] = [:]
     private var currentSessionId: String?
 
-    public init(client: PolyMessagingClient, typingTimeout: TimeInterval = 10, progressiveStreaming: Bool = false) {
+    /// Whether agent replies render token-by-token (true) or as completed
+    /// bubbles only (false). The per-session override wins; otherwise this
+    /// falls through to `Configuration.streamingEnabled` from `initialize(...)`.
+    private var streamsProgressively: Bool {
+        streamingOverride ?? client.config.streamingEnabled
+    }
+
+    /// - Parameters:
+    ///   - streamingEnabled: optional per-session override. `nil` (the default)
+    ///     uses `Configuration.streamingEnabled` from `initialize(...)`.
+    public init(
+        client: PolyMessagingClient,
+        typingTimeout: TimeInterval = 10,
+        streamingEnabled: Bool? = nil
+    ) {
         self.client = client
         self.typingTimeout = typingTimeout
-        self.progressiveStreaming = progressiveStreaming
+        self.streamingOverride = streamingEnabled
         subscribe()
     }
 
@@ -200,7 +214,7 @@ public final class ChatSession: ObservableObject {
                 )))
             }
 
-        case .agentMessageChunk(_, let p) where progressiveStreaming:
+        case .agentMessageChunk(_, let p) where streamsProgressively:
             clearTypingIndicator()
             let msgId = p.messageId
             if let bubbleId = streamingBubbles[msgId],
