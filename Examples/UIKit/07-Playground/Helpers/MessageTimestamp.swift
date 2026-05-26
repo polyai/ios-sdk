@@ -1,3 +1,5 @@
+// Copyright PolyAI Limited
+
 //  MessageTimestamp.swift
 //  Examples/UIKit/07-Playground
 //

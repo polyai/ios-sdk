@@ -1,3 +1,5 @@
+// Copyright PolyAI Limited
+
 //  RetryableImageView.swift
 //  Examples/UIKit/06-FullReference
 //

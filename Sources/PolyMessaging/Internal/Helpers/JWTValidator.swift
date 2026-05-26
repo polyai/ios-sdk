@@ -1,3 +1,5 @@
+// Copyright PolyAI Limited
+
 import Foundation
 
 /// Structural-only JWT validation. Mirrors web `jwt.isStructurallyValid`:

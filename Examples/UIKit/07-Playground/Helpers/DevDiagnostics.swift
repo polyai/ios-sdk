@@ -1,3 +1,5 @@
+// Copyright PolyAI Limited
+
 //  DevDiagnostics.swift
 //  Examples/UIKit/07-Playground
 //

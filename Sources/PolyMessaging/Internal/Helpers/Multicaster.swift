@@ -1,3 +1,5 @@
+// Copyright PolyAI Limited
+
 import Foundation
 
 final class Multicaster<T: Sendable>: @unchecked Sendable {

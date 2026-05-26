@@ -1,3 +1,5 @@
+// Copyright PolyAI Limited
+
 import XCTest
 
 /// End-to-end XCUITests for the resilience UIKit app, driven against the live

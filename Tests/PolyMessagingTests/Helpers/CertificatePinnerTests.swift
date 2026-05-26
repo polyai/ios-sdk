@@ -1,3 +1,5 @@
+// Copyright PolyAI Limited
+
 // FUTURE: tests for the disabled certificate-pinning helper. Re-enable when
 // CertificatePinner.swift is revived (see notes there).
 #if false

@@ -1,3 +1,5 @@
+// Copyright PolyAI Limited
+
 //  ConnectViewController.swift
 //  Examples/UIKit/07-Playground
 //

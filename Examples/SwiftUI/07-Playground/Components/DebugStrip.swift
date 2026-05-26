@@ -1,3 +1,5 @@
+// Copyright PolyAI Limited
+
 import SwiftUI
 
 /// Tiny always-on observability strip rendered at the top of the chat view

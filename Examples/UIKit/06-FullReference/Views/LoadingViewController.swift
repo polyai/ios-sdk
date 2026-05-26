@@ -1,3 +1,5 @@
+// Copyright PolyAI Limited
+
 //  LoadingViewController.swift
 //  Examples/UIKit/06-FullReference
 //

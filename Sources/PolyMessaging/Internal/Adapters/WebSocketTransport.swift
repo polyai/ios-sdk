@@ -1,3 +1,5 @@
+// Copyright PolyAI Limited
+
 import Foundation
 
 final class WebSocketTransport: @unchecked Sendable, Connection {

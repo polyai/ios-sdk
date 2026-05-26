@@ -1,3 +1,5 @@
+// Copyright PolyAI Limited
+
 import Foundation
 
 public enum ChatMessage: Identifiable, Equatable, Sendable {

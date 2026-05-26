@@ -1,0 +1,40 @@
+name: Feature request
+description: Suggest a capability or improvement for the PolyMessaging iOS SDK
+title: "[Feature]: "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for the suggestion. Concrete use cases are more valuable than abstract requests — please describe what you're trying to build.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem are you trying to solve?
+      description: Describe the user-facing experience you're after. Avoid jumping to a proposed API.
+    validations:
+      required: true
+
+  - type: textarea
+    id: current-workaround
+    attributes:
+      label: Current workaround
+      description: What are you doing today to work around this? (e.g. consuming `client.events` directly, layering on top of `ChatSession`.)
+    validations:
+      required: false
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution (optional)
+      description: If you have a concrete API or behavior in mind, sketch it here. Public API additions should fit the existing `ChatSession` / `PolyMessaging` facade.
+    validations:
+      required: false
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+    validations:
+      required: false

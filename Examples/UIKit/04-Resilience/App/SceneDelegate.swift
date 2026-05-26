@@ -1,3 +1,5 @@
+// Copyright PolyAI Limited
+
 //  SceneDelegate.swift
 //  Examples/UIKit/04-Resilience
 //

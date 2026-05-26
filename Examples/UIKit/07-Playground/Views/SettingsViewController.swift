@@ -1,3 +1,5 @@
+// Copyright PolyAI Limited
+
 //  SettingsViewController.swift
 //  Examples/UIKit/07-Playground
 //

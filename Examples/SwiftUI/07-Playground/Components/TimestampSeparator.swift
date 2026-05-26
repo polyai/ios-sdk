@@ -1,3 +1,5 @@
+// Copyright PolyAI Limited
+
 import SwiftUI
 
 /// Centered timestamp pill rendered between message groups (iMessage style).

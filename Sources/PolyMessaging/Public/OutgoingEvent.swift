@@ -1,3 +1,5 @@
+// Copyright PolyAI Limited
+
 import Foundation
 
 public enum OutgoingEvent: Sendable, Equatable {

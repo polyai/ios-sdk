@@ -1,3 +1,5 @@
+// Copyright PolyAI Limited
+
 import XCTest
 
 /// Dedicated XCUITest (separate target; not in app sources or the customer

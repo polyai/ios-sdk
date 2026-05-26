@@ -1,3 +1,5 @@
+// Copyright PolyAI Limited
+
 import Foundation
 
 /// Lifecycle + inbound events from the WebRTC signaling WebSocket.

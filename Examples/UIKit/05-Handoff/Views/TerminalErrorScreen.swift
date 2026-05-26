@@ -1,3 +1,5 @@
+// Copyright PolyAI Limited
+
 //  TerminalErrorScreen.swift
 //  Examples/UIKit/05-Handoff
 //

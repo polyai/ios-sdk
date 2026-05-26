@@ -1,3 +1,5 @@
+// Copyright PolyAI Limited
+
 //  MessageCell.swift
 //  Examples/UIKit/02-Standard
 //

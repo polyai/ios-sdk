@@ -1,3 +1,5 @@
+// Copyright PolyAI Limited
+
 //  EventLogger.swift
 //  Examples/UIKit/07-Playground
 //

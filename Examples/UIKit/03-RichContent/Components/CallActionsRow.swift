@@ -1,3 +1,5 @@
+// Copyright PolyAI Limited
+
 //  CallActionsRow.swift
 // Examples/UIKit/03-RichContent
 //

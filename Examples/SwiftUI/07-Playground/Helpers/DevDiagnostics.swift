@@ -1,3 +1,5 @@
+// Copyright PolyAI Limited
+
 import Foundation
 import SwiftUI
 import PolyMessaging

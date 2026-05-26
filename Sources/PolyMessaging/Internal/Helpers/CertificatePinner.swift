@@ -1,3 +1,5 @@
+// Copyright PolyAI Limited
+
 // FUTURE: TLS certificate pinning — disabled for now, may be revived.
 //
 // To re-enable:

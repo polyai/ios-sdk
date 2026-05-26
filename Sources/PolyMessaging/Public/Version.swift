@@ -1,3 +1,5 @@
+// Copyright PolyAI Limited
+
 public extension PolyMessaging {
     /// The SDK's released version (SemVer).
     ///

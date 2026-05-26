@@ -1,3 +1,5 @@
+// Copyright PolyAI Limited
+
 //  ContentView.swift
 //  Examples/SwiftUI/01-Hello
 //

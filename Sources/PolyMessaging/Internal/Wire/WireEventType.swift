@@ -1,3 +1,5 @@
+// Copyright PolyAI Limited
+
 import Foundation
 
 enum WireEventType: String {

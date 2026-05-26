@@ -1,3 +1,5 @@
+// Copyright PolyAI Limited
+
 //  RootViewController.swift
 //  Examples/UIKit/07-Playground
 //
