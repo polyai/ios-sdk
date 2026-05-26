@@ -65,13 +65,16 @@ private func systemText(for event: SystemEvent) -> String {
     }
 }
 
+// The system pill reuses the cell's existing `label` (a UITextView/UILabel inside `bubble`) —
+// no separate pillLabel/pillContainer subviews. configureSystem just swaps colors + corner radius
+// and activates the `centerConstraint` so the bubble sits centered in the cell.
 private func configureSystem(_ m: SystemMessage) {
-    pillLabel.text = systemText(for: m.event)
-    pillLabel.font = .systemFont(ofSize: 12)
-    pillLabel.textColor = .secondaryLabel
-    pillContainer.backgroundColor = .systemGray6
-    pillContainer.layer.cornerRadius = 12
-    // pillContainer is center-pinned in contentView; everything else hidden.
+    label.text = systemText(for: m.event)
+    label.font = .systemFont(ofSize: 12)
+    label.textColor = .secondaryLabel
+    bubble.backgroundColor = .systemGray6
+    bubble.layer.cornerRadius = 14
+    centerConstraint.isActive = true   // center-pin the outer stack; leading/trailing constraints stay off
 }
 ```
 

@@ -22,7 +22,7 @@ Set your connector token in `App/AppDelegate.swift` (currently `"YOUR_CONNECTOR_
 - Reconnect banner — `session.$connection` (`.reconnecting`)
 - Suggestion pills — `AgentMessage.suggestions`, `session.clearSuggestions(for:)`
 - End / start-new chat — `try await session.end()`, `session.$hasEnded`, `try await session.client.startNewSession()`
-- Delivery state + retry — `UserMessage.delivery`, `session.removeMessage(draftId:)`
+- Delivery state + retry — `UserMessage.delivery`, plus an inline retry button on `.failed` bubbles (`session.send(text)` again)
 - Failure overlay — `session.$failureReason`, `try await session.client.resume()`
 - Keyboard ride-along — `view.keyboardLayoutGuide.topAnchor`
 
@@ -47,7 +47,7 @@ await session.sendTyping()   // safe every keystroke; SDK throttles STARTED fram
 In a view controller:
 
 ```swift
-private let typingIndicator = TypingDots()        // your own animated-dots view
+private let typingIndicator = TypingDotsView()    // your own animated-dots view (defined inside ChatViewController.swift)
 private var bag = Set<AnyCancellable>()
 
 override func viewDidLoad() {
@@ -226,46 +226,58 @@ Track delivery + retry a failed send:
 m.delivery   // Delivery enum (user messages only):
              //   .pending  — sent optimistically; bubble shows immediately
              //   .sent     — server echoed (matched by local id)
-             //   .failed   — retries (up to 3×) exhausted; show "Tap to retry"
-
-session.removeMessage(draftId: m.draftId)   // drop the failed draft so the retry doesn't duplicate
+             //   .failed   — retries (up to 3×) exhausted; show retry affordance
 
 try? await session.send(m.text)             // re-send the same text
 ```
 
-In a custom cell — render the delivery state and offer retry on `.failed`:
+The example's `MessageCell` lays the bubble + a left-side retry button + a "Sending…/Tap to retry" caption in a vertical outer stack, and surfaces a `(String) -> Void` retry callback the data source wires up:
 
 ```swift
 final class MessageCell: UITableViewCell {
-    let bubble = UILabel()
-    let statusLabel = UILabel()       // "Sending…" / "Tap to retry"
-    // ...init that lays them out in a vertical UIStackView...
-}
+    static let reuseID = "MessageCell"
 
-func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
-    let cell = tableView.dequeueReusableCell(withIdentifier: "cell", for: indexPath) as! MessageCell
-    let message = session.messages[indexPath.row]
-    cell.bubble.text = message.text ?? ""
-    cell.statusLabel.isHidden = true
+    private let bubble = UIView()                  // colored capsule
+    private let label = UILabel()                  // bubble text
+    private let retryButton = UIButton(type: .system)   // exclamationmark.circle.fill, user-only on .failed
+    private let deliveryLabel = UILabel()          // "Sending..." / "Tap to retry"
+    // ...other subviews (avatar, agent-name caption) + autolayout in init...
 
-    if case .user(let m) = message {
-        switch m.delivery {
-        case .pending: cell.statusLabel.text = "Sending…";    cell.statusLabel.isHidden = false
-        case .sent:    cell.statusLabel.isHidden = true
-        case .failed:  cell.statusLabel.text = "Tap to retry"; cell.statusLabel.isHidden = false
+    func configure(with message: ChatMessage,
+                   onRetry: ((String) -> Void)? = nil,
+                   showSendingLabel: Bool = false) {
+        if case .user(let m) = message {
+            label.text = m.text
+            let failed = (m.delivery == .failed)
+            retryButton.isHidden = !failed
+            if failed {
+                bubble.backgroundColor = UIColor.systemRed.withAlphaComponent(0.15)
+                deliveryLabel.text = "Tap to retry"
+                deliveryLabel.textColor = .systemRed
+                deliveryLabel.isHidden = false
+            } else if showSendingLabel && m.delivery == .pending {
+                deliveryLabel.text = "Sending..."
+                deliveryLabel.textColor = .secondaryLabel
+                deliveryLabel.isHidden = false
+            }
         }
+        // ...agent + system branches...
     }
-    return cell
 }
 
-// Wire from a tap recognizer on the cell or a retry button:
-func retry(_ m: UserMessage) {
-    session.removeMessage(draftId: m.draftId)
-    Task { try? await session.send(m.text) }
-}
+// In the diffable data source — pass the retry closure:
+let cell = tableView.dequeueReusableCell(withIdentifier: MessageCell.reuseID, for: indexPath) as! MessageCell
+let pending: Bool = { if case .user(let m) = message, m.delivery == .pending { return true } else { return false } }()
+cell.configure(
+    with: message,
+    onRetry: { [weak self] text in
+        Task { try? await self?.session.send(text) }
+    },
+    showSendingLabel: pending
+)
 ```
 
-**Under the hood:** `UserMessage.delivery` is optimistic — `.pending` immediately, then the SDK matches the server echo (via a local id) → `.sent`; if no echo arrives after retries (up to 3×) it settles on `.failed`. You only render it; `removeMessage(draftId:)` drops the failed draft so a retry doesn't leave a duplicate bubble.
+**Under the hood:** `UserMessage.delivery` is optimistic — `.pending` immediately, then the SDK matches the server echo (via a local id) → `.sent`; if no echo arrives after retries (up to 3×) it settles on `.failed`. The example re-sends the same text on retry and leaves the failed bubble in place — if you want the retry to *replace* the failed bubble instead, call `session.removeMessage(draftId: m.draftId)` before `session.send(...)` (see `06-FullReference` for that flow).
 
 *See [Integration guide › Delivery state & retry](../../../README.md#delivery-state--retry).*
 

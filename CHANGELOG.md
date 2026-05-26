@@ -52,9 +52,9 @@ is pre-1.0, breaking changes bump the **minor** version.
   arranged subview's `isHidden` to the same value twice corrupts `UIStackView`'s hidden
   bookkeeping, so the later un-hide silently no-opped, the carousel stayed collapsed, the
   cell self-sized to its text only, and the 140pt image card spilled over the rows below.
-  Fixed across every UIKit level with attachments (03–07) and `Examples/Components/UIKit`:
-  the carousel's `configure(with:)` now owns its `isHidden` with a guarded (change-only)
-  write, and the cells no longer toggle it directly.
+  Fixed across every UIKit level with attachments (03–07): the carousel's
+  `configure(with:)` now owns its `isHidden` with a guarded (change-only) write, and the
+  cells no longer toggle it directly.
 - Examples: the message composer is now always available in a live conversation,
   regardless of connection state. It previously gated the input/send controls on
   `session.isReady` (which flips `false` on any socket drop) and, in 06/07, additionally

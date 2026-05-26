@@ -51,7 +51,7 @@ var body: some View {
         // ...message list (above)...
 
         if session.isAgentTyping {
-            TypingDots(avatarUrl: session.lastAgentMessage?.avatarUrl)
+            TypingIndicator(avatarUrl: session.lastAgentMessage?.avatarUrl)
                 .frame(maxWidth: .infinity, alignment: .leading)
         }
 
@@ -63,7 +63,7 @@ var body: some View {
 }
 ```
 
-`TypingDots` is your own small view (the example has one inside `Components/`).
+`TypingIndicator` is your own small view (the example has one inside `Components/TypingIndicator.swift`).
 
 **Under the hood:** `isAgentTyping` is SDK-managed — true while the agent composes (driven by its thinking/streaming signals), auto-cleared on the next agent message or after the typing timeout (~10s), so you never run a timer. `sendTyping()` throttles outgoing STARTED frames to ≤1 per 3s and auto-emits STOPPED ~5s after your last call, so it's safe to fire on every keystroke.
 

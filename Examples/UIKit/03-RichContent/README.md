@@ -42,68 +42,54 @@ m.attachments   // [Attachment] — agent messages only. Each carries:
                 // The SDK never fetches bytes — you load the URL with URLSession.
 ```
 
-In a view controller — call from `cellForRowAt`; the cell hosts a horizontal stack of `UIImageView`s:
+In a view controller — `MessageCell` owns an `AttachmentCarouselView` and just gets handed the filtered list inside `configure(with:)`. The carousel renders 220×140 cards (preview + optional title + CTA), opens `contentUrl` on tap, and hides itself when the array is empty:
 
 ```swift
-func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
-    let cell = tableView.dequeueReusableCell(withIdentifier: "cell", for: indexPath) as! MessageCell
-    cell.imageStack.arrangedSubviews.forEach { $0.removeFromSuperview() }   // clear on reuse
-    guard case .agent(let m) = session.messages[indexPath.row] else { return cell }
+// In ChatViewController — register the cell and dequeue by its real reuseID:
+tableView.register(MessageCell.self, forCellReuseIdentifier: MessageCell.reuseID)
 
-    cell.messageLabel.text = m.text
+let cell = tableView.dequeueReusableCell(withIdentifier: MessageCell.reuseID, for: indexPath) as! MessageCell
+cell.configure(with: message, onRetry: { [weak self] text in
+    Task { try? await self?.session.send(text) }
+}, showSendingLabel: pending)
 
-    for att in m.attachments where att.contentType == .image {
-        let iv = UIImageView()
-        iv.contentMode = .scaleAspectFill
-        iv.clipsToBounds = true
-        iv.translatesAutoresizingMaskIntoConstraints = false
-        iv.widthAnchor.constraint(equalToConstant: 220).isActive = true
-        iv.heightAnchor.constraint(equalToConstant: 140).isActive = true
-        if let url = att.contentUrl {
-            URLSession.shared.dataTask(with: url) { data, _, _ in
-                guard let data, let image = UIImage(data: data) else { return }
-                DispatchQueue.main.async { iv.image = image }
-            }.resume()
-        }
-        cell.imageStack.addArrangedSubview(iv)
-    }
-    return cell
-}
+// Inside MessageCell.configure(with:) — agent branch only:
+case .agent(let m):
+    applyMarkdown(m.text)                                                            // UITextView, see below
+    carousel.configure(with: m.attachments.filter { $0.contentType == .image })      // image cards
+    urlCarousel.configure(with: m.attachments.filter { $0.contentType == .url })     // URL link-cards (next section)
+    callActions.configure(actions: m.callActions)                                    // tel: buttons (next-next section)
+    // `.unknown` attachments are intentionally dropped — forward-compat
 ```
 
 <details>
-<summary>Show <code>MessageCell</code> (subviews + constraints)</summary>
+<summary>Show <code>MessageCell</code> outline (real property names + types)</summary>
 
 ```swift
 final class MessageCell: UITableViewCell {
-    let messageLabel = UILabel()
-    let imageStack = UIStackView()
+    static let reuseID = "MessageCell"
 
-    override init(style: UITableViewCell.CellStyle, reuseIdentifier: String?) {
-        super.init(style: style, reuseIdentifier: reuseIdentifier)
-        messageLabel.numberOfLines = 0
-        imageStack.axis = .horizontal
-        imageStack.spacing = 10
+    // Outer (vertical) stack: agent name caption → bubble row → rich rows → delivery caption.
+    private let outerStack = UIStackView()
+    private let captionLabel = UILabel()                   // agent name
+    private let bubbleRow = UIStackView()                  // [retry] [avatar] [bubble]
+    private let retryButton = UIButton(type: .system)
+    private let avatarView = RetryableImageView()
+    private let bubble = UIView()
+    private let label = UITextView()                       // a text view (not a label) so Markdown links are tappable
+    private let carousel = AttachmentCarouselView()        // image attachments
+    private let urlCarousel = AttachmentCarouselView()     // URL link-cards (same card, horizontal)
+    private let callActions = CallActionsRow()             // green "Call ..." buttons
+    private let deliveryLabel = UILabel()
 
-        let outer = UIStackView(arrangedSubviews: [messageLabel, imageStack])
-        outer.axis = .vertical
-        outer.spacing = 8
-        outer.translatesAutoresizingMaskIntoConstraints = false
-        contentView.addSubview(outer)
-        NSLayoutConstraint.activate([
-            outer.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 8),
-            outer.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 12),
-            outer.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -12),
-            outer.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -8),
-        ])
-    }
-    required init?(coder: NSCoder) { fatalError() }
+    // ...init wires outerStack into contentView, sizes the carousels to 0.85× contentView.width,
+    //    and applies the 14h/10v bubble padding...
 }
 ```
 
 </details>
 
-**Under the hood:** the SDK decodes the agent's `attachments` array from the protocol payload and groups them onto the same `AgentMessage` as the text. No background fetch happens — you load `contentUrl` / `previewImageUrl` yourself. `URLSession + DispatchQueue.main.async { iv.image = ... }` is the minimum; the example's `RetryableImageView` adds caching + tap-to-retry on failure.
+**Under the hood:** the SDK decodes the agent's `attachments` array from the protocol payload and groups them onto the same `AgentMessage` as the text. No background fetch happens — `AttachmentCarouselView.makeCard` hands each `previewImageUrl ?? contentUrl` to a `RetryableImageView`, and the card itself is a `UIControl` whose `.touchUpInside` opens `contentUrl` via `UIApplication.shared.open`. Setting the carousel's `arrangedSubview.isHidden` only on a real change (`if isHidden != shouldHide`) is load-bearing — flipping it to its current value silently breaks `UIStackView`'s hidden bookkeeping and the carousel stops un-hiding.
 
 *See [Integration guide › Attachments, link cards & call buttons](../../../README.md#attachments-link-cards--call-buttons).*
 
@@ -118,20 +104,14 @@ att.title              // String? — card headline
 att.callToActionText   // String? — button label, e.g. "Learn more"
 ```
 
-In a view controller — render in a second horizontal stack on the cell. Tap opens `contentUrl`:
+In a view controller — same `AttachmentCarouselView` as the image row, with the attachments pre-filtered to `.url`. The card lays the preview image on top of `title` + `callToActionText`, and the whole card is the tap target:
 
 ```swift
-for att in m.attachments where att.contentType == .url {
-    let button = UIButton(configuration: .plain())
-    if let title = att.title { button.setTitle(title, for: .normal) }
-    button.addAction(UIAction { _ in
-        if let url = att.contentUrl { UIApplication.shared.open(url) }
-    }, for: .touchUpInside)
-    cell.urlStack.addArrangedSubview(button)
-}
+// Inside MessageCell.configure(with:) — agent branch:
+urlCarousel.configure(with: m.attachments.filter { $0.contentType == .url })
 ```
 
-**Under the hood:** same decoded `Attachment` data — the SDK hands you the URL + preview + title, and leaves the card layout and link-opening entirely to your code. The example's full card view (`URLCardView` / `AttachmentCarouselView`) layers the preview image on top of the title + CTA; the snippet above shows the minimum tappable element.
+**Under the hood:** same decoded `Attachment` data — the SDK hands you the URL + preview + title, and leaves the card layout and link-opening entirely to your code. Because the URL row reuses `AttachmentCarouselView` (it doesn't care whether the attachment came from `.image` or `.url`), you get horizontal scrolling, the same 220-wide card, and the same `UIApplication.shared.open(contentUrl)` tap target with zero extra wiring.
 
 *See [Integration guide › Attachments, link cards & call buttons](../../../README.md#attachments-link-cards--call-buttons).*
 
@@ -146,22 +126,35 @@ m.callActions   // [ChatCallAction] — agent messages only. Each:
                 // The SDK never dials — you build the tel: URL and open it.
 ```
 
-In a view controller — render each `callAction` as a button on the cell:
+In a view controller — `MessageCell` owns a `CallActionsRow` (a vertical stack of green `UIButton.Configuration.filled()` buttons). You just hand it the list:
 
 ```swift
-for action in m.callActions {
-    let button = UIButton(type: .system)
-    button.setTitle("\(action.title) · \(action.contactNumber)", for: .normal)
-    button.addAction(UIAction { _ in
-        // Strip non-digits (keep leading +) so display-formatted numbers still produce a valid URL.
-        let digits = action.contactNumber.filter { $0.isNumber || $0 == "+" }
-        if let url = URL(string: "tel:\(digits)") { UIApplication.shared.open(url) }
-    }, for: .touchUpInside)
-    cell.callsStack.addArrangedSubview(button)
+// Inside MessageCell.configure(with:) — agent branch:
+callActions.configure(actions: m.callActions)
+```
+
+`CallActionsRow.makeButton(for:)` builds each button — sanitising the number, building the `tel:` URL, wiring `.touchUpInside`:
+
+```swift
+// Components/CallActionsRow.swift — abbreviated:
+private func makeButton(for action: ChatCallAction) -> UIButton {
+    var config = UIButton.Configuration.filled()
+    config.title = action.title.isEmpty ? action.contactNumber : action.title
+    config.image = UIImage(systemName: "phone.fill")
+    config.baseBackgroundColor = .systemGreen
+    config.baseForegroundColor = .white
+
+    // Strip non-digits (keep leading +) so display-formatted numbers still produce a valid URL.
+    let digits = action.contactNumber.filter { $0.isNumber || $0 == "+" }
+    let url = URL(string: "tel:\(digits)")
+
+    return UIButton(configuration: config, primaryAction: UIAction { _ in
+        if let url { UIApplication.shared.open(url) }
+    })
 }
 ```
 
-**Under the hood:** the SDK delivers `ChatCallAction` as decoded data — `title` + `contactNumber`. Dialling is your code: sanitise the number (digits + leading `+`), build `tel:<digits>`, hand to `UIApplication.shared.open`.
+**Under the hood:** the SDK delivers `ChatCallAction` as decoded data — `title` + `contactNumber`. Dialling is your code: sanitise the number (digits + leading `+`), build `tel:<digits>`, hand to `UIApplication.shared.open`. `CallActionsRow.configure(actions:)` hides the row when the array is empty so empty messages don't leave a gap.
 
 *See [Integration guide › Attachments, link cards & call buttons](../../../README.md#attachments-link-cards--call-buttons).*
 
@@ -177,54 +170,44 @@ m.text   // String — the agent's raw Markdown (no HTML; nothing to sanitize).
 
 **The most important detail: use a `UITextView`, not a `UILabel`.** A `UILabel` *renders* `.link` styling but ignores taps. A `UITextView` makes them tappable and opens `http`/`https` links in Safari for free.
 
-In a view controller — configure once in the cell's `init`, then call from `cellForRowAt`:
+In a view controller — `MessageCell` keeps a single non-editable `UITextView` named `label` and calls `applyMarkdown(m.text)` from its agent branch:
 
 ```swift
-func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
-    let cell = tableView.dequeueReusableCell(withIdentifier: "cell", for: indexPath) as! MessageCell
-    guard case .agent(let m) = session.messages[indexPath.row] else { return cell }
+// Components/MessageCell.swift — init configures the text view ONCE:
+private let label = UITextView()   // a text view (not a label) so Markdown links are tappable
 
+override init(style: UITableViewCell.CellStyle, reuseIdentifier: String?) {
+    super.init(style: style, reuseIdentifier: reuseIdentifier)
+    // ...other subview setup...
+    label.isEditable = false
+    label.isScrollEnabled = false               // self-sizes in the cell
+    label.backgroundColor = .clear
+    label.textContainerInset = .zero
+    label.textContainer.lineFragmentPadding = 0
+    label.font = .systemFont(ofSize: 15)
+    label.linkTextAttributes = [
+        .foregroundColor: UIColor.systemBlue,
+        .underlineStyle: NSUnderlineStyle.single.rawValue,
+    ]
+    bubble.addSubview(label)
+    // ...autolayout (14h/10v inside bubble)...
+}
+
+// configure(with:) — agent branch:
+case .agent(let m):
+    label.textColor = .label
+    applyMarkdown(m.text)
+
+// applyMarkdown(_:) — NSAttributedString(markdown:) with plain-text fallback for half-open markdown
+private func applyMarkdown(_ text: String) {
     let opts = AttributedString.MarkdownParsingOptions(interpretedSyntax: .inlineOnlyPreservingWhitespace)
-    if let attr = try? AttributedString(markdown: m.text, options: opts) {
-        cell.textView.attributedText = NSAttributedString(attr)
+    if let attr = try? AttributedString(markdown: text, options: opts) {
+        label.attributedText = NSAttributedString(attr)
     } else {
-        cell.textView.text = m.text       // fall back to plain text during half-open Markdown
+        label.text = text       // fall back to plain text during half-open Markdown
     }
-    return cell
 }
 ```
-
-<details>
-<summary>Show <code>MessageCell</code> with tappable-link <code>UITextView</code></summary>
-
-```swift
-final class MessageCell: UITableViewCell {
-    let textView = UITextView()
-
-    override init(style: UITableViewCell.CellStyle, reuseIdentifier: String?) {
-        super.init(style: style, reuseIdentifier: reuseIdentifier)
-        textView.isEditable = false
-        textView.isScrollEnabled = false          // self-sizes in the cell
-        textView.textContainerInset = .zero
-        textView.textContainer.lineFragmentPadding = 0
-        textView.linkTextAttributes = [
-            .foregroundColor: UIColor.systemBlue,
-            .underlineStyle: NSUnderlineStyle.single.rawValue,
-        ]
-        textView.translatesAutoresizingMaskIntoConstraints = false
-        contentView.addSubview(textView)
-        NSLayoutConstraint.activate([
-            textView.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 8),
-            textView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 12),
-            textView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -12),
-            textView.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -8),
-        ])
-    }
-    required init?(coder: NSCoder) { fatalError() }
-}
-```
-
-</details>
 
 > `AttributedString(markdown:)` links `[text](url)` but **not** bare `https://…` URLs. The SwiftUI counterpart's `RichText` adds a small regex pass for bare URLs — port it if your agent emits them.
 
@@ -234,16 +217,20 @@ final class MessageCell: UITableViewCell {
 
 ### Bubble layout — compose everything
 
-The cell's outer stack lays out text → image carousel → URL link-cards → call actions in that order. `.unknown` attachment types are dropped silently for forward-compat.
+The cell's outer stack lays out (agent name caption) → bubble row → image carousel → URL link-cards → call actions → delivery caption in that order. `.unknown` attachment types are dropped silently for forward-compat.
 
 ```swift
-// MessageCell init:
-let outer = UIStackView(arrangedSubviews: [textView, imageStack, urlStack, callsStack])
-outer.axis = .vertical
-outer.spacing = 8
+// MessageCell init — outerStack adds children top-to-bottom:
+outerStack.axis = .vertical
+outerStack.addArrangedSubview(captionLabel)    // agent name (or hidden)
+outerStack.addArrangedSubview(bubbleRow)       // [retry] [avatar] [bubble(label: UITextView)]
+outerStack.addArrangedSubview(carousel)        // image AttachmentCarouselView
+outerStack.addArrangedSubview(urlCarousel)     // URL-card AttachmentCarouselView
+outerStack.addArrangedSubview(callActions)     // CallActionsRow (tel: buttons)
+outerStack.addArrangedSubview(deliveryLabel)   // "Sending..." / "Tap to retry"
 ```
 
-Each subview hides itself when the message has nothing to put in it (you can either toggle `isHidden` based on counts, or use `UIStackView`'s `arrangedSubviews.isEmpty` semantics).
+Each component hides itself when its data is empty — `AttachmentCarouselView.configure(with:)` flips `isHidden` (carefully — `if isHidden != shouldHide` to avoid corrupting `UIStackView`'s hidden bookkeeping), and `CallActionsRow.configure(actions:)` does the same.
 
 **Under the hood:** the SDK delivers text, attachments, and call actions on one assembled `AgentMessage` — no separate events to coordinate. `.unknown` is the SDK's forward-compat slot for content types it doesn't model yet; dropping it (instead of falling through to a placeholder) is the safe default.
 

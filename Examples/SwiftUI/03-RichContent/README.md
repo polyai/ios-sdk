@@ -42,7 +42,7 @@ m.attachments   // [Attachment] — agent messages only. Each carries:
                 // The SDK never fetches bytes — you load the URL with AsyncImage / URLSession.
 ```
 
-In a view — render only `.image` attachments inside the `.agent` branch of your bubble switch:
+In a view — render only `.image` attachments inside the `.agent` branch of your bubble switch. The example wraps each thumbnail in a `Button` that opens `contentUrl`, and uses a `RetryableAsyncImage` helper (in `Components/`) that wraps `AsyncImage` and adds tap-to-retry + a 5-second auto-retry on failure:
 
 ```swift
 ForEach(session.messages) { message in
@@ -55,11 +55,24 @@ ForEach(session.messages) { message in
             if !images.isEmpty {
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 10) {
-                        ForEach(images, id: \.contentUrl) { att in
-                            AsyncImage(url: att.contentUrl) { $0.resizable().scaledToFill() }
-                                placeholder: { Color(.systemGray5) }
-                                .frame(width: 220, height: 140)
+                        ForEach(Array(images.enumerated()), id: \.offset) { _, att in
+                            Button {
+                                if let url = att.contentUrl { UIApplication.shared.open(url) }
+                            } label: {
+                                RetryableAsyncImage(url: att.previewImageUrl ?? att.contentUrl!) { image in
+                                    image.resizable().aspectRatio(contentMode: .fill)
+                                        .frame(width: 220, height: 140).clipped()
+                                } placeholder: {
+                                    ProgressView().frame(width: 220, height: 140)
+                                } fallback: {
+                                    Rectangle().fill(Color(.systemGray4))
+                                        .frame(width: 220, height: 140)
+                                        .overlay(Image(systemName: "photo").foregroundColor(.gray))
+                                }
                                 .clipShape(RoundedRectangle(cornerRadius: 12))
+                            }
+                            .buttonStyle(.plain)
+                            .disabled(att.contentUrl == nil)
                         }
                     }
                 }
@@ -72,7 +85,7 @@ ForEach(session.messages) { message in
 }
 ```
 
-**Under the hood:** the SDK decodes the agent's `attachments` array from the protocol payload and groups them onto the same `AgentMessage` as the text. No background fetch happens — you load `contentUrl` / `previewImageUrl` yourself. Stock `AsyncImage` is enough for most apps; this example uses a small wrapper (`RetryableAsyncImage`) that adds tap-to-retry on failure.
+**Under the hood:** the SDK decodes the agent's `attachments` array from the protocol payload and groups them onto the same `AgentMessage` as the text. No background fetch happens — you load `contentUrl` / `previewImageUrl` yourself. Stock `AsyncImage` is enough for most apps; this example wraps it in `RetryableAsyncImage` (`Components/RetryableAsyncImage.swift`) which keys the request on a `loadId` `UUID` so tapping the failure state forces a fresh fetch, and schedules a one-shot retry 5 seconds later.
 
 *See [Integration guide › Attachments, link cards & call buttons](../../../README.md#attachments-link-cards--call-buttons).*
 
@@ -91,30 +104,38 @@ In a view:
 
 ```swift
 let urls = m.attachments.filter { $0.contentType == .url }
-ForEach(urls, id: \.contentUrl) { att in
-    if let url = att.contentUrl {
-        Link(destination: url) {
-            VStack(alignment: .leading, spacing: 0) {
-                if let preview = att.previewImageUrl {
-                    AsyncImage(url: preview) { $0.resizable().scaledToFill() }
-                        placeholder: { Color(.systemGray5) }
-                        .frame(width: 260, height: 140)
-                        .clipShape(RoundedRectangle(cornerRadius: 12))
+ForEach(Array(urls.enumerated()), id: \.offset) { _, att in
+    Button {
+        if let url = att.contentUrl { UIApplication.shared.open(url) }
+    } label: {
+        VStack(alignment: .leading, spacing: 0) {
+            if let preview = att.previewImageUrl {
+                RetryableAsyncImage(url: preview) { image in
+                    image.resizable().scaledToFill()
+                } placeholder: {
+                    ZStack { Color(.systemGray5); ProgressView() }
+                } fallback: {
+                    ZStack { Color(.systemGray5); Image(systemName: "photo").foregroundColor(.secondary) }
                 }
-                if let title = att.title {
-                    Text(title).font(.subheadline.bold()).padding(.top, 6)
-                }
-                if let cta = att.callToActionText {
-                    Text(cta).font(.caption).foregroundStyle(.blue)
-                }
+                .frame(width: 260, height: 140)
+                .clipped()
             }
+            VStack(alignment: .leading, spacing: 6) {
+                if let title = att.title { Text(title).font(.subheadline.bold()) }
+                if let cta = att.callToActionText { Text(cta).font(.caption.bold()).foregroundColor(.blue) }
+            }
+            .padding(10)
         }
-        .buttonStyle(.plain)
+        .frame(width: 260)
+        .background(Color(.systemGray6))
+        .clipShape(RoundedRectangle(cornerRadius: 12))
     }
+    .buttonStyle(.plain)
+    .disabled(att.contentUrl == nil)
 }
 ```
 
-**Under the hood:** same decoded `Attachment` data — the SDK hands you the URL + preview + title, and leaves the card layout and link-opening entirely to your code. `Link(destination:)` opens via the user's default browser; swap for `Button` + `openURL` if you want to intercept (e.g. open in-app).
+**Under the hood:** same decoded `Attachment` data — the SDK hands you the URL + preview + title, and leaves the card layout and link-opening entirely to your code. The example uses `Button` + `UIApplication.shared.open(url)` (rather than `Link(destination:)`) so the tap target covers the whole card and you can intercept (e.g. route in-app) if you need to.
 
 *See [Integration guide › Attachments, link cards & call buttons](../../../README.md#attachments-link-cards--call-buttons).*
 
@@ -129,28 +150,28 @@ m.callActions   // [ChatCallAction] — agent messages only. Each:
                 // The SDK never dials — you build the tel: URL and open it.
 ```
 
-In a view:
+In a view — build a sanitised `tel:` URL and hand it to a SwiftUI `Link`. `Link` opens the URL via the system handler (which kicks off the system call-prompt for `tel:`), so there's no `@Environment(\.openURL)` plumbing to wire up:
 
 ```swift
-@Environment(\.openURL) private var openURL
-
 ForEach(m.callActions) { action in
-    Button {
-        // Strip non-digits (keep leading +) so display-formatted numbers still produce a valid URL.
-        let digits = action.contactNumber.filter { $0.isNumber || $0 == "+" }
-        if let url = URL(string: "tel:\(digits)") { openURL(url) }
-    } label: {
-        HStack(spacing: 6) {
-            Image(systemName: "phone.fill")
-            Text(action.title.isEmpty ? action.contactNumber : action.title)
+    // Strip non-digits (keep leading +) so display-formatted numbers still produce a valid URL.
+    if let url = URL(string: "tel:\(action.contactNumber.filter { $0.isNumber || $0 == "+" })") {
+        Link(destination: url) {
+            HStack(spacing: 6) {
+                Image(systemName: "phone.fill")
+                Text(action.title.isEmpty ? action.contactNumber : action.title)
+            }
+            .font(.subheadline.bold())
+            .foregroundColor(.white)
+            .padding(.horizontal, 16).padding(.vertical, 10)
+            .background(Color.green)
+            .clipShape(RoundedRectangle(cornerRadius: 10))
         }
     }
-    .buttonStyle(.borderedProminent)
-    .tint(.green)
 }
 ```
 
-**Under the hood:** the SDK delivers `ChatCallAction` as decoded data — `title` + `contactNumber`. Dialling is your code: sanitise the number (digits + leading `+`), build `tel:<digits>`, hand to `openURL` / `UIApplication.shared.open`.
+**Under the hood:** the SDK delivers `ChatCallAction` as decoded data — `title` + `contactNumber`. Dialling is your code: sanitise the number (digits + leading `+`), build `tel:<digits>`, hand to a `Link`. (`Button { openURL(url) }` works too if you need to intercept; this example uses `Link` for the simpler call site.)
 
 *See [Integration guide › Attachments, link cards & call buttons](../../../README.md#attachments-link-cards--call-buttons).*
 
@@ -164,18 +185,29 @@ m.text   // String — the agent's raw Markdown (no HTML; nothing to sanitize).
          // (e.g. a trailing `**` waiting for its closer) — your parser should tolerate that.
 ```
 
-In a view — Apple's `AttributedString(markdown:)` handles bold/italic/`code`/`[links](url)`. It does **not** linkify bare `https://…` URLs; add a regex pass if your agent emits them.
+In a view — Apple's `AttributedString(markdown:)` handles `[links](url)` + `**bold**`/`*italic*`/`` `code` `` inline, but it does **not** linkify bare `https://…` URLs. The example ships a small `RichText` view in `Components/` that runs a regex pass for both Markdown `[text](url)` and bare URLs, then folds bold/italic/code on top — drop it in and pass `m.text`:
 
 ```swift
-let opts = AttributedString.MarkdownParsingOptions(interpretedSyntax: .inlineOnlyPreservingWhitespace)
-if let attributed = try? AttributedString(markdown: m.text, options: opts) {
-    Text(attributed)
-} else {
-    Text(m.text)              // fall back to plain text during half-open Markdown
+// Components/RichText.swift — the example's renderer (see the file for the full body).
+struct RichText: View {
+    let raw: String
+    init(_ text: String) { self.raw = text }
+
+    var body: some View {
+        Text(parse(raw))              // Markdown links + bare URLs + bold/italic/code → AttributedString
+            .tint(.blue)
+            .environment(\.openURL, OpenURLAction { url in
+                UIApplication.shared.open(url); return .handled
+            })
+    }
+    // parse(_:) — regex pass for `[text](url)` and bare `https?://…`, then fold `**bold**` / `*italic*` / `\`code\`` over the gaps.
 }
+
+// At the call site, inside .agent:
+RichText(m.text)
 ```
 
-**Under the hood:** the SDK passes the agent's Markdown through untouched. Streaming chunks update `m.text` in place; the parse-failure fallback to plain text keeps the bubble readable mid-stream until the next chunk lands.
+**Under the hood:** the SDK passes the agent's Markdown through untouched. Streaming chunks update `m.text` in place; the regex parser tolerates half-open Markdown (e.g. an unclosed `**`) by leaving it as literal text until the next chunk closes it. If your agent never emits bare URLs, swap `RichText` for `Text(try AttributedString(markdown: m.text))` — Apple's parser handles `[text](url)` + bold/italic/code on its own.
 
 *See [Integration guide › Rich text & links](../../../README.md#rich-text--links).*
 

@@ -110,7 +110,7 @@ The SDK signals:
 ```swift
 client.events            // AsyncStream<MessagingEvent> — .sessionStart, .disconnected, etc.
 
-client.connectionStatus  // AsyncStream<ConnectionStatus> — .connecting / .connected / .reconnecting / .failed
+client.connectionStatus  // AsyncStream<ConnectionStatus> — .idle / .connecting / .open / .closing / .closed / .reconnecting / .failed
 
 client.sessionState      // AsyncStream<SessionState> — .isReady flips true when the session can send
 ```
@@ -180,14 +180,20 @@ struct ErrorScreen: View {
     var body: some View {
         VStack(spacing: 16) {
             Image(systemName: "exclamationmark.triangle.fill")
-                .font(.system(size: 48))
+                .font(.system(size: 44))
                 .foregroundColor(.orange)
             Text("Something went wrong").font(.headline)
             Text(message)
                 .multilineTextAlignment(.center)
                 .foregroundColor(.secondary)
-            Button(action: onBack) { Text("Go Back") }
-                .buttonStyle(.borderedProminent)
+            Button(action: onBack) {
+                Text("Go Back")
+                    .frame(maxWidth: .infinity)
+                    .padding()
+                    .background(Color.accentColor)
+                    .foregroundColor(.white)
+                    .cornerRadius(10)
+            }
         }
     }
 }

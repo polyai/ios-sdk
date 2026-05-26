@@ -35,7 +35,7 @@ Track the OS network path separately from the SDK's socket and stack a red bar a
 The SDK signal:
 
 ```swift
-session.$connection   // Combine publisher — .connected / .reconnecting / .disconnected / .failed
+session.$connection   // Combine publisher — .idle / .connecting / .open / .closing / .closed / .reconnecting / .failed
 ```
 
 `isOnline` is your own state, sourced from `NWPathMonitor`:
