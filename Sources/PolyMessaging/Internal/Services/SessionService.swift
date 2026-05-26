@@ -44,7 +44,7 @@ actor SessionService {
         self.config = config
         self.logger = logger
         self.sessionTimeoutSeconds = sessionTimeoutSeconds
-        self.store = SessionStore(connectorToken: config.connectorToken)
+        self.store = SessionStore(apiKey: config.apiKey)
         self.state = SessionState(
             sessionId: nil, status: .unknown,
             isReady: false, isLoading: false,
@@ -108,7 +108,7 @@ actor SessionService {
             case .session(.sessionCreationFailed(let code)): code
             default: .unknown
             }
-            let isInvalidConnector = if let code = errorCode {
+            let isInvalidApiKey = if let code = errorCode {
                 Self.connectorValidationErrors.contains(code)
             } else {
                 false
@@ -116,7 +116,7 @@ actor SessionService {
             updateState(SessionState(
                 sessionId: nil, status: .unknown,
                 isReady: false, isLoading: false, error: errorCode,
-                hasInvalidConnectorToken: isInvalidConnector
+                hasInvalidApiKey: isInvalidApiKey
             ))
             throw error
         } catch {
@@ -323,7 +323,7 @@ actor SessionService {
             isReady: state.isReady,
             isLoading: state.isLoading,
             error: nil,
-            hasInvalidConnectorToken: state.hasInvalidConnectorToken
+            hasInvalidApiKey: state.hasInvalidApiKey
         ))
     }
 

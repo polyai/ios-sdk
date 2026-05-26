@@ -3,10 +3,10 @@
 import Foundation
 
 public struct Configuration: Sendable {
-    public let connectorToken: String
+    public let apiKey: String
     public let environment: Environment
     /// When nil, defaults to the app's bundle identifier (e.g. `com.yourcompany.app`).
-    /// Must match the host domain registered in Agent Studio when generating the connector token.
+    /// Must match the host domain registered in Agent Studio when generating the API key.
     public let hostIdentifier: String?
     public let streamingEnabled: Bool
     public let logLevel: LogLevel
@@ -21,7 +21,7 @@ public struct Configuration: Sendable {
     /// still overrides this once the session is established.
     public let maxReconnectAttempts: Int?
     public init(
-        connectorToken: String,
+        apiKey: String,
         environment: Environment,
         hostIdentifier: String? = nil,
         streamingEnabled: Bool = true,
@@ -30,7 +30,7 @@ public struct Configuration: Sendable {
         sessionTimeoutSeconds: Int? = nil,
         maxReconnectAttempts: Int? = nil
     ) {
-        self.connectorToken = connectorToken
+        self.apiKey = apiKey
         self.environment = environment
         self.hostIdentifier = hostIdentifier
         self.streamingEnabled = streamingEnabled

@@ -20,7 +20,7 @@ import XCTest
 @MainActor
 final class LiveMessagingProbeTests: XCTestCase {
 
-    /// Connector token for the live probe. Supply it via the `POLY_LIVE_TOKEN`
+    /// API key for the live probe. Supply it via the `POLY_LIVE_TOKEN`
     /// environment variable when running; defaults to empty otherwise.
     private let devToken = ""
 
@@ -31,7 +31,7 @@ final class LiveMessagingProbeTests: XCTestCase {
         )
 
         let token = ProcessInfo.processInfo.environment["POLY_LIVE_TOKEN"] ?? devToken
-        let session = PolyMessaging.start(.init(connectorToken: token, environment: .dev))
+        let session = PolyMessaging.start(.init(apiKey: token, environment: .dev))
 
         // 1) Agent greets on join.
         let greeted = await waitUntil(session, timeout: 45) { $0.agentMessages.isEmpty == false }

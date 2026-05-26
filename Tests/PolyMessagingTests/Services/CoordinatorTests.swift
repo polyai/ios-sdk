@@ -9,11 +9,11 @@ final class CoordinatorTests: XCTestCase {
         // SessionStore persists in UserDefaults; clear the token-namespaced
         // entry so tests don't see a stored session from a prior test run
         // (which would short-circuit resume() and skip createSession).
-        SessionStore(connectorToken: "test_token").clear()
+        SessionStore(apiKey: "test_token").clear()
 
         let api = MockRestApi()
         let connection = MockConnection()
-        let config = Configuration(connectorToken: "test_token", environment: .dev)
+        let config = Configuration(apiKey: "test_token", environment: .dev)
         let logger = NoopLogger()
 
         let session = SessionService(api: api, config: config, logger: logger)

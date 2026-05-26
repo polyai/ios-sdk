@@ -6,8 +6,8 @@ import CryptoKit
 struct SessionStore: Sendable {
     private static let basePrefix = "ai.poly.messaging."
 
-    /// Per-connector-token namespace. Hash (not the token itself) is appended
-    /// so two `Configuration`s with different tokens don't share session
+    /// Per-API-key namespace. Hash (not the key itself) is appended
+    /// so two `Configuration`s with different keys don't share session
     /// state on disk. Web's SessionStoreAdapter does the same.
     private let tokenNamespace: String
 
@@ -16,10 +16,10 @@ struct SessionStore: Sendable {
         self.tokenNamespace = ""
     }
 
-    init(connectorToken: String) {
+    init(apiKey: String) {
         // SHA-256 truncated to 8 hex chars — collision-resistant enough for
         // local disk isolation and short enough to keep keys readable.
-        let hash = SHA256.hash(data: Data(connectorToken.utf8))
+        let hash = SHA256.hash(data: Data(apiKey.utf8))
         let hex = hash.prefix(4).map { String(format: "%02x", $0) }.joined()
         self.tokenNamespace = hex + "."
     }

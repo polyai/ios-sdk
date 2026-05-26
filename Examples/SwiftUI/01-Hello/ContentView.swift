@@ -21,7 +21,7 @@ struct ContentView: View {
     }
 
     /// `failureReason` is non-nil once the SDK hits a terminal failure it
-    /// can't auto-recover from — most notably an invalid `connectorToken`. We
+    /// can't auto-recover from — most notably an invalid `apiKey`. We
     /// bind it to `.alert` so an obvious "Couldn't connect" dialog appears
     /// instead of letting the app sit silently with an empty message list.
     private var failureAlertBinding: Binding<Bool> {

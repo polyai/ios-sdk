@@ -78,7 +78,7 @@ final class PolyErrorDescriptionTests: XCTestCase {
 
     func testAuthUnauthorizedWording() {
         let s = PolyError.auth(.unauthorized).description
-        XCTAssertTrue(s.contains("token"), s)
+        XCTAssertTrue(s.contains("API key"), s)
         XCTAssertTrue(s.contains("rejected") || s.contains("invalid") || s.contains("Please"), s)
     }
 

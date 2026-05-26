@@ -15,7 +15,7 @@ public final class ChatSession: ObservableObject {
     /// True once the session can exchange messages.
     @Published public private(set) var isReady: Bool = false
     /// Non-nil when the chat has hit a terminal failure it can't auto-recover
-    /// from. Today that covers an invalid connector token rejected during the
+    /// from. Today that covers an invalid API key rejected during the
     /// initial connect, the reconnect budget being exhausted, and an expired
     /// session. UIs typically render this as a full-screen error state with a
     /// manual retry affordance that calls `client.resume()`.
@@ -120,11 +120,11 @@ public final class ChatSession: ObservableObject {
                 guard let self else { return }
                 self.isReady = state.isReady
                 self.applySessionIdChange(state.sessionId)
-                // An invalid connector token rejected during the initial
+                // An invalid API key rejected during the initial
                 // connect throws inside Coordinator.start() and never reaches
                 // connectionStatus.failed. Surface it here so failureReason
                 // remains the single source of truth for terminal failures.
-                if state.hasInvalidConnectorToken {
+                if state.hasInvalidApiKey {
                     self.failureReason = .auth(.unauthorized)
                     self.clearTypingIndicator()
                 }

@@ -100,7 +100,7 @@ public final class PolyMessagingClient: @unchecked Sendable {
         } else {
             resolvedHostId = Bundle.main.bundleIdentifier ?? urls.defaultHostIdentifier
         }
-        let api = RestApi(baseURL: urls.restBaseURL, connectorToken: config.connectorToken, hostIdentifier: resolvedHostId, logger: logger)
+        let api = RestApi(baseURL: urls.restBaseURL, apiKey: config.apiKey, hostIdentifier: resolvedHostId, logger: logger)
         let transport = WebSocketTransport(logger: logger)
         self.transport = transport
 

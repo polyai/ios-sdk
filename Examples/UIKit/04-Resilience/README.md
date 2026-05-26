@@ -12,7 +12,7 @@ open ResilienceUIKit.xcodeproj   # from this folder
 # Cmd+R on an iPhone simulator
 ```
 
-Set your connector token in `AppDelegate.swift` (currently `"YOUR_CONNECTOR_TOKEN"`).
+Set your API key in `AppDelegate.swift` (currently `"YOUR_API_KEY"`).
 
 ## What this example demonstrates
 

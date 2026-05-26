@@ -93,7 +93,7 @@ final class ChatViewController: UIViewController {
             .store(in: &bag)
 
         // `failureReason` is non-nil once the SDK hits a terminal failure it
-        // can't auto-recover from — most notably an invalid `connectorToken`.
+        // can't auto-recover from — most notably an invalid `apiKey`.
         // Show a "Couldn't connect" alert with a Try Again button instead of
         // letting the app sit silently with an empty table view.
         session.$failureReason

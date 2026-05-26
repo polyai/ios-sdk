@@ -8,7 +8,7 @@ struct FullReferenceApp: App {
         // live. ContentView's resume / start-new flows use the no-arg facade
         // (chat(), start(), hasResumableSession()), which reuse this config.
         PolyMessaging.initialize(.init(
-            connectorToken: "YOUR_CONNECTOR_TOKEN",
+            apiKey: "YOUR_API_KEY",
             environment: .dev,
             streamingEnabled: true,
             logLevel: .error

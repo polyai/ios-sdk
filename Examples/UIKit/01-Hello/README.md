@@ -12,7 +12,7 @@ open HelloUIKit.xcodeproj   # from this folder
 # Cmd+R on an iPhone simulator
 ```
 
-Set your connector token in `AppDelegate.swift` (currently `"YOUR_CONNECTOR_TOKEN"`).
+Set your API key in `AppDelegate.swift` (currently `"YOUR_API_KEY"`).
 
 ## What this example demonstrates
 
@@ -35,7 +35,7 @@ Configure the SDK once at launch:
 
 ```swift
 PolyMessaging.initialize(.init(
-    connectorToken: "YOUR_CONNECTOR_TOKEN",  // from Agent Studio → Connector Settings
+    apiKey: "YOUR_API_KEY",  // from Agent Studio → Connector Settings
     environment: .dev                        // .production / .cluster("us-1") / .staging / .dev / .custom(...)
 ))
 ```
@@ -50,7 +50,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
     ) -> Bool {
         PolyMessaging.initialize(.init(
-            connectorToken: "YOUR_CONNECTOR_TOKEN",
+            apiKey: "YOUR_API_KEY",
             environment: .dev
         ))
         return true
@@ -60,7 +60,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
 
 After this, `PolyMessaging.chat()` works from any view controller with no arguments.
 
-**Under the hood:** `initialize` just stashes your connector token and environment process-wide — no network happens yet. The work starts when you call `chat()`.
+**Under the hood:** `initialize` just stashes your API key and environment process-wide — no network happens yet. The work starts when you call `chat()`.
 
 *See [Quick start](../../../README.md#quick-start).*
 
@@ -185,13 +185,13 @@ In a view controller:
 
 *See [Integration guide › The core pattern](../../../README.md#the-core-pattern-render-messages-yourself).*
 
-### Catch a bad connector token — `ChatViewController.swift`
+### Catch a bad API key — `ChatViewController.swift`
 
 Detect a terminal failure + offer retry:
 
 ```swift
 session.$failureReason  // Combine publisher of PolyError? — non-nil when the chat can't auto-recover:
-                        //   invalid connectorToken (initial connect 401/403),
+                        //   invalid apiKey (initial connect 401/403),
                         //   reconnect budget exhausted,
                         //   session expired (idle past sessionTimeoutSeconds, default 10 min)
 
@@ -231,7 +231,7 @@ private func presentFailureAlert(reason: PolyError) {
 
 `String(describing:)` is intentional — `PolyError` doesn't conform to `LocalizedError`, so `.localizedDescription` is the generic "The operation couldn't be completed". `String(describing:)` gives the case name (`auth(unauthorized)`) which is far more useful.
 
-**Under the hood:** `failureReason` is fed by both `client.connectionStatus.failed` (reconnect budget exhausted, session expired) **and** the initial-connect path that catches an unauthorized REST response and flags `sessionState.hasInvalidConnectorToken`. Either way you get a single source of truth for "the chat can't recover from this".
+**Under the hood:** `failureReason` is fed by both `client.connectionStatus.failed` (reconnect budget exhausted, session expired) **and** the initial-connect path that catches an unauthorized REST response and flags `sessionState.hasInvalidApiKey`. Either way you get a single source of truth for "the chat can't recover from this".
 
 *See [Integration guide › Terminal errors](../../../README.md#terminal-errors).*
 

@@ -14,7 +14,7 @@ open PlaygroundUIKit.xcodeproj   # from this folder
 # Cmd+R on an iPhone simulator
 ```
 
-Set your connector token in `AppDelegate.swift` (currently `"YOUR_CONNECTOR_TOKEN"`).
+Set your API key in `AppDelegate.swift` (currently `"YOUR_API_KEY"`).
 
 ## What this example demonstrates
 
@@ -31,7 +31,7 @@ Each subsection leads with **the SDK call(s)** (the actual API), then shows **ho
 
 ### Runtime configuration via `DevSettings` — `Views/SettingsViewController.swift`
 
-`DevSettings` is a **public SDK type** (`Sources/PolyMessaging/Public/DevSettings.swift`) — an `@MainActor open class DevSettings: ObservableObject` backed by `UserDefaults`. Construct it with no arguments after `initialize(_:)`; it reads the connector token from `PolyMessaging.currentConfig` and seeds its environment from there, so it bakes in no credentials. Edit the published knobs live; `buildConfiguration()` folds them into a `Configuration` the SDK consumes on the **next** session.
+`DevSettings` is a **public SDK type** (`Sources/PolyMessaging/Public/DevSettings.swift`) — an `@MainActor open class DevSettings: ObservableObject` backed by `UserDefaults`. Construct it with no arguments after `initialize(_:)`; it reads the API key from `PolyMessaging.currentConfig` and seeds its environment from there, so it bakes in no credentials. Edit the published knobs live; `buildConfiguration()` folds them into a `Configuration` the SDK consumes on the **next** session.
 
 The SDK calls:
 
