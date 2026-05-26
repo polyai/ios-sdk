@@ -794,7 +794,7 @@ Three scenarios catch most real-world breakage:
 
 ## How it works
 
-The SDK implements the [PolyAI Messaging API](https://polyai-docs-messaging-api.mintlify.app/api-reference/messaging/introduction) — a WebSocket protocol — and manages the whole lifecycle: access-token → session → WebSocket → `REQUEST_POLY_AGENT_JOIN` → event exchange, with heartbeat, dedup, and cursor-based replay handled internally.
+The SDK implements the [PolyAI Messaging API](https://docs.poly.ai/api-reference/messaging/introduction) — a WebSocket protocol — and manages the whole lifecycle: access-token → session → WebSocket → `REQUEST_POLY_AGENT_JOIN` → event exchange, with heartbeat, dedup, and cursor-based replay handled internally.
 
 **Two consumer layers on one orchestrator. Both work in SwiftUI and UIKit** (`ChatSession`'s `@Published` properties are Combine, which UIKit consumes via `sink` — the only difference is the binding):
 
