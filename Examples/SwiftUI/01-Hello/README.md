@@ -52,6 +52,36 @@ List(session.messages) { message in
 
 *See [Build your own UI › The core pattern](../../../README.md#the-core-pattern-render-messages-yourself).*
 
+### Scroll as the agent types — `ContentView.swift`
+
+Streaming grows the last agent message's `text` in place — `messages.count` doesn't change, so a single `.onChange(of: messages.count)` isn't enough. The list is wrapped in a `ScrollViewReader` with a `Color.clear.id("bottom")` sentinel; we scroll to it on **two** signals: a new message arrives, *and* the last message's text length changes.
+
+```swift
+ScrollViewReader { proxy in
+    ScrollView {
+        LazyVStack(alignment: .leading, spacing: 8) {
+            ForEach(session.messages) { message in
+                Text(message.text ?? "")
+                    .padding(10).background(Color(.systemGray6)).cornerRadius(12)
+            }
+            Color.clear.frame(height: 1).id("bottom")
+        }
+        .padding()
+    }
+    .onChange(of: session.messages.count) { _ in
+        withAnimation { proxy.scrollTo("bottom", anchor: .bottom) }
+    }
+    // Streaming grows the last bubble's text without changing messages.count.
+    .onChange(of: session.messages.last?.text ?? "") { _ in
+        withAnimation { proxy.scrollTo("bottom", anchor: .bottom) }
+    }
+}
+```
+
+**Under the hood:** because `streamingEnabled` is `true` by default, `ChatSession` extends the last `.agent` message's `text` on every chunk and re-publishes `messages`. SwiftUI re-evaluates the `Text(message.text ?? "")` and re-fires `.onChange(of: messages.last?.text)` — the scroll tracks the reply as it grows.
+
+*See [Build your own UI › Streaming](../../../README.md#streaming).*
+
 ### Send a message — `ContentView.swift`
 
 ```swift

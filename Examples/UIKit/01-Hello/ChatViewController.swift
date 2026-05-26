@@ -132,7 +132,22 @@ final class ChatViewController: UIViewController {
         if !toReconfigure.isEmpty {
             snapshot.reconfigureItems(toReconfigure)
         }
-        dataSource.apply(snapshot, animatingDifferences: true)
+        // The completion handler fires after every apply — including the
+        // reconfigureItems case the streaming text-growth path hits — so the
+        // table follows the growing bubble as the agent types.
+        dataSource.apply(snapshot, animatingDifferences: true) { [weak self] in
+            self?.scrollToBottom(animated: true)
+        }
+    }
+
+    private func scrollToBottom(animated: Bool) {
+        // layoutIfNeeded lets the just-reconfigured cell expand to its new
+        // height before we ask for the bottom row's position.
+        tableView.layoutIfNeeded()
+        let count = tableView.numberOfRows(inSection: 0)
+        guard count > 0 else { return }
+        tableView.scrollToRow(at: IndexPath(row: count - 1, section: 0),
+                              at: .bottom, animated: animated)
     }
 
     @IBAction func sendTapped(_ sender: Any) {

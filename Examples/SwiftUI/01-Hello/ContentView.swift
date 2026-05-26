@@ -31,10 +31,33 @@ struct ContentView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            List(session.messages) { message in
-                Text(message.text ?? "")
+            // ScrollViewReader gives us scrollTo(id:); the ".id("bottom")"
+            // sentinel at the end of the LazyVStack is the anchor we scroll to
+            // on every message change AND on every text-length change (so the
+            // view tracks the growing bubble while streaming).
+            ScrollViewReader { proxy in
+                ScrollView {
+                    LazyVStack(alignment: .leading, spacing: 8) {
+                        ForEach(session.messages) { message in
+                            Text(message.text ?? "")
+                                .padding(10)
+                                .background(Color(.systemGray6))
+                                .cornerRadius(12)
+                        }
+                        Color.clear.frame(height: 1).id("bottom")
+                    }
+                    .padding()
+                }
+                .accessibilityIdentifier("messageList")
+                .onChange(of: session.messages.count) { _ in
+                    withAnimation { proxy.scrollTo("bottom", anchor: .bottom) }
+                }
+                // Streaming grows the last agent message's text in place
+                // (messages.count doesn't change), so also follow its length.
+                .onChange(of: session.messages.last?.text ?? "") { _ in
+                    withAnimation { proxy.scrollTo("bottom", anchor: .bottom) }
+                }
             }
-            .accessibilityIdentifier("messageList")
 
             HStack(spacing: 12) {
                 TextField("Message...", text: $input)
