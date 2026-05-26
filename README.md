@@ -355,17 +355,21 @@ ScrollView {
 ```
 
 ```swift
-// UIKit — sink `messages` once (e.g. inside viewDidLoad after laying out your table),
-// then implement UITableViewDataSource against `session.messages`.
+// UIKit — re-render whenever the SDK updates the transcript.
+override func viewDidLoad() {
+    super.viewDidLoad()
+    // ...your existing setup (register cell, set dataSource, layout)...
 
-// In viewDidLoad — re-render whenever the SDK updates the transcript.
-session.$messages
-    .receive(on: RunLoop.main)
-    .sink { [weak self] _ in self?.tableView.reloadData() }
-    .store(in: &bag)
+    session.$messages
+        .receive(on: RunLoop.main)
+        .sink { [weak self] _ in self?.tableView.reloadData() }
+        .store(in: &bag)
+}
 
-// In your UITableViewDataSource conformance.
-func tableView(_ t: UITableView, numberOfRowsInSection s: Int) -> Int { session.messages.count }
+// UIKit — UITableViewDataSource methods.
+func tableView(_ t: UITableView, numberOfRowsInSection s: Int) -> Int {
+    session.messages.count
+}
 
 func tableView(_ t: UITableView, cellForRowAt i: IndexPath) -> UITableViewCell {
     let cell = t.dequeueReusableCell(withIdentifier: "cell", for: i)
@@ -453,15 +457,20 @@ if session.failureReason != nil {
 }
 ```
 ```swift
-// UIKit — sink in viewDidLoad. `reconnectBanner` is your own UILabel/UIView;
-// `showRetry` is your own helper that surfaces a retry CTA.
-session.$connection
-    .receive(on: RunLoop.main)
-    .sink { [weak self] status in
-        self?.reconnectBanner.isHidden = !status.isReconnecting
-        if status.isFailed { self?.showRetry { Task { try? await self?.session.client.resume() } } }
-    }
-    .store(in: &bag)
+// UIKit — `reconnectBanner` is your own UILabel/UIView; `showRetry` is your
+// own helper that surfaces a retry CTA.
+override func viewDidLoad() {
+    super.viewDidLoad()
+    // ...your existing setup...
+
+    session.$connection
+        .receive(on: RunLoop.main)
+        .sink { [weak self] status in
+            self?.reconnectBanner.isHidden = !status.isReconnecting
+            if status.isFailed { self?.showRetry { Task { try? await self?.session.client.resume() } } }
+        }
+        .store(in: &bag)
+}
 ```
 *Example app:* [02-Standard (SwiftUI)](Examples/SwiftUI/02-Standard/) · [02-Standard (UIKit)](Examples/UIKit/02-Standard/)
 
@@ -482,15 +491,20 @@ if let reason = session.failureReason {
 }
 ```
 ```swift
-// UIKit — sink in viewDidLoad. `errorView` / `errorLabel` are your own views.
-// Wire the retry button's action to: Task { try? await session.client.resume() }.
-session.$failureReason
-    .receive(on: RunLoop.main)
-    .sink { [weak self] reason in
-        self?.errorView.isHidden = (reason == nil)
-        self?.errorLabel.text = reason.map { String(describing: $0) }
-    }
-    .store(in: &bag)
+// UIKit — `errorView` / `errorLabel` are your own views. Wire the retry
+// button's action to: Task { try? await session.client.resume() }.
+override func viewDidLoad() {
+    super.viewDidLoad()
+    // ...your existing setup...
+
+    session.$failureReason
+        .receive(on: RunLoop.main)
+        .sink { [weak self] reason in
+            self?.errorView.isHidden = (reason == nil)
+            self?.errorLabel.text = reason.map { String(describing: $0) }
+        }
+        .store(in: &bag)
+}
 ```
 *Example app:* [04-Resilience (SwiftUI)](Examples/SwiftUI/04-Resilience/) · [04-Resilience (UIKit)](Examples/UIKit/04-Resilience/) (full-screen `TerminalErrorScreen`) · [06-FullReference (SwiftUI)](Examples/SwiftUI/06-FullReference/) · [06-FullReference (UIKit)](Examples/UIKit/06-FullReference/) (in a screen state machine)
 
@@ -505,12 +519,22 @@ if !session.isReady && session.messages.isEmpty {
 }
 ```
 ```swift
-// UIKit — call this from a Combine sink on session.$isReady / $messages,
-// or from your render(_:) on every refresh. `spinner` is your own UIActivityIndicatorView.
-let showSpinner = !session.isReady && session.messages.isEmpty
-spinner.isHidden = !showSpinner
-showSpinner ? spinner.startAnimating() : spinner.stopAnimating()
-tableView.isHidden = showSpinner
+// UIKit — `spinner` is your own UIActivityIndicatorView.
+override func viewDidLoad() {
+    super.viewDidLoad()
+    // ...your existing setup (add spinner to view, etc.)...
+
+    // Re-check the loading state whenever either signal changes.
+    Publishers.CombineLatest(session.$isReady, session.$messages)
+        .receive(on: RunLoop.main)
+        .sink { [weak self] ready, messages in
+            let showSpinner = !ready && messages.isEmpty
+            self?.spinner.isHidden = !showSpinner
+            showSpinner ? self?.spinner.startAnimating() : self?.spinner.stopAnimating()
+            self?.tableView.isHidden = showSpinner
+        }
+        .store(in: &bag)
+}
 ```
 *Example app:* [04-Resilience (SwiftUI)](Examples/SwiftUI/04-Resilience/) · [04-Resilience (UIKit)](Examples/UIKit/04-Resilience/)
 
@@ -534,15 +558,21 @@ VStack(alignment: .trailing, spacing: 2) {
 }
 ```
 ```swift
-// UIKit — call from your cell-configuration code (the .user branch in
-// tableView(_:cellForRowAt:)). `statusLabel` is your own UILabel on the cell.
-switch m.delivery {
-case .pending: statusLabel.text = "Sending…"
-case .sent:    statusLabel.isHidden = true
-case .failed:  statusLabel.text = "Tap to retry"
+// UIKit — `statusLabel` is your own UILabel on the cell; `cell` is whatever
+// custom UITableViewCell you cast to in the .user branch.
+func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
+    let cell = tableView.dequeueReusableCell(withIdentifier: "cell", for: indexPath)
+    if case .user(let m) = session.messages[indexPath.row] {
+        switch m.delivery {
+        case .pending: statusLabel.text = "Sending…"
+        case .sent:    statusLabel.isHidden = true
+        case .failed:  statusLabel.text = "Tap to retry"
+        }
+    }
+    return cell
 }
 
-// And the retry handler — wire it to the cell's tap or a dedicated retry button.
+// Wire this to the cell's tap or a dedicated retry button.
 func retry(_ m: UserMessage) {
     session.removeMessage(draftId: m.draftId)
     Task { try? await session.send(m.text) }
@@ -564,16 +594,20 @@ TextField("Message", text: $text)
     .onChange(of: text) { _ in Task { await session.sendTyping() } }
 ```
 ```swift
-// UIKit — sink in viewDidLoad. `typingLabel` is your own UILabel; the
-// `inputField.addAction` line is the composer keystroke hook.
-session.$isAgentTyping
-    .receive(on: RunLoop.main)
-    .sink { [weak self] typing in self?.typingLabel.isHidden = !typing }
-    .store(in: &bag)
+// UIKit — `typingLabel` is your own UILabel; `inputField` is your composer.
+override func viewDidLoad() {
+    super.viewDidLoad()
+    // ...your existing setup...
 
-inputField.addAction(UIAction { [weak self] _ in
-    Task { await self?.session.sendTyping() }
-}, for: .editingChanged)
+    session.$isAgentTyping
+        .receive(on: RunLoop.main)
+        .sink { [weak self] typing in self?.typingLabel.isHidden = !typing }
+        .store(in: &bag)
+
+    inputField.addAction(UIAction { [weak self] _ in
+        Task { await self?.session.sendTyping() }
+    }, for: .editingChanged)
+}
 ```
 *Example app:* [02-Standard (SwiftUI)](Examples/SwiftUI/02-Standard/) · [02-Standard (UIKit)](Examples/UIKit/02-Standard/)
 
@@ -599,16 +633,25 @@ if case .agent(let agent) = message, message.id == session.messages.last?.id,
 }
 ```
 ```swift
-// UIKit — call from cell configuration when this is the last agent row.
-// `suggestionsStack` is a UIStackView (axis=.horizontal) on/under the cell.
-for suggestion in agent.suggestions {
-    let button = UIButton(type: .system)
-    button.setTitle(suggestion.messageText, for: .normal)
-    button.addAction(UIAction { [weak self] _ in
-        self?.session.clearSuggestions(for: message.id)
-        Task { try? await self?.session.send(suggestion.messageText) }
-    }, for: .touchUpInside)
-    suggestionsStack.addArrangedSubview(button)
+// UIKit — `suggestionsStack` is your own UIStackView (axis=.horizontal) on/under
+// the cell. Gate on "is this the last agent message?" before calling.
+func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
+    let cell = tableView.dequeueReusableCell(withIdentifier: "cell", for: indexPath)
+    let message = session.messages[indexPath.row]
+    if case .agent(let agent) = message,
+       message.id == session.messages.last?.id,
+       !agent.suggestions.isEmpty {
+        for suggestion in agent.suggestions {
+            let button = UIButton(type: .system)
+            button.setTitle(suggestion.messageText, for: .normal)
+            button.addAction(UIAction { [weak self] _ in
+                self?.session.clearSuggestions(for: message.id)
+                Task { try? await self?.session.send(suggestion.messageText) }
+            }, for: .touchUpInside)
+            suggestionsStack.addArrangedSubview(button)
+        }
+    }
+    return cell
 }
 ```
 *Example app:* [02-Standard (SwiftUI)](Examples/SwiftUI/02-Standard/) · [02-Standard (UIKit)](Examples/UIKit/02-Standard/)
@@ -627,12 +670,18 @@ if let attributed = try? AttributedString(markdown: m.text, options: opts) {
 }
 ```
 ```swift
-// UIKit — call from cell configuration. `textView` is your own UITextView
-// (NOT a UILabel — labels render Markdown links visually but don't make them tappable).
-let opts = AttributedString.MarkdownParsingOptions(interpretedSyntax: .inlineOnlyPreservingWhitespace)
-textView.attributedText = (try? AttributedString(markdown: m.text, options: opts)).map(NSAttributedString.init)
-textView.isEditable = false
-textView.isScrollEnabled = false   // self-sizes in the cell
+// UIKit — `textView` is your own UITextView on the cell (NOT a UILabel —
+// labels render Markdown links visually but don't make them tappable).
+func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
+    let cell = tableView.dequeueReusableCell(withIdentifier: "cell", for: indexPath)
+    if case .agent(let m) = session.messages[indexPath.row] {
+        let opts = AttributedString.MarkdownParsingOptions(interpretedSyntax: .inlineOnlyPreservingWhitespace)
+        textView.attributedText = (try? AttributedString(markdown: m.text, options: opts)).map(NSAttributedString.init)
+        textView.isEditable = false
+        textView.isScrollEnabled = false   // self-sizes in the cell
+    }
+    return cell
+}
 ```
 > `AttributedString(markdown:)` doesn't linkify *bare* URLs — add a regex pass if your agent sends them, and be tolerant of half-open Markdown during progressive streaming.
 
@@ -675,30 +724,36 @@ ForEach(m.callActions) { action in
 }
 ```
 ```swift
-// UIKit — call from your cell configuration. `imageStack` / `callsStack` are
-// your own UIStackViews on the cell.
-for att in m.attachments where att.contentType == .image {
-    let iv = UIImageView()
-    iv.contentMode = .scaleAspectFill
-    iv.clipsToBounds = true
-    // Load image yourself — URLSession + assignment on the main queue is enough.
-    if let url = att.contentUrl {
-        URLSession.shared.dataTask(with: url) { data, _, _ in
-            guard let data, let image = UIImage(data: data) else { return }
-            DispatchQueue.main.async { iv.image = image }
-        }.resume()
-    }
-    imageStack.addArrangedSubview(iv)
-}
+// UIKit — `imageStack` / `callsStack` are your own UIStackViews on the cell.
+func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
+    let cell = tableView.dequeueReusableCell(withIdentifier: "cell", for: indexPath)
+    guard case .agent(let m) = session.messages[indexPath.row] else { return cell }
 
-for action in m.callActions {
-    let button = UIButton(type: .system)
-    button.setTitle("\(action.title) · \(action.contactNumber)", for: .normal)
-    button.addAction(UIAction { _ in
-        let digits = action.contactNumber.filter { $0.isNumber || $0 == "+" }
-        if let url = URL(string: "tel:\(digits)") { UIApplication.shared.open(url) }
-    }, for: .touchUpInside)
-    callsStack.addArrangedSubview(button)
+    for att in m.attachments where att.contentType == .image {
+        let iv = UIImageView()
+        iv.contentMode = .scaleAspectFill
+        iv.clipsToBounds = true
+        // Load image yourself — URLSession + assignment on the main queue is enough.
+        if let url = att.contentUrl {
+            URLSession.shared.dataTask(with: url) { data, _, _ in
+                guard let data, let image = UIImage(data: data) else { return }
+                DispatchQueue.main.async { iv.image = image }
+            }.resume()
+        }
+        imageStack.addArrangedSubview(iv)
+    }
+
+    for action in m.callActions {
+        let button = UIButton(type: .system)
+        button.setTitle("\(action.title) · \(action.contactNumber)", for: .normal)
+        button.addAction(UIAction { _ in
+            let digits = action.contactNumber.filter { $0.isNumber || $0 == "+" }
+            if let url = URL(string: "tel:\(digits)") { UIApplication.shared.open(url) }
+        }, for: .touchUpInside)
+        callsStack.addArrangedSubview(button)
+    }
+
+    return cell
 }
 ```
 
@@ -720,11 +775,16 @@ Text(m.text).padding(10)
     .background(isLive ? Color.teal.opacity(0.18) : Color(.systemGray5))
 ```
 ```swift
-// UIKit — call from cell configuration for the .agent branch.
-// `bubble` / `nameLabel` are your own UIView / UILabel on the cell.
-let isLive = (m.agentKind == .live)
-bubble.backgroundColor = isLive ? UIColor.systemTeal.withAlphaComponent(0.18) : .systemGray5
-nameLabel.text = isLive ? "\(m.agentName ?? "Agent") · live agent" : m.agentName
+// UIKit — `bubble` / `nameLabel` are your own UIView / UILabel on the cell.
+func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
+    let cell = tableView.dequeueReusableCell(withIdentifier: "cell", for: indexPath)
+    if case .agent(let m) = session.messages[indexPath.row] {
+        let isLive = (m.agentKind == .live)
+        bubble.backgroundColor = isLive ? UIColor.systemTeal.withAlphaComponent(0.18) : .systemGray5
+        nameLabel.text = isLive ? "\(m.agentName ?? "Agent") · live agent" : m.agentName
+    }
+    return cell
+}
 ```
 `.liveAgentLeft` is terminal (the SDK flips `hasEnded`). To deep-link a handoff route, observe [`client.events`](#side-effects-clientevents).
 
@@ -739,9 +799,14 @@ Text(message.timestamp, style: .time)               // e.g. "3:42 PM"
     .font(.caption2).foregroundStyle(.secondary)
 ```
 ```swift
-// UIKit — call from cell configuration. `timeLabel` is your own UILabel on the cell.
-let f = DateFormatter(); f.timeStyle = .short
-timeLabel.text = f.string(from: message.timestamp)
+// UIKit — `timeLabel` is your own UILabel on the cell.
+func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
+    let cell = tableView.dequeueReusableCell(withIdentifier: "cell", for: indexPath)
+    let message = session.messages[indexPath.row]
+    let f = DateFormatter(); f.timeStyle = .short
+    timeLabel.text = f.string(from: message.timestamp)
+    return cell
+}
 ```
 For a date-grouped separator row (when the gap between consecutive messages crosses a date boundary, insert a row with the date), see the playground.
 
@@ -762,16 +827,25 @@ AsyncImage(url: m.avatarUrl) { $0.resizable().scaledToFill() } placeholder: { Co
 ScrollView { /* messages */ }.scrollDismissesKeyboard(.interactively)   // iOS 16+
 ```
 ```swift
-// UIKit — the URLSession block goes in cell configuration (`avatarView` is your
-// own UIImageView on the cell). The keyboardLayoutGuide constraint replaces
-// your input bar's bottom safe-area pin in viewDidLoad / Auto Layout setup.
-if let url = m.avatarUrl {
-    URLSession.shared.dataTask(with: url) { data, _, _ in
-        guard let data, let image = UIImage(data: data) else { return }
-        DispatchQueue.main.async { avatarView.image = image }
-    }.resume()
+// UIKit — `avatarView` is your own UIImageView on the cell.
+func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
+    let cell = tableView.dequeueReusableCell(withIdentifier: "cell", for: indexPath)
+    if case .agent(let m) = session.messages[indexPath.row], let url = m.avatarUrl {
+        URLSession.shared.dataTask(with: url) { data, _, _ in
+            guard let data, let image = UIImage(data: data) else { return }
+            DispatchQueue.main.async { avatarView.image = image }
+        }.resume()
+    }
+    return cell
 }
-inputBar.bottomAnchor.constraint(equalTo: view.keyboardLayoutGuide.topAnchor).isActive = true
+
+// And the keyboard pin — replaces your input bar's bottom safe-area constraint.
+override func viewDidLoad() {
+    super.viewDidLoad()
+    // ...your existing layout...
+
+    inputBar.bottomAnchor.constraint(equalTo: view.keyboardLayoutGuide.topAnchor).isActive = true
+}
 ```
 *Example app:* [05-Handoff (SwiftUI)](Examples/SwiftUI/05-Handoff/) · [05-Handoff (UIKit)](Examples/UIKit/05-Handoff/)
 
@@ -780,20 +854,49 @@ inputBar.bottomAnchor.constraint(equalTo: view.keyboardLayoutGuide.topAnchor).is
 Rendering reads `messages`. For **imperative reactions** — navigate, play a haptic, log analytics — observe the typed event stream instead. (This is the lower-level API `ChatSession` is built on; reach for it only for side effects.)
 
 ```swift
-// SwiftUI — drop inside a .task { } on your chat view.
-// UIKit — drop inside a Task you store in viewDidLoad and cancel in deinit.
-for await event in session.client.events {
-    switch event {
-    case .liveAgentJoined(_, let agent):
-        haptics.success(); analytics.track("handoff", agent.agentName)
-    case .clientHandoffRequired(_, let payload):
-        if let route = payload.route, let url = URL(string: route) { UIApplication.shared.open(url) }
-    case .sessionEnd:
-        analytics.track("chat_ended")
-    default:
-        break
+// SwiftUI — attach to your chat view; the Task is cancelled when the view goes away.
+ContentView()
+    .task {
+        for await event in session.client.events {
+            switch event {
+            case .liveAgentJoined(_, let agent):
+                haptics.success(); analytics.track("handoff", agent.agentName)
+            case .clientHandoffRequired(_, let payload):
+                if let route = payload.route, let url = URL(string: route) { UIApplication.shared.open(url) }
+            case .sessionEnd:
+                analytics.track("chat_ended")
+            default:
+                break
+            }
+        }
+    }
+```
+```swift
+// UIKit — store the Task as a property and cancel it in deinit.
+private var eventsTask: Task<Void, Never>?
+
+override func viewDidLoad() {
+    super.viewDidLoad()
+    // ...your existing setup...
+
+    eventsTask = Task { [weak self] in
+        guard let self else { return }
+        for await event in session.client.events {
+            switch event {
+            case .liveAgentJoined(_, let agent):
+                haptics.success(); analytics.track("handoff", agent.agentName)
+            case .clientHandoffRequired(_, let payload):
+                if let route = payload.route, let url = URL(string: route) { UIApplication.shared.open(url) }
+            case .sessionEnd:
+                analytics.track("chat_ended")
+            default:
+                break
+            }
+        }
     }
 }
+
+deinit { eventsTask?.cancel() }
 ```
 
 > Tie the `Task` to your view's lifecycle (SwiftUI `.task { }`, or cancel in `deinit`). Subscribe **before** sending — `events` is lazy-start.
