@@ -24,6 +24,12 @@ permissions:
 jobs:
   release-please:
     runs-on: ubuntu-latest
+    # `googleapis/release-please-action@v4` still ships with Node.js 20, which the
+    # runner deprecates June 2 2026 and removes Sept 16 2026. Opt into Node 24
+    # now so the warning clears today and the workflow keeps running past Sept;
+    # drop this once the action publishes a Node-24 release we can pin to.
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
     steps:
       - uses: googleapis/release-please-action@v4
         with:
