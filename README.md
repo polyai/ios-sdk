@@ -328,43 +328,43 @@ A user-initiated `end()` flips `hasEnded` with no "conversation ended" pill; an 
 `messages` is `[ChatMessage]`, where `ChatMessage` is an enum — `.user(UserMessage)`, `.agent(AgentMessage)`, `.system(SystemMessage)`, each `Identifiable`. **Every chat UI is the same shape: iterate `messages` and `switch` over the case.** This one pattern renders *everything* — text, agent vs user, system pills, handoff, live agents.
 
 ```swift
-// SwiftUI — the whole transcript, your own bubbles. Re-renders automatically
-// whenever @Published `messages` changes (new message, delivery update, stream growth).
-struct ChatView: View {
-    @StateObject var session = PolyMessaging.chat()
-
-    var body: some View {
-        ScrollView {
-            LazyVStack(alignment: .leading, spacing: 8) {
-                ForEach(session.messages) { message in
-                    switch message {
-                    case .user(let m):
-                        Text(m.text)                                  // your sent bubble
-                            .padding(10).background(.blue).foregroundColor(.white)
-                            .frame(maxWidth: .infinity, alignment: .trailing)
-                    case .agent(let m):
-                        Text(m.text)                                  // agent bubble; tint live humans
-                            .padding(10)
-                            .background(m.agentKind == .live ? Color.teal.opacity(0.18) : Color(.systemGray5))
-                    case .system(let m):
-                        Text(systemLabel(m.event))                    // centered status pill
-                            .font(.caption).foregroundStyle(.secondary)
-                            .frame(maxWidth: .infinity, alignment: .center)
-                    }
-                }
-            }.padding()
+// SwiftUI — drop this inside your ContentView's `var body: some View`.
+// Re-renders automatically whenever the SDK updates `messages` (new message,
+// delivery update, streaming text growth).
+ScrollView {
+    LazyVStack(alignment: .leading, spacing: 8) {
+        ForEach(session.messages) { message in
+            switch message {
+            case .user(let m):
+                Text(m.text)                                  // your sent bubble
+                    .padding(10).background(.blue).foregroundColor(.white)
+                    .frame(maxWidth: .infinity, alignment: .trailing)
+            case .agent(let m):
+                Text(m.text)                                  // agent bubble; tint live humans
+                    .padding(10)
+                    .background(m.agentKind == .live ? Color.teal.opacity(0.18) : Color(.systemGray5))
+            case .system(let m):
+                Text(systemLabel(m.event))                    // centered status pill
+                    .font(.caption).foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .center)
+            }
         }
     }
+    .padding()
 }
 ```
 
 ```swift
-// UIKit — sink `messages`, reload, and switch in cellForRowAt. Same shape.
+// UIKit — sink `messages` once (e.g. inside viewDidLoad after laying out your table),
+// then implement UITableViewDataSource against `session.messages`.
+
+// In viewDidLoad — re-render whenever the SDK updates the transcript.
 session.$messages
     .receive(on: RunLoop.main)
     .sink { [weak self] _ in self?.tableView.reloadData() }
     .store(in: &bag)
 
+// In your UITableViewDataSource conformance.
 func tableView(_ t: UITableView, numberOfRowsInSection s: Int) -> Int { session.messages.count }
 
 func tableView(_ t: UITableView, cellForRowAt i: IndexPath) -> UITableViewCell {
@@ -389,6 +389,8 @@ func tableView(_ t: UITableView, cellForRowAt i: IndexPath) -> UITableViewCell {
 `SystemEvent` is what your `systemLabel(_:)` switches on:
 
 ```swift
+// A free helper — paste alongside your ContentView / ViewController.
+// Used by both snippets above to label `.system` cases.
 func systemLabel(_ event: SystemEvent) -> String {
     switch event {
     case .handoffStarted:                    return "Transferring you to an agent…"
@@ -407,8 +409,6 @@ func systemLabel(_ event: SystemEvent) -> String {
 That's the foundation. The rest of this section is just *which field or case* each feature uses.
 
 ## Adding each feature
-
-Each feature is data already on `ChatSession`. For each: the data, a vanilla **SwiftUI** snippet, a vanilla **UIKit** snippet, and the **example app** that ties it all together end-to-end. The SDK ships no views — these snippets use only stock SwiftUI / UIKit primitives + the public SDK types from [the core pattern](#the-core-pattern-render-messages-yourself).
 
 ### Streaming
 The agent's reply arrives as a sequence of chunks. `ChatSession` reassembles them for you and updates `messages` — you never touch chunks directly. You only choose **how a reply appears**, with **one** switch.
@@ -443,7 +443,7 @@ Either way, your render code — the `switch` over `messages` from [the core pat
 **Data:** `session.connection` — show a banner only while `.reconnecting` (drops go `.open → .reconnecting(n) → .open`, no `.closed` flash). `session.failureReason` is terminal — offer `client.resume()`. Use `isConnected` / `isReconnecting` / `isFailed` (full list under [Connection states](#connection-states)).
 
 ```swift
-// SwiftUI
+// SwiftUI — drop into your ContentView body, above the message list.
 if case .reconnecting = session.connection {
     Text("Reconnecting…").font(.caption)
         .frame(maxWidth: .infinity).padding(6).background(.yellow.opacity(0.15))
@@ -453,7 +453,8 @@ if session.failureReason != nil {
 }
 ```
 ```swift
-// UIKit
+// UIKit — sink in viewDidLoad. `reconnectBanner` is your own UILabel/UIView;
+// `showRetry` is your own helper that surfaces a retry CTA.
 session.$connection
     .receive(on: RunLoop.main)
     .sink { [weak self] status in
@@ -470,7 +471,8 @@ session.$connection
 **Data:** `session.failureReason` (non-nil whenever the chat hits a terminal failure it can't auto-recover from — an invalid `connectorToken` rejected at the initial connect, the reconnect budget exhausted, or the session expiring. The one state that needs the user). `PolyError` isn't `LocalizedError`, so use `String(describing: reason)`, not `.localizedDescription`.
 
 ```swift
-// SwiftUI — full-screen error + retry
+// SwiftUI — drop into your ContentView body as a full-screen replacement
+// (e.g. inside a ZStack on top of the chat, or behind an `if` at the root).
 if let reason = session.failureReason {
     VStack(spacing: 12) {
         Text("Connection lost").font(.headline)
@@ -480,7 +482,8 @@ if let reason = session.failureReason {
 }
 ```
 ```swift
-// UIKit
+// UIKit — sink in viewDidLoad. `errorView` / `errorLabel` are your own views.
+// Wire the retry button's action to: Task { try? await session.client.resume() }.
 session.$failureReason
     .receive(on: RunLoop.main)
     .sink { [weak self] reason in
@@ -488,7 +491,6 @@ session.$failureReason
         self?.errorLabel.text = reason.map { String(describing: $0) }
     }
     .store(in: &bag)
-// retry button → Task { try? await session.client.resume() }
 ```
 *Example app:* [04-Resilience (SwiftUI)](Examples/SwiftUI/04-Resilience/) · [04-Resilience (UIKit)](Examples/UIKit/04-Resilience/) (full-screen `TerminalErrorScreen`) · [06-FullReference (SwiftUI)](Examples/SwiftUI/06-FullReference/) · [06-FullReference (UIKit)](Examples/UIKit/06-FullReference/) (in a screen state machine)
 
@@ -496,13 +498,15 @@ session.$failureReason
 **Data:** `isReady` (false until connected) + `messages.isEmpty`. Show a skeleton until the first messages arrive, then swap to the transcript.
 
 ```swift
-// SwiftUI — stock spinner; swap for shimmer/skeleton placeholders if you prefer
+// SwiftUI — drop into your ContentView body, in place of (or above) the
+// message list. Stock spinner; swap for a shimmer/skeleton if you prefer.
 if !session.isReady && session.messages.isEmpty {
     ProgressView("Connecting…")
 }
 ```
 ```swift
-// UIKit
+// UIKit — call this from a Combine sink on session.$isReady / $messages,
+// or from your render(_:) on every refresh. `spinner` is your own UIActivityIndicatorView.
 let showSpinner = !session.isReady && session.messages.isEmpty
 spinner.isHidden = !showSpinner
 showSpinner ? spinner.startAnimating() : spinner.stopAnimating()
@@ -514,7 +518,8 @@ tableView.isHidden = showSpinner
 **Data:** `UserMessage.delivery` is a `Delivery` enum (`.pending` → `.sent` → `.failed`). Restyle the bubble per state; on `.failed`, drop the draft with `removeMessage(draftId:)` then re-send so you don't duplicate. Tip: delay the "Sending…" label ~500 ms so fast confirmations don't flash it.
 
 ```swift
-// SwiftUI — your user bubble (in the .user case of the core pattern)
+// SwiftUI — replace the `.user` branch of your bubble switch (see core pattern).
+// `m` is the unwrapped UserMessage.
 VStack(alignment: .trailing, spacing: 2) {
     Text(m.text).padding(10)
         .background(m.delivery == .failed ? Color.red.opacity(0.15) : .blue)
@@ -529,13 +534,15 @@ VStack(alignment: .trailing, spacing: 2) {
 }
 ```
 ```swift
-// UIKit — style the cell by delivery, and wire the retry button to:
+// UIKit — call from your cell-configuration code (the .user branch in
+// tableView(_:cellForRowAt:)). `statusLabel` is your own UILabel on the cell.
 switch m.delivery {
 case .pending: statusLabel.text = "Sending…"
 case .sent:    statusLabel.isHidden = true
 case .failed:  statusLabel.text = "Tap to retry"
 }
 
+// And the retry handler — wire it to the cell's tap or a dedicated retry button.
 func retry(_ m: UserMessage) {
     session.removeMessage(draftId: m.draftId)
     Task { try? await session.send(m.text) }
@@ -547,7 +554,8 @@ func retry(_ m: UserMessage) {
 **Data:** `isAgentTyping` (+ `agentAvatarUrl`) shows the dots; call `sendTyping()` on every keystroke to tell the agent — throttled, auto-STOPPED after 5 s idle, and `isAgentTyping` clears on the next agent message.
 
 ```swift
-// SwiftUI
+// SwiftUI — drop the indicator under your message list; the onChange goes on
+// your composer TextField.
 if session.isAgentTyping {
     Text("typing…").font(.caption).foregroundStyle(.secondary)
 }
@@ -556,7 +564,8 @@ TextField("Message", text: $text)
     .onChange(of: text) { _ in Task { await session.sendTyping() } }
 ```
 ```swift
-// UIKit
+// UIKit — sink in viewDidLoad. `typingLabel` is your own UILabel; the
+// `inputField.addAction` line is the composer keystroke hook.
 session.$isAgentTyping
     .receive(on: RunLoop.main)
     .sink { [weak self] typing in self?.typingLabel.isHidden = !typing }
@@ -572,7 +581,8 @@ inputField.addAction(UIAction { [weak self] _ in
 **Data:** `AgentMessage.suggestions` (`[ResponseSuggestion]`, agent-only). Render under the last message; on tap, clear then send. Only the latest agent message shows pills, and they scroll away with history.
 
 ```swift
-// SwiftUI — under the last agent message
+// SwiftUI — drop inside your message ForEach (or your bubble subview),
+// gated on "is this the last message?".
 if case .agent(let agent) = message, message.id == session.messages.last?.id,
    !agent.suggestions.isEmpty {
     ScrollView(.horizontal, showsIndicators: false) {
@@ -589,7 +599,8 @@ if case .agent(let agent) = message, message.id == session.messages.last?.id,
 }
 ```
 ```swift
-// UIKit — horizontal stack of UIButtons in a stack view under the last agent cell
+// UIKit — call from cell configuration when this is the last agent row.
+// `suggestionsStack` is a UIStackView (axis=.horizontal) on/under the cell.
 for suggestion in agent.suggestions {
     let button = UIButton(type: .system)
     button.setTitle(suggestion.messageText, for: .normal)
@@ -606,7 +617,8 @@ for suggestion in agent.suggestions {
 **Data:** `AgentMessage.text` is Markdown — `**bold**`, `*italic*`, `` `code` ``, `[links](https://…)`.
 
 ```swift
-// SwiftUI — Text takes AttributedString and handles taps via openURL
+// SwiftUI — drop into the .agent branch of your bubble switch, in place of
+// the plain Text(m.text). Text takes AttributedString and handles taps via openURL.
 let opts = AttributedString.MarkdownParsingOptions(interpretedSyntax: .inlineOnlyPreservingWhitespace)
 if let attributed = try? AttributedString(markdown: m.text, options: opts) {
     Text(attributed)
@@ -615,7 +627,8 @@ if let attributed = try? AttributedString(markdown: m.text, options: opts) {
 }
 ```
 ```swift
-// UIKit — render into a UITextView (NOT a UILabel) so links are tappable
+// UIKit — call from cell configuration. `textView` is your own UITextView
+// (NOT a UILabel — labels render Markdown links visually but don't make them tappable).
 let opts = AttributedString.MarkdownParsingOptions(interpretedSyntax: .inlineOnlyPreservingWhitespace)
 textView.attributedText = (try? AttributedString(markdown: m.text, options: opts)).map(NSAttributedString.init)
 textView.isEditable = false
@@ -633,9 +646,10 @@ An agent message can carry images, link preview-cards, and `tel:` call buttons �
 - `ChatCallAction`: `title`, `contactNumber`
 
 ```swift
-// SwiftUI — in the .agent branch of your bubble (see the core pattern).
-// Images: stock AsyncImage. URL cards: a Link. Call buttons: tel: via openURL.
-@Environment(\.openURL) private var openURL
+// SwiftUI — drop these blocks into the .agent branch of your bubble switch,
+// next to (or below) the message text. Images use stock AsyncImage; URL cards
+// are a Link; call buttons dial tel: via openURL.
+@Environment(\.openURL) private var openURL    // add this property to your view
 
 ScrollView(.horizontal, showsIndicators: false) {
     HStack(spacing: 8) {
@@ -661,7 +675,8 @@ ForEach(m.callActions) { action in
 }
 ```
 ```swift
-// UIKit — in your cell, hand each attachment to a UIImageView / UILabel / UIButton.
+// UIKit — call from your cell configuration. `imageStack` / `callsStack` are
+// your own UIStackViews on the cell.
 for att in m.attachments where att.contentType == .image {
     let iv = UIImageView()
     iv.contentMode = .scaleAspectFill
@@ -695,7 +710,8 @@ Each link card opens `contentUrl` on tap; call buttons dial a sanitized `tel:` (
 **No special listening** — handoff is already in `messages`: progress as `.system` events (your `systemLabel(_:)` from the core pattern renders them), live-agent replies as `.agent` with `agentKind == .live`, live typing via `isAgentTyping`. Just tint the live agent so the user can tell a human took over.
 
 ```swift
-// SwiftUI — in your agent bubble
+// SwiftUI — drop into the .agent branch of your bubble switch, replacing the
+// plain Text(m.text) / .background(...) lines.
 let isLive = m.agentKind == .live
 if isLive, let name = m.agentName {
     Text("\(name) · live agent").font(.caption).foregroundStyle(.teal)
@@ -704,7 +720,8 @@ Text(m.text).padding(10)
     .background(isLive ? Color.teal.opacity(0.18) : Color(.systemGray5))
 ```
 ```swift
-// UIKit — in your cell
+// UIKit — call from cell configuration for the .agent branch.
+// `bubble` / `nameLabel` are your own UIView / UILabel on the cell.
 let isLive = (m.agentKind == .live)
 bubble.backgroundColor = isLive ? UIColor.systemTeal.withAlphaComponent(0.18) : .systemGray5
 nameLabel.text = isLive ? "\(m.agentName ?? "Agent") · live agent" : m.agentName
@@ -717,12 +734,12 @@ nameLabel.text = isLive ? "\(m.agentName ?? "Agent") · live agent" : m.agentNam
 **Data:** `ChatMessage.timestamp` (also on each `UserMessage` / `AgentMessage` / `SystemMessage`).
 
 ```swift
-// SwiftUI
+// SwiftUI — drop next to your bubble Text in any branch of the switch.
 Text(message.timestamp, style: .time)               // e.g. "3:42 PM"
     .font(.caption2).foregroundStyle(.secondary)
 ```
 ```swift
-// UIKit
+// UIKit — call from cell configuration. `timeLabel` is your own UILabel on the cell.
 let f = DateFormatter(); f.timeStyle = .short
 timeLabel.text = f.string(from: message.timestamp)
 ```
@@ -734,7 +751,8 @@ For a date-grouped separator row (when the gap between consecutive messages cros
 **Data:** `agentAvatarUrl` (latest) and `AgentMessage.avatarUrl` (per-message). Keyboard handling is yours.
 
 ```swift
-// SwiftUI — avatar with AsyncImage + interactive keyboard dismiss.
+// SwiftUI — drop the AsyncImage into the .agent branch of your bubble; the
+// scrollDismissesKeyboard goes on your message ScrollView.
 // NOTE: scrollDismissesKeyboard is iOS 16+, but the SDK supports iOS 15 — guard it
 // (e.g. wrap in a ViewModifier behind `if #available(iOS 16, *)`) or it won't compile
 // on an iOS-15 deployment target.
@@ -744,7 +762,9 @@ AsyncImage(url: m.avatarUrl) { $0.resizable().scaledToFill() } placeholder: { Co
 ScrollView { /* messages */ }.scrollDismissesKeyboard(.interactively)   // iOS 16+
 ```
 ```swift
-// UIKit — load the avatar with URLSession; ride the keyboard with keyboardLayoutGuide
+// UIKit — the URLSession block goes in cell configuration (`avatarView` is your
+// own UIImageView on the cell). The keyboardLayoutGuide constraint replaces
+// your input bar's bottom safe-area pin in viewDidLoad / Auto Layout setup.
 if let url = m.avatarUrl {
     URLSession.shared.dataTask(with: url) { data, _, _ in
         guard let data, let image = UIImage(data: data) else { return }
@@ -760,6 +780,8 @@ inputBar.bottomAnchor.constraint(equalTo: view.keyboardLayoutGuide.topAnchor).is
 Rendering reads `messages`. For **imperative reactions** — navigate, play a haptic, log analytics — observe the typed event stream instead. (This is the lower-level API `ChatSession` is built on; reach for it only for side effects.)
 
 ```swift
+// SwiftUI — drop inside a .task { } on your chat view.
+// UIKit — drop inside a Task you store in viewDidLoad and cancel in deinit.
 for await event in session.client.events {
     switch event {
     case .liveAgentJoined(_, let agent):
