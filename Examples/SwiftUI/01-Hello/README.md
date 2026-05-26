@@ -24,7 +24,20 @@ The SDK invariants behind each pattern are in the root README's [Integration gui
 
 ## How it works
 
+Each subsection leads with **the SDK call** (one line — the actual API), then shows **how it's wired into a view**.
+
 ### Initialize once at app launch — `HelloApp.swift`
+
+The SDK call:
+
+```swift
+PolyMessaging.initialize(.init(
+    connectorToken: "YOUR_CONNECTOR_TOKEN",
+    environment: .dev
+))
+```
+
+In an `@main` App:
 
 ```swift
 @main
@@ -46,6 +59,15 @@ After this, `PolyMessaging.chat()` works from any view.
 *See [Quick start](../../../README.md#quick-start).*
 
 ### Get a session and render messages — `ContentView.swift`
+
+The SDK calls:
+
+```swift
+let session = PolyMessaging.chat()    // returns a ChatSession (ObservableObject)
+session.messages                      // [ChatMessage], @Published
+```
+
+In a view:
 
 ```swift
 struct ContentView: View {
@@ -71,7 +93,14 @@ struct ContentView: View {
 
 ### Scroll as the agent types — `ContentView.swift`
 
-Streaming grows the last agent message's `text` in place — `messages.count` doesn't change, so a single `.onChange(of: messages.count)` isn't enough. Wrap the list in a `ScrollViewReader`, drop a `Color.clear.id("bottom")` sentinel, and scroll to it on *two* signals: a new message arrives, **and** the last message's text length changes.
+The SDK signals you watch:
+
+```swift
+session.messages.count          // new bubble arrives
+session.messages.last?.text     // text grows during streaming (count unchanged)
+```
+
+In a view:
 
 ```swift
 var body: some View {
@@ -101,11 +130,21 @@ var body: some View {
 }
 ```
 
+Streaming grows the last agent message's `text` in place — `messages.count` doesn't change, so a single `.onChange(of: messages.count)` isn't enough. The `Color.clear.id("bottom")` sentinel is what `proxy.scrollTo` targets on either signal.
+
 **Under the hood:** with `streamingEnabled: true` (the default), `ChatSession` extends the last `.agent` message's `text` on every chunk and re-publishes `messages`. SwiftUI re-evaluates `Text(message.text ?? "")` and re-fires `.onChange(of: messages.last?.text)` — the scroll tracks the reply as it grows.
 
 *See [Integration guide › Streaming](../../../README.md#streaming).*
 
 ### Send a message — `ContentView.swift`
+
+The SDK call:
+
+```swift
+try? await session.send(text)
+```
+
+In a view:
 
 ```swift
 var body: some View {
@@ -134,7 +173,14 @@ Sending stays available even while offline or reconnecting — gate only on `has
 
 ### Catch a bad connector token — `ContentView.swift`
 
-If `connectorToken` is wrong or expired the chat can't ever connect — without surfacing that, the app would sit silently with an empty message list. `session.failureReason` is non-nil whenever the SDK hits a terminal failure it can't auto-recover from (most commonly an invalid token), so bind it to `.alert`:
+The SDK signal:
+
+```swift
+session.failureReason   // PolyError? — non-nil on terminal failure (most commonly invalid token)
+session.client.resume() // call this to retry from the alert
+```
+
+In a view:
 
 ```swift
 private var failureAlertBinding: Binding<Bool> {

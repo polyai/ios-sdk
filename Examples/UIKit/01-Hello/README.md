@@ -27,7 +27,20 @@ The SDK invariants behind each pattern are in the root README's [Integration gui
 
 ## How it works
 
+Each subsection leads with **the SDK call** (one line — the actual API), then shows **how it's wired into a view controller**.
+
 ### Initialize once at app launch — `AppDelegate.swift`
+
+The SDK call:
+
+```swift
+PolyMessaging.initialize(.init(
+    connectorToken: "YOUR_CONNECTOR_TOKEN",
+    environment: .dev
+))
+```
+
+In `AppDelegate`:
 
 ```swift
 @main
@@ -53,7 +66,14 @@ After this, `PolyMessaging.chat()` works from any view controller with no argume
 
 ### Get a session and render messages — `ChatViewController.swift`
 
-`ChatSession` is an `ObservableObject` and its `@Published` properties are Combine publishers, so UIKit binds with `.sink` — no SwiftUI required. The view controller stores one session, builds a diffable data source keyed by `ChatMessage.id`, and re-renders on every `messages` emission.
+The SDK calls:
+
+```swift
+let session = PolyMessaging.chat()    // returns a ChatSession (ObservableObject)
+session.$messages                     // Combine publisher of [ChatMessage]
+```
+
+In a view controller:
 
 ```swift
 final class ChatViewController: UIViewController {
@@ -90,7 +110,13 @@ final class ChatViewController: UIViewController {
 
 ### Scroll as the agent types — `ChatViewController.swift`
 
-Streaming grows the last agent message's `text` in place. The diffable snapshot uses the same UUIDs but the new text — so `dataSource.apply` calls the completion handler, and `reconfigureItems` re-runs the cell provider with the longer text. Scroll to the last row after every apply.
+The SDK signal you watch:
+
+```swift
+session.$messages    // every emission (insert OR text-grew-via-reconfigure) → scroll
+```
+
+In a view controller:
 
 ```swift
 private func render(_ messages: [ChatMessage]) {
@@ -121,11 +147,21 @@ private func scrollToBottom(animated: Bool) {
 }
 ```
 
+Streaming grows the last agent message's `text` in place. The diffable snapshot uses the same UUIDs but the new text — so `dataSource.apply` calls the completion handler, and `reconfigureItems` re-runs the cell provider with the longer text.
+
 **Under the hood:** with `streamingEnabled: true` (the default), `ChatSession` extends the last `.agent` message's `text` on every chunk and re-publishes `messages`. The Combine sink calls `render(_:)`, which builds the same-IDs snapshot plus a `reconfigureItems` pass — the apply's completion always fires, so the table tracks the reply as it grows.
 
 *See [Integration guide › Streaming](../../../README.md#streaming).*
 
 ### Send a message — `ChatViewController.swift`
+
+The SDK call:
+
+```swift
+try? await session.send(text)
+```
+
+In a view controller:
 
 ```swift
 @IBAction func sendTapped(_ sender: Any) {
@@ -135,7 +171,7 @@ private func scrollToBottom(animated: Bool) {
 }
 ```
 
-`tableView`, `inputField`, and `sendButton` are `@IBOutlet`s wired in `Main.storyboard`; `sendTapped(_:)` is hooked to the send button's *Touch Up Inside*.
+`sendTapped(_:)` is hooked to the send button's *Touch Up Inside* in `Main.storyboard`.
 
 **Under the hood:** `send(text)` is optimistic — the bubble appears in `messages` immediately while the SDK manages delivery and the server echo behind the scenes. `ChatSession` is `@MainActor`, so call it from the main thread.
 
@@ -143,7 +179,14 @@ private func scrollToBottom(animated: Bool) {
 
 ### Catch a bad connector token — `ChatViewController.swift`
 
-If `connectorToken` is wrong or expired the chat can't ever connect — without surfacing that, the app would sit silently with an empty table view. `session.failureReason` is non-nil whenever the SDK hits a terminal failure it can't auto-recover from (most commonly an invalid token), so sink it and present a `UIAlertController`:
+The SDK signal:
+
+```swift
+session.$failureReason  // PolyError? — non-nil on terminal failure (most commonly invalid token)
+session.client.resume() // call this from the alert's "Try Again" action
+```
+
+In a view controller:
 
 ```swift
 private var isPresentingFailureAlert = false
