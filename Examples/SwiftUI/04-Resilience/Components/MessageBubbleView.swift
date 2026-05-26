@@ -23,93 +23,97 @@ struct MessageBubbleView: View {
     var onSuggestionTap: ((String) -> Void)? = nil
 
     var body: some View {
-        switch message {
-        case .user(let m):
-            HStack(alignment: .bottom, spacing: 6) {
-                Spacer(minLength: 60)
-                if m.delivery == .failed {
-                    Button {
-                        onRetry?(m.text)
-                    } label: {
-                        Image(systemName: "exclamationmark.circle.fill")
-                            .foregroundColor(.red)
-                            .font(.title3)
+        // Outer HStack wrapper expands each row to fill the available width.
+        // Without it, the inner content sizes to its intrinsic width and
+        // hugs the leading edge in landscape (where the canvas is wider
+        // than the longest bubble). Matches the 06-FullReference pattern.
+        HStack {
+            switch message {
+            case .user(let m):
+                HStack(alignment: .bottom, spacing: 6) {
+                    Spacer(minLength: 60)
+                    if m.delivery == .failed {
+                        Button {
+                            onRetry?(m.text)
+                        } label: {
+                            Image(systemName: "exclamationmark.circle.fill")
+                                .foregroundColor(.red)
+                                .font(.title3)
+                        }
+                        .accessibilityLabel("Retry sending message")
                     }
-                    .accessibilityLabel("Retry sending message")
-                }
-                VStack(alignment: .trailing, spacing: 4) {
-                    Text(m.text)
-                        .padding(.horizontal, 14)
-                        .padding(.vertical, 10)
-                        .background(m.delivery == .failed ? Color.red.opacity(0.15) : Color.blue)
-                        .foregroundColor(m.delivery == .failed ? .primary : .white)
-                        .clipShape(RoundedRectangle(cornerRadius: 18))
-                        // Cap bubble width at ~75% of the screen so very long
-                        // messages wrap inside the bubble instead of pushing
-                        // past the row's trailing edge into the nav bar.
-                        .frame(maxWidth: UIScreen.main.bounds.width * 0.75, alignment: .trailing)
+                    VStack(alignment: .trailing, spacing: 4) {
+                        Text(m.text)
+                            .padding(.horizontal, 14)
+                            .padding(.vertical, 10)
+                            .background(m.delivery == .failed ? Color.red.opacity(0.15) : Color.blue)
+                            .foregroundColor(m.delivery == .failed ? .primary : .white)
+                            .clipShape(RoundedRectangle(cornerRadius: 18))
+                            // Cap bubble width at ~75% of the screen so very long
+                            // messages wrap inside the bubble instead of pushing
+                            // past the row's trailing edge into the nav bar.
+                            .frame(maxWidth: UIScreen.main.bounds.width * 0.75, alignment: .trailing)
 
-                    if showSendingLabel && m.delivery == .pending {
-                        Text("Sending...")
-                            .font(.caption2)
-                            .foregroundColor(.secondary)
-                    } else if m.delivery == .failed {
-                        Text("Tap to retry")
-                            .font(.caption2)
-                            .foregroundColor(.red)
+                        if showSendingLabel && m.delivery == .pending {
+                            Text("Sending...")
+                                .font(.caption2)
+                                .foregroundColor(.secondary)
+                        } else if m.delivery == .failed {
+                            Text("Tap to retry")
+                                .font(.caption2)
+                                .foregroundColor(.red)
+                        }
                     }
                 }
-            }
 
-        case .agent(let m):
-            HStack(alignment: .top, spacing: 8) {
-                AgentAvatarView(url: m.avatarUrl)
-                VStack(alignment: .leading, spacing: 4) {
-                    if let name = m.agentName, !name.isEmpty {
-                        Text(name)
-                            .font(.caption2)
-                            .foregroundColor(.secondary)
-                    }
-                    if !m.text.isEmpty {
-                        HStack {
-                            RichText(m.text)
-                                .padding(.horizontal, 14)
-                                .padding(.vertical, 10)
-                                .background(Color(.systemGray5))
-                                .foregroundColor(.primary)
-                                .clipShape(RoundedRectangle(cornerRadius: 18))
-                            Spacer(minLength: 60)
+            case .agent(let m):
+                HStack(alignment: .top, spacing: 8) {
+                    AgentAvatarView(url: m.avatarUrl)
+                    VStack(alignment: .leading, spacing: 4) {
+                        if let name = m.agentName, !name.isEmpty {
+                            Text(name)
+                                .font(.caption2)
+                                .foregroundColor(.secondary)
                         }
-                    }
-                    if !m.attachments.isEmpty {
-                        let urlCards = m.attachments.filter { $0.contentType == .url }
-                        let images = m.attachments.filter { $0.contentType != .url }
-                        if !images.isEmpty {
-                            AttachmentCarousel(attachments: images)
-                        }
-                        ForEach(Array(urlCards.enumerated()), id: \.offset) { _, att in
-                            URLCard(attachment: att)
-                        }
-                    }
-                    if !m.callActions.isEmpty {
-                        VStack(alignment: .leading, spacing: 6) {
-                            ForEach(m.callActions) { action in
-                                CallActionButton(action: action)
+                        if !m.text.isEmpty {
+                            HStack {
+                                RichText(m.text)
+                                    .padding(.horizontal, 14)
+                                    .padding(.vertical, 10)
+                                    .background(Color(.systemGray5))
+                                    .foregroundColor(.primary)
+                                    .clipShape(RoundedRectangle(cornerRadius: 18))
+                                Spacer(minLength: 60)
                             }
                         }
-                    }
-
-                    if showSuggestions && !m.suggestions.isEmpty {
-                        SuggestionRow(suggestions: m.suggestions.map { $0.messageText }) { s in
-                            onSuggestionTap?(s)
+                        if !m.attachments.isEmpty {
+                            let urlCards = m.attachments.filter { $0.contentType == .url }
+                            let images = m.attachments.filter { $0.contentType != .url }
+                            if !images.isEmpty {
+                                AttachmentCarousel(attachments: images)
+                            }
+                            ForEach(Array(urlCards.enumerated()), id: \.offset) { _, att in
+                                URLCard(attachment: att)
+                            }
                         }
-                        .padding(.top, 4)
+                        if !m.callActions.isEmpty {
+                            VStack(alignment: .leading, spacing: 6) {
+                                ForEach(m.callActions) { action in
+                                    CallActionButton(action: action)
+                                }
+                            }
+                        }
+
+                        if showSuggestions && !m.suggestions.isEmpty {
+                            SuggestionRow(suggestions: m.suggestions.map { $0.messageText }) { s in
+                                onSuggestionTap?(s)
+                            }
+                            .padding(.top, 4)
+                        }
                     }
                 }
-            }
 
-        case .system(let m):
-            HStack {
+            case .system(let m):
                 Spacer()
                 Text(systemText(for: m.event))
                     .font(.caption)
@@ -121,6 +125,7 @@ struct MessageBubbleView: View {
                 Spacer()
             }
         }
+        .padding(.horizontal)
     }
 
     private func systemText(for event: SystemEvent) -> String {

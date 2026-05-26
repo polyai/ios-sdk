@@ -23,14 +23,21 @@ struct MessageBubbleView: View {
     var onSuggestionTap: ((String) -> Void)? = nil
 
     var body: some View {
-        switch message {
-        case .user(let m):
-            userRow(m)
-        case .agent(let m):
-            agentRow(m)
-        case .system(let m):
-            systemRow(m)
+        // Outer HStack wrapper expands each row to fill the available width.
+        // Without it, the inner content sizes to its intrinsic width and
+        // hugs the leading edge in landscape (where the canvas is wider
+        // than the longest bubble). Matches the 06-FullReference pattern.
+        HStack {
+            switch message {
+            case .user(let m):
+                userRow(m)
+            case .agent(let m):
+                agentRow(m)
+            case .system(let m):
+                systemRow(m)
+            }
         }
+        .padding(.horizontal)
     }
 
     // MARK: - User

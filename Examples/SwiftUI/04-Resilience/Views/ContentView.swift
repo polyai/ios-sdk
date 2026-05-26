@@ -92,7 +92,9 @@ struct ContentView: View {
                                     .frame(maxWidth: .infinity, alignment: .leading)
                             }
                         }
-                        .padding(.horizontal, 12)
+                        // Horizontal padding lives on each bubble's outer
+                        // HStack (MessageBubbleView). Keeping it here would
+                        // double-pad the row in landscape.
                         .padding(.vertical, 8)
                     }
                 }
