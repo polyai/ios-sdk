@@ -34,7 +34,7 @@ Each subsection leads with **the SDK call(s)** (the actual API), then shows **ho
 
 ### Typing indicator — `Views/ChatViewController.swift`
 
-The SDK calls:
+Listen for the agent + announce your own typing:
 
 ```swift
 await session.sendTyping()      // call on every keystroke (SDK throttles)
@@ -73,7 +73,7 @@ private func setTypingIndicatorVisible(_ visible: Bool) {
 
 ### Connection banner — `Views/ChatViewController.swift`
 
-The SDK signal:
+Show only during transient reconnects:
 
 ```swift
 session.$connection             // Combine publisher of ConnectionStatus
@@ -111,7 +111,7 @@ override func viewDidLoad() {
 
 ### Suggestion pills — under the last agent message
 
-The SDK pieces:
+Render + dismiss the agent's quick replies:
 
 ```swift
 agent.suggestions               // [ResponseSuggestion] on an AgentMessage
@@ -161,7 +161,7 @@ case .suggestions(let id):
 
 ### End + Start new chat — `Views/ChatViewController.swift`
 
-The SDK calls:
+End the session + start a fresh one:
 
 ```swift
 try await session.end()                       // flips hasEnded; conversation is over
@@ -202,7 +202,7 @@ override func viewDidLoad() {
 
 ### Delivery state + retry — `Components/MessageCell.swift`
 
-The SDK pieces:
+Track delivery + retry a failed send:
 
 ```swift
 m.delivery                                    // Delivery — .pending / .sent / .failed
@@ -248,7 +248,7 @@ func retry(_ m: UserMessage) {
 
 ### Failure overlay — `Views/ChatViewController.swift`
 
-The SDK signal:
+Surface a terminal failure + offer retry:
 
 ```swift
 session.$failureReason                        // Combine publisher of PolyError?

@@ -31,7 +31,7 @@ Each subsection leads with **the SDK call** (one line — the actual API), then 
 
 ### Initialize once at app launch — `AppDelegate.swift`
 
-The SDK call:
+Configure the SDK once at launch:
 
 ```swift
 PolyMessaging.initialize(.init(
@@ -66,7 +66,7 @@ After this, `PolyMessaging.chat()` works from any view controller with no argume
 
 ### Get a session and render messages — `ChatViewController.swift`
 
-The SDK calls:
+Create a session + subscribe to its messages:
 
 ```swift
 let session = PolyMessaging.chat()    // returns a ChatSession (ObservableObject)
@@ -110,7 +110,7 @@ final class ChatViewController: UIViewController {
 
 ### Scroll as the agent types — `ChatViewController.swift`
 
-The SDK signal you watch:
+Signal that triggers an auto-scroll:
 
 ```swift
 session.$messages    // every emission (insert OR text-grew-via-reconfigure) → scroll
@@ -155,7 +155,7 @@ Streaming grows the last agent message's `text` in place. The diffable snapshot 
 
 ### Send a message — `ChatViewController.swift`
 
-The SDK call:
+Send a user message (optimistic):
 
 ```swift
 try? await session.send(text)
@@ -179,7 +179,7 @@ In a view controller:
 
 ### Catch a bad connector token — `ChatViewController.swift`
 
-The SDK signal:
+Detect a terminal failure + offer retry:
 
 ```swift
 session.$failureReason  // PolyError? — non-nil on terminal failure (most commonly invalid token)

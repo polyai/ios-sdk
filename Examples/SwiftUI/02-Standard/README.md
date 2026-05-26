@@ -31,7 +31,7 @@ Each subsection leads with **the SDK call(s)** (the actual API), then shows **ho
 
 ### Typing indicator — `Views/ContentView.swift`
 
-The SDK calls:
+Listen for the agent + announce your own typing:
 
 ```swift
 await session.sendTyping()      // call on every keystroke (SDK throttles)
@@ -67,7 +67,7 @@ var body: some View {
 
 ### Connection banner — `Views/ContentView.swift`
 
-The SDK signal:
+Show only during transient reconnects:
 
 ```swift
 session.connection              // ConnectionStatus — show a banner only on .reconnecting
@@ -99,7 +99,7 @@ var body: some View {
 
 ### Suggestion pills — under the last agent message
 
-The SDK pieces:
+Render + dismiss the agent's quick replies:
 
 ```swift
 agent.suggestions               // [ResponseSuggestion] on an AgentMessage
@@ -140,7 +140,7 @@ Pills sit with the reply that offered them and scroll with the conversation. The
 
 ### End chat + Start new chat — `Views/ContentView.swift`
 
-The SDK calls:
+End the session + start a fresh one:
 
 ```swift
 try await session.end()                       // flips hasEnded; conversation is over
@@ -185,7 +185,7 @@ var body: some View {
 
 ### Delivery state + retry — inside the `.user` bubble
 
-The SDK pieces:
+Track delivery + retry a failed send:
 
 ```swift
 m.delivery                                    // Delivery — .pending / .sent / .failed
@@ -226,7 +226,7 @@ ForEach(session.messages) { message in
 
 ### Failure overlay — `Views/ContentView.swift`
 
-The SDK signal:
+Surface a terminal failure + offer retry:
 
 ```swift
 session.failureReason                         // PolyError? — non-nil on terminal failure

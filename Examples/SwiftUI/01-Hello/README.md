@@ -28,7 +28,7 @@ Each subsection leads with **the SDK call** (one line — the actual API), then 
 
 ### Initialize once at app launch — `HelloApp.swift`
 
-The SDK call:
+Configure the SDK once at launch:
 
 ```swift
 PolyMessaging.initialize(.init(
@@ -60,7 +60,7 @@ After this, `PolyMessaging.chat()` works from any view.
 
 ### Get a session and render messages — `ContentView.swift`
 
-The SDK calls:
+Create a session + subscribe to its messages:
 
 ```swift
 let session = PolyMessaging.chat()    // returns a ChatSession (ObservableObject)
@@ -93,7 +93,7 @@ struct ContentView: View {
 
 ### Scroll as the agent types — `ContentView.swift`
 
-The SDK signals you watch:
+Signals that trigger an auto-scroll:
 
 ```swift
 session.messages.count          // new bubble arrives
@@ -138,7 +138,7 @@ Streaming grows the last agent message's `text` in place — `messages.count` do
 
 ### Send a message — `ContentView.swift`
 
-The SDK call:
+Send a user message (optimistic):
 
 ```swift
 try? await session.send(text)
@@ -173,7 +173,7 @@ Sending stays available even while offline or reconnecting — gate only on `has
 
 ### Catch a bad connector token — `ContentView.swift`
 
-The SDK signal:
+Detect a terminal failure + offer retry:
 
 ```swift
 session.failureReason   // PolyError? — non-nil on terminal failure (most commonly invalid token)
