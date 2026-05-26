@@ -136,9 +136,9 @@ cell.configure(
 
 ### Failure overlay — `Views/ChatViewController.swift`
 
-**Under the hood:** `session.connection` reaches `.failed` only after the SDK's auto-reconnect budget is exhausted; `failureReason` then holds the terminal error. Recovery is consumer-driven — call `client.resume()` to restart the connection.
+**Under the hood:** `failureReason` is set whenever the chat can't auto-recover — an invalid `connectorToken` rejected at the initial connect, the auto-reconnect budget exhausted, or the session expiring. Recovery is consumer-driven — call `client.resume()` to restart the connection.
 
-`failureReason` is set whenever the chat can't auto-recover — an invalid `connectorToken` rejected at the initial connect, the auto-reconnect budget exhausted, or the session expiring. Offer a manual retry. `String(describing:)` is intentional — `PolyError` doesn't conform to `LocalizedError`, so `.localizedDescription` is the generic "The operation couldn't be completed".
+When `failureReason` is set, offer a manual retry. `String(describing:)` is intentional — `PolyError` doesn't conform to `LocalizedError`, so `.localizedDescription` is the generic "The operation couldn't be completed".
 
 ```swift
 session.$failureReason

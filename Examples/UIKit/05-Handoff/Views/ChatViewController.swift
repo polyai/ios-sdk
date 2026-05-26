@@ -412,16 +412,15 @@ final class ChatViewController: UIViewController {
                     self.terminalScreen.hide()
                     return
                 }
-                // PolyError doesn't conform to LocalizedError, so .localizedDescription
-                // is Error's useless default. String(describing:) gives the case name
-                // (e.g. "auth(unauthorized)") which is far more actionable in an example.
-                let body = String(describing: reason)
+                // PolyError isn't LocalizedError, so .localizedDescription
+                // falls back to Error's generic default. Use String(describing:).
+                let message = String(describing: reason)
                 if Self.isTerminal(reason) {
-                    self.terminalScreen.show(message: body)
+                    self.terminalScreen.show(message: message)
                     self.failureOverlay.isHidden = true
                 } else {
                     self.failureOverlay.isHidden = false
-                    self.failureLabel.text = body
+                    self.failureLabel.text = message
                 }
             }
             .store(in: &bag)
