@@ -64,7 +64,7 @@ open class DevSettings: ObservableObject {
     @Published public var streamingEnabled: Bool { didSet { persist("streamingEnabled", streamingEnabled) } }
     @Published public var greetingMessage: String { didSet { persist("greetingMessage", greetingMessage) } }
     @Published public var logLevel: LogLevel { didSet { persist("logLevel", logLevel.rawValue) } }
-    /// 0 = use SDK default (3600s = 1h).
+    /// 0 = use SDK default (600s = 10 min, matches backend WS idle timeout).
     @Published public var sessionTimeoutSeconds: Int { didSet { persist("sessionTimeoutSeconds", sessionTimeoutSeconds) } }
     /// 0 = use SDK default (30s).
     @Published public var heartbeatIntervalSeconds: Int { didSet { persist("heartbeatIntervalSeconds", heartbeatIntervalSeconds) } }

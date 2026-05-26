@@ -228,7 +228,9 @@ enum WireDecoder {
         let caps = p.dict("capabilities") ?? [:]
         return SessionStartPayload(capabilities: SessionCapabilities(
             streaming: caps.bool("streaming") ?? false,
-            maxMessageSize: caps.int("max_message_size_bytes") ?? 131_072,
+            // Backend default is 1 MiB (poly_core: session_api/main.go body_size_limit).
+            // The fallback only fires if the server omits the capability.
+            maxMessageSize: caps.int("max_message_size_bytes") ?? 1_048_576,
             heartbeatIntervalSeconds: caps.int("heartbeat_interval_seconds"),
             maxReconnectAttempts: caps.int("max_reconnect_attempts")
         ))

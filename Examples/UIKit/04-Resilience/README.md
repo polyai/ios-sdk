@@ -115,7 +115,7 @@ session.$failureReason
 |---|---|
 | Toggle airplane mode mid-chat | Red offline banner; messages queue; toggle off → yellow reconnect banner → cleared |
 | Kill network during cold launch | Loading skeleton → eventually terminal error → tap Reconnect |
-| Cold launch with existing session within 1h | Brief skeleton → restored messages render |
+| Cold launch with existing session within ~10 min | Brief skeleton → restored messages render |
 
 ## What this example skips
 

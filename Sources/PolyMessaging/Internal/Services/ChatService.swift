@@ -6,7 +6,10 @@ actor ChatService {
     private(set) var chatEnded: Bool = false
     private(set) var agentChatEnded: Bool = false
     private(set) var isAgentTyping: Bool = false
-    private(set) var maxMessageSize: Int = 131_072
+    // Backend default is 1 MiB; SESSION_START.capabilities overrides this once
+    // the session is established. The initial value only matters in the narrow
+    // window between session creation and SESSION_START arrival.
+    private(set) var maxMessageSize: Int = 1_048_576
     private(set) var liveAgentName: String?
     private var agentJoinRequested: Bool = false
 

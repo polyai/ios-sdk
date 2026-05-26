@@ -234,7 +234,7 @@ final class SettingsViewController: UIViewController {
         stack.addArrangedSubview(stepperRow("Heartbeat", value: settings.heartbeatIntervalSeconds, range: 0...300, step: 5,
                                             format: { self.secondsLabel($0, def: "30s") }) { [weak self] v in self?.settings.heartbeatIntervalSeconds = v })
         stack.addArrangedSubview(stepperRow("Session timeout", value: settings.sessionTimeoutSeconds, range: 0...86400, step: 60,
-                                            format: { self.secondsLabel($0, def: "1h") }) { [weak self] v in self?.settings.sessionTimeoutSeconds = v })
+                                            format: { self.secondsLabel($0, def: "10m") }) { [weak self] v in self?.settings.sessionTimeoutSeconds = v })
         stack.addArrangedSubview(stepperRow("Max reconnects", value: settings.maxReconnectAttempts, range: 0...50, step: 1,
                                             format: { $0 == 0 ? "10 (default)" : "\($0)" }) { [weak self] v in self?.settings.maxReconnectAttempts = v })
         return card
