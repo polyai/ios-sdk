@@ -11,14 +11,14 @@ final class CertificatePinnerTests: XCTestCase {
     // MARK: - Configuration plumbing
 
     func testDefaultPinningIsNone() throws {
-        let client = try PolyMessaging.configure(apiKey: "ct_test_abc")
+        let client = try PolyMessaging.configure(apiKey: "test_api_key")
         XCTAssertEqual(client.config.certificatePinning, .none)
     }
 
     func testCustomSPKIPinningPropagatesToConfig() throws {
         let hash = Data(repeating: 0xAB, count: 32)
         let config = Configuration(
-            apiKey: "ct_test_abc",
+            apiKey: "test_api_key",
             certificatePinning: .spki(sha256Hashes: [hash])
         )
         let client = try PolyMessaging.configure(config)
@@ -32,7 +32,7 @@ final class CertificatePinnerTests: XCTestCase {
     func testCustomCertificatePinningPropagatesToConfig() throws {
         let hash = Data(repeating: 0xCD, count: 32)
         let config = Configuration(
-            apiKey: "ct_test_abc",
+            apiKey: "test_api_key",
             certificatePinning: .certificate(sha256Hashes: [hash])
         )
         let client = try PolyMessaging.configure(config)
