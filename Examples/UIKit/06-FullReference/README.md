@@ -1,16 +1,9 @@
 # 06-FullReference (UIKit)
 
-The complete UIKit reference app — the counterpart to
-[`SwiftUI/06-FullReference`](../../SwiftUI/06-FullReference/). 06 is the only level
-with the full `connect → loading → chat → error` flow, built entirely
-programmatically (no storyboard). It builds on [`05-Handoff`](../05-Handoff/),
-folding every feature from 02–05 into one production-shaped app and adding the
-multi-screen lifecycle shell, resume/start-new flow, and recoverable error
-handling that the lighter levels skip.
+The complete UIKit reference app on top of [`05-Handoff`](../05-Handoff/) — every feature from 02–05 folded into one production-shaped flow (`connect → loading → chat → error`), plus the lifecycle plumbing the lighter levels skip: resume-or-start, in-place start-new, recoverable error routing, delayed "Sending…" labels, and child-view-controller containment driven entirely by SDK streams.
 
-Because 06 is the most-extensive example, this README is both a **complete index
-of every feature the ladder demonstrates** (section 3) and a deep dive into the
-**production-only patterns** that only 06 has (section 4).
+- **Interface:** programmatic (no storyboard). `SceneDelegate` wraps a `RootViewController` in a `UINavigationController`.
+- **Lifecycle:** `AppDelegate` (`@main`) + `SceneDelegate`.
 
 ## Run it
 
@@ -19,83 +12,116 @@ open FullReferenceUIKit.xcodeproj   # from this folder
 # Cmd+R on an iPhone simulator
 ```
 
-No storyboard — the scene is built programmatically: `SceneDelegate` wraps a
-`RootViewController` in a `UINavigationController`, and `RootViewController`
-swaps the connect / loading / chat / error child controllers. (UIKit 01–05 are
-storyboard-based; only 06 and 07 are not.)
+Set your connector token in `AppDelegate.swift` (currently `"YOUR_CONNECTOR_TOKEN"`).
 
-## Everything 06 demonstrates
+## What this example demonstrates
 
-06 carries the entire feature set of the ladder. Each row links the matching
-"Build your own UI" section in the root README and notes the level it first
-appeared, so this table doubles as a complete index. The rendering views that
-power these features live in [`Components/`](Components/) and
-[`Helpers/`](Helpers/).
+- A screen-state machine (`enum Screen { case connect, loading, chat, error }`) driving child-VC containment
+- Resume-or-start picker driven by `PolyMessaging.hasResumableSession()` + `chat()` vs `start()`
+- Loading → chat / error transitions driven by `client.events`, `client.connectionStatus`, and `client.sessionState` — tied to the **client**, not the session, so they survive in-place start-new
+- A recoverable error screen with a "Go Back" route to connect (not a latched terminal flag)
+- Nav-bar split: chevron pauses to connect *without ending*; xmark ends with a confirm alert
+- In-place start-new via `session.clearChat()` + `session.client.startNewSession()` — no screen change
+- Destructive `session.end()` followed by a return to connect
+- Delayed "Sending…" label (~500ms debounce) so fast confirmations never flash it
+- Retry that calls `session.removeMessage(draftId:)` before re-sending, so failed bubbles never linger
 
-| Feature | Where in 06 | First seen | Root reference |
-|---|---|---|---|
-| Typing indicator | `TypingDotsView` + `session.$isAgentTyping` — `Views/ChatViewController.swift` | 02-Standard | [Typing](../../../README.md#typing) |
-| Suggestions / quick replies | `SuggestionsCell` + `SuggestionsView` — `Views/ChatViewController.swift`, `Components/SuggestionsView.swift` | 02-Standard | [Suggestions (quick replies)](../../../README.md#suggestions-quick-replies) |
-| Delivery state + retry | `MessageCell` delivery + `onRetry` — `Components/MessageCell.swift` | 02-Standard | [Delivery state & retry](../../../README.md#delivery-state--retry) |
-| Image attachments | `AttachmentCarouselView` — `Components/AttachmentCarouselView.swift` | 03-RichContent | [Attachments, link cards & call buttons](../../../README.md#attachments-link-cards--call-buttons) |
-| URL cards | `URLCardView` — `Components/URLCardView.swift` | 03-RichContent | [Attachments, link cards & call buttons](../../../README.md#attachments-link-cards--call-buttons) |
-| Call actions (`tel:`) | `CallActionsRow` — `Components/CallActionsRow.swift` | 03-RichContent | [Attachments, link cards & call buttons](../../../README.md#attachments-link-cards--call-buttons) |
-| Rich text / Markdown | `MessageCell.renderMarkdown` — `Components/MessageCell.swift` | 03-RichContent | [Rich text & links](../../../README.md#rich-text--links) |
-| Connection / reconnect bar | `connectionBanner` + `session.$connection` — `Views/ChatViewController.swift` | 02-Standard | [Connection & reconnect](../../../README.md#connection--reconnect) |
-| Device offline banner | `OfflineBanner` + `Helpers/NetworkMonitor` — `Components/OfflineBanner.swift` | 04-Resilience | [Connection & reconnect](../../../README.md#connection--reconnect) |
-| Live-agent handoff | `MessageCell` agent styling — `Components/MessageCell.swift` | 05-Handoff | [Live agent handoff](../../../README.md#live-agent-handoff) |
-| Loading skeleton / empty state | `LoadingSkeleton` — `Components/LoadingSkeleton.swift` | 04-Resilience | [Loading & empty states](../../../README.md#loading--empty-states) |
+The SDK invariants behind each pattern are in the root README's [Integration guide](../../../README.md#integration-guide); this example shows them as one concrete multi-screen app.
 
-For how each of these works at the SDK level, read the level it first appeared
-in — those READMEs are the per-feature explanations. The rest of this README
-covers what is genuinely new in 06.
+## How it works
 
-## What's unique to 06 (the production layer)
+Each subsection leads with **the SDK call** (one or a few lines — the actual API), then shows **how it's wired into a view controller**.
 
-These patterns exist only in 06 (and its SwiftUI twin). They are the difference
-between a single chat screen (02–05) and a real app that owns a session across a
-multi-screen lifecycle.
+### Screen-state machine + child-VC containment — `Views/RootViewController.swift`
 
-### The screen-state machine + child-VC containment — `Views/RootViewController.swift`
+The root owns the single `ChatSession` and a `Screen` enum, swapping one child view controller in at a time. Connect / loading / chat / error never each talk to the SDK directly — only the root does — so the session survives every screen transition.
 
-**Under the hood:** `RootViewController` owns the single `ChatSession` and a
-`Screen` enum, swapping one child view controller in at a time. The connect /
-loading / chat / error screens never each talk to the SDK — only the root does —
-so the session survives every screen transition, including an in-place
-start-new.
+The SDK calls:
 
 ```swift
-private enum Screen { case connect, loading, chat, error }
+PolyMessaging.initialize(_:)        // once, in AppDelegate — connection details
+PolyMessaging.hasResumableSession() // side-effect-free probe of the on-disk session store
+PolyMessaging.chat()                // resume the persisted session if valid, else start fresh
+PolyMessaging.start()               // always discard any stored session and start fresh
+```
 
-private var session: ChatSession?
-private var screen: Screen = .connect
-private var current: UIViewController?
+In a view controller:
 
-private func transition(to child: UIViewController) {
-    if let current {
-        current.willMove(toParent: nil)
-        current.view.removeFromSuperview()
-        current.removeFromParent()
+```swift
+final class RootViewController: UIViewController {
+    private enum Screen { case connect, loading, chat, error }
+
+    private var session: ChatSession?
+    private var wasResumed = false
+    private var screen: Screen = .connect
+    private var current: UIViewController?
+
+    /// Tied to the current client (not the ChatSession) so it keeps working
+    /// across in-place start-new on the same client. Re-armed only when a
+    /// brand-new client is created.
+    private var lifecycleTasks: [Task<Void, Never>] = []
+
+    override func viewDidLoad() {
+        super.viewDidLoad()
+        navigationItem.backButtonDisplayMode = .minimal
+        showConnect()
     }
-    addChild(child)
-    view.addSubview(child.view)
-    // …pin child.view to all edges…
-    child.didMove(toParent: self)
-    current = child
-    updateNavItems()
+
+    deinit { lifecycleTasks.forEach { $0.cancel() } }
+
+    private func transition(to child: UIViewController) {
+        if let current {
+            current.willMove(toParent: nil)
+            current.view.removeFromSuperview()
+            current.removeFromParent()
+        }
+        addChild(child)
+        child.view.translatesAutoresizingMaskIntoConstraints = false
+        view.addSubview(child.view)
+        NSLayoutConstraint.activate([
+            child.view.topAnchor.constraint(equalTo: view.topAnchor),
+            child.view.bottomAnchor.constraint(equalTo: view.bottomAnchor),
+            child.view.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            child.view.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+        ])
+        child.didMove(toParent: self)
+        current = child
+        updateNavItems()
+    }
 }
 ```
 
-— `Views/RootViewController.swift`
+**Under the hood:** `initialize` stashes the connector token and environment process-wide — no network happens yet. The no-arg facade calls (`chat()`, `start()`, `hasResumableSession()`) reuse that config from any view controller. `chat()` resumes the persisted session when it's still valid; `start()` always discards. `hasResumableSession()` is a pure on-disk probe with no side effects.
 
-### Lifecycle subscriptions that drive the transitions — `Views/RootViewController.swift`
+*See [Integration guide › Quick start](../../../README.md#quick-start) and [Integration guide › Session lifecycle](../../../README.md#session-lifecycle).*
 
-**Under the hood:** the loading → chat / error transitions are driven off the
-client's `events`, `connectionStatus`, and `sessionState` streams — not off the
-`ChatSession`'s `@Published` props. The tasks are tied to the **client**, not the
-session, so they keep working across an in-place start-new on the same client.
+### Loading → chat / error via lifecycle streams — `Views/RootViewController.swift`
+
+Don't poll for "is it connected yet" — subscribe to the three lifecycle streams on `client`. The tasks are tied to the **client**, not the session, so they keep working across in-place start-new on the same client:
+
+The SDK signals:
 
 ```swift
+client.events            // AsyncStream<MessagingEvent> — .sessionStart, .disconnected, etc.
+
+client.connectionStatus  // AsyncStream<ConnectionStatus> — .connecting / .connected / .reconnecting / .failed
+
+client.sessionState      // AsyncStream<SessionState> — .isReady flips true when the session can send
+```
+
+In a view controller:
+
+```swift
+private func configureAndStart(forceFresh: Bool) {
+    // ...short-circuit if a live session already exists...
+
+    let s = forceFresh ? PolyMessaging.start() : PolyMessaging.chat()
+    session = s
+    wasResumed = false
+    showLoading()
+    subscribeLifecycle(to: s.client)
+}
+
 private func subscribeLifecycle(to client: PolyMessagingClient) {
     lifecycleTasks.forEach { $0.cancel() }
     lifecycleTasks = []
@@ -111,6 +137,16 @@ private func subscribeLifecycle(to client: PolyMessagingClient) {
     })
 
     lifecycleTasks.append(Task { @MainActor [weak self] in
+        for await status in client.connectionStatus {
+            guard let self else { return }
+            if case .failed(let reason) = status, self.screen == .loading {
+                let message = reason.map { String(describing: $0) } ?? "Unknown failure"
+                self.showError("Connection failed.\n\(message)")
+            }
+        }
+    })
+
+    lifecycleTasks.append(Task { @MainActor [weak self] in
         for await state in client.sessionState {
             guard let self else { return }
             if state.status == .restored { self.wasResumed = true }
@@ -120,19 +156,71 @@ private func subscribeLifecycle(to client: PolyMessagingClient) {
             }
         }
     })
-    // …a third task watches client.connectionStatus for .failed during loading…
 }
 ```
 
-— `Views/RootViewController.swift`
+**Under the hood:** loading → chat is gated on `state.isReady` (or a `.sessionStart` event) and only fires *while still loading*, so a mid-chat reconnect never throws the user back to the loading screen. Errors are routed via `showError(_:)` only while loading, for the same reason — a transient blip after the chat is up just flips `connection` and recovers itself. `state.status == .restored` is how you know it's a warm resume.
 
-### Resume-or-start on the connect screen — `Views/ConnectViewController.swift`
+*See [Integration guide › Connection & reconnect](../../../README.md#connection--reconnect).*
 
-**Under the hood:** the connect screen probes `PolyMessaging.hasResumableSession()`
-(a side-effect-free on-disk check) to decide whether to offer "Resume". The
-primary button maps to `chat()` (resume the stored session if valid, else fresh)
-and the secondary "Start New Chat" maps to `start()` (always fresh). Both paths
-stay visible so host apps can copy the exact flow they need.
+### Recoverable error screen — `Views/ErrorViewController.swift`
+
+06's terminal state is not a latched failure flag — it's a `Screen.error` set by the lifecycle subscriptions above. "Go Back" routes to `.connect`:
+
+The SDK signal that fed it:
+
+```swift
+session.client.sessionState   // .isError on session-creation failure
+// (and .failed on connectionStatus, .disconnected(error) on events)
+```
+
+In a view controller:
+
+```swift
+final class ErrorViewController: UIViewController {
+    private let message: String
+    private let onBack: () -> Void
+
+    init(message: String, onBack: @escaping () -> Void) {
+        self.message = message
+        self.onBack = onBack
+        super.init(nibName: nil, bundle: nil)
+    }
+    required init?(coder: NSCoder) { fatalError() }
+
+    override func viewDidLoad() {
+        super.viewDidLoad()
+        view.backgroundColor = .systemBackground
+
+        // ...icon + title + multiline `message` label...
+
+        var conf = UIButton.Configuration.borderedProminent()
+        conf.title = "Go Back"
+        let back = UIButton(configuration: conf, primaryAction: UIAction { [weak self] _ in
+            self?.onBack()
+        })
+        // ...pin in a stack...
+    }
+}
+```
+
+The error subtitles use `String(describing:)` on `PolyError` rather than `.localizedDescription`, because `PolyError` doesn't conform to `LocalizedError` (the default would just say "The operation couldn't be completed").
+
+**Under the hood:** routing errors only while `.loading` means the error screen is recoverable by design — you can go back to connect and retry. If you want a non-recoverable terminal screen instead (the `04-Resilience` pattern), bind to `session.failureReason` directly.
+
+*See [Integration guide › Terminal errors](../../../README.md#terminal-errors).*
+
+### Resume-or-start picker — `Views/ConnectViewController.swift`
+
+The connect screen picks button labels off `hasResumableSession()`:
+
+The SDK call:
+
+```swift
+PolyMessaging.hasResumableSession()   // true if a stored session is within the timeout
+```
+
+In a view controller:
 
 ```swift
 // RootViewController builds the connect screen with the resume probe:
@@ -147,82 +235,47 @@ private func showConnect() {
     transition(to: vc)
 }
 
-// configureAndStart picks chat() vs start() off the no-arg facade:
-let s = forceFresh ? PolyMessaging.start() : PolyMessaging.chat()
-session = s
-showLoading()
-subscribeLifecycle(to: s.client)
+// ConnectViewController picks the label from what's resumable:
+let primaryShowsResume = hasActiveSession || canResume
+primaryButton.setTitle(primaryShowsResume ? "Resume Chat" : "Start Chat", for: .normal)
+startNewButton.isHidden = !primaryShowsResume   // only show the secondary when resume is offered
 ```
 
-— `Views/RootViewController.swift`
+**Under the hood:** `hasResumableSession()` is a side-effect-free on-disk check (no network), so it's safe to call every time the connect screen is shown — keeping the buttons honest as the user moves between connect / chat / connect.
 
-The connection config was set once in `App/AppDelegate.swift` via
-`PolyMessaging.initialize(...)`; every call site here uses the no-arg facade,
-which reuses it.
-
-*See [Build your own UI › Starting, resuming & ending a session](../../../README.md#starting-resuming--ending-a-session).*
-
-### The loading screen — `Views/LoadingViewController.swift`
-
-**Under the hood:** a plain centered spinner shown while the session connects.
-`RootViewController` swaps it for `ChatViewController` once `sessionState`
-reports ready (`state.isReady`), or for `ErrorViewController` on failure.
-
-```swift
-private func showLoading() {
-    screen = .loading
-    transition(to: LoadingViewController())
-}
-```
-
-— `Views/RootViewController.swift`
-
-### The error screen + how errors route to it — `Views/ErrorViewController.swift`
-
-**Under the hood:** 06's terminal state is a **recoverable** error screen driven
-by connect/lifecycle failure, not by any latched failure flag. The lifecycle
-subscriptions call `showError(_:)` when the session reports an error during
-loading; the "Go Back" button returns to the connect screen so the user can
-resume or start fresh.
-
-```swift
-private func showError(_ message: String) {
-    screen = .error
-    transition(to: ErrorViewController(message: message,
-                                       onBack: { [weak self] in self?.showConnect() }))
-}
-```
-
-```swift
-// ErrorViewController is purely a message + a back button:
-init(message: String, onBack: @escaping () -> Void) {
-    self.message = message
-    self.onBack = onBack
-    super.init(nibName: nil, bundle: nil)
-}
-```
-
-— `Views/RootViewController.swift`, `Views/ErrorViewController.swift`
+*See [Integration guide › Session lifecycle](../../../README.md#session-lifecycle).*
 
 ### Nav-bar End vs back — `Views/RootViewController.swift`
 
-**Under the hood:** the root owns both nav-bar buttons. The xmark **ends** the
-session (`session.end()`) after a confirm alert and returns to connect; the
-chevron **pauses** to connect *without* ending — the session stays alive so the
-user can come back to the same conversation.
+The root owns both nav-bar buttons. The xmark **ends** the session (`session.end()`) after a confirm alert and returns to connect; the chevron **pauses** to connect *without* ending — the session stays alive for the user to come back to.
+
+The SDK call:
 
 ```swift
-navigationItem.leftBarButtonItem = UIBarButtonItem(
-    image: UIImage(systemName: "chevron.left"),
-    primaryAction: UIAction { [weak self] _ in self?.showConnect() }   // pause, don't end
-)
-let end = UIBarButtonItem(
-    image: UIImage(systemName: "xmark.circle"),
-    primaryAction: UIAction { [weak self] _ in self?.confirmEnd() }    // end for good
-)
+session.end()   // permanent; the conversation cannot be resumed after this
 ```
 
+In a view controller:
+
 ```swift
+private func updateNavItems() {
+    guard screen != .connect else {
+        navigationItem.leftBarButtonItem = nil
+        navigationItem.rightBarButtonItem = nil
+        return
+    }
+    navigationItem.leftBarButtonItem = UIBarButtonItem(
+        image: UIImage(systemName: "chevron.left"),
+        primaryAction: UIAction { [weak self] _ in self?.showConnect() }   // pause, don't end
+    )
+    let end = UIBarButtonItem(
+        image: UIImage(systemName: "xmark.circle"),
+        primaryAction: UIAction { [weak self] _ in self?.confirmEnd() }    // end for good
+    )
+    end.accessibilityLabel = "End Conversation"
+    navigationItem.rightBarButtonItem = end
+}
+
 private func endConversation() {
     let pending = session
     Task { @MainActor [weak self] in
@@ -234,18 +287,22 @@ private func endConversation() {
 }
 ```
 
-— `Views/RootViewController.swift`
+**Under the hood:** awaiting `end()` before clearing the local `session` ensures the server has acknowledged the teardown before the connect screen re-probes `hasResumableSession()` — otherwise you can get a phantom "Resume" button for a session that's already dead.
 
-*See [Build your own UI › Starting, resuming & ending a session](../../../README.md#starting-resuming--ending-a-session).*
+*See [Integration guide › Session lifecycle](../../../README.md#session-lifecycle).*
 
-### In-place Start-New (no screen change) — `Views/ChatViewController.swift`
+### In-place start-new — `Views/ChatViewController.swift`
 
-**Under the hood:** when the chat ends, the chat-ended banner offers a new
-conversation without bouncing through the connect screen. `clearChat()` wipes the
-local transcript immediately; `startNewSession()` ends the current server-side
-session and starts a fresh one on the **same** client — so the persistent
-lifecycle subscriptions (tied to the client) flip the root back to chat once the
-new session is ready.
+When the chat ends, the chat-ended footer offers a new conversation without bouncing through the connect screen:
+
+The SDK calls:
+
+```swift
+session.clearChat()                  // wipe the local transcript immediately
+session.client.startNewSession()     // ends the current server session, starts a fresh one on the SAME client
+```
+
+In a view controller:
 
 ```swift
 private func startNewConversationInPlace() {
@@ -254,75 +311,100 @@ private func startNewConversationInPlace() {
 }
 ```
 
-— `Views/ChatViewController.swift`
+**Under the hood:** `startNewSession()` reuses the existing client, so the lifecycle subscriptions in `RootViewController` (tied to that client) don't need re-arming — they flip the root back to `.chat` once the new session is ready. `ChatSession` detects the new session id and resets its latched flags, so the screen converges without leaving `.chat`.
 
-`RootViewController` does the same when "Start New Chat" is tapped on an already
-live session: it spins up a fresh `ChatSession` on the existing client and calls
-`existing.client.startNewSession()`.
+*See [Integration guide › Session lifecycle](../../../README.md#session-lifecycle).*
 
-*See [Build your own UI › Starting, resuming & ending a session](../../../README.md#starting-resuming--ending-a-session).*
+### Delayed "Sending…" label — `Views/ChatViewController.swift`
 
-### Delayed "Sending…" label (≈500ms debounce) — `Views/ChatViewController.swift`
+The SDK already tracks real delivery (`.pending` → `.sent`); the ~500ms delay is purely app-side polish on *showing* the label, so fast confirmations never flash it:
 
-**Under the hood:** the SDK already tracks real delivery (`.pending` → `.sent`);
-the ≈500ms delay is pure app-side polish on *showing* the label, so quick
-confirmations never flash "Sending…". It doesn't change how or when the SDK
-reports delivery.
+The SDK signal:
 
 ```swift
-DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
-    guard let self else { return }
-    guard case .user(let current) = self.session.messages.first(where: { $0.id == id }),
-          current.delivery == .pending else { return }
-    self.sendingLabels.insert(id)
-    self.reconfigure(id: id)
+ChatMessage.delivery   // .pending / .sent / .failed (.pending on optimistic send)
+```
+
+In a view controller:
+
+```swift
+private var sendingLabels: Set<UUID> = []
+private var trackedPending: Set<UUID> = []
+
+private func syncSendingLabels(_ messages: [ChatMessage]) {
+    for case .user(let u) in messages where u.delivery == .pending && !trackedPending.contains(u.id) {
+        trackedPending.insert(u.id)
+        let id = u.id
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
+            guard let self else { return }
+            // Only show the label if the draft is STILL pending after 500ms.
+            guard case .user(let current) = self.session.messages.first(where: { $0.id == id }),
+                  current.delivery == .pending else { return }
+            self.sendingLabels.insert(id)
+            self.reconfigure(id: id)   // re-run cellProvider on this row
+        }
+    }
+    // Drop ids that left .pending — keeps the sets in sync with reality.
+    let stillPending = Set(messages.compactMap { msg -> UUID? in
+        if case .user(let u) = msg, u.delivery == .pending { return u.id }
+        return nil
+    })
+    sendingLabels.formIntersection(stillPending)
+    trackedPending.formIntersection(stillPending)
+}
+
+private func reconfigure(id: UUID) {
+    var snapshot = dataSource.snapshot()
+    let item = Row.message(id)
+    guard snapshot.itemIdentifiers.contains(item) else { return }
+    snapshot.reconfigureItems([item])
+    dataSource.apply(snapshot, animatingDifferences: false)
 }
 ```
 
-— `Views/ChatViewController.swift`
+**Under the hood:** this only gates *display* — the SDK still reports `.pending` immediately and `.sent` the moment the server confirms. The bubble is in `messages` from the first frame either way; the label is the only thing this code controls.
 
-*See [Build your own UI › Delivery state & retry](../../../README.md#delivery-state--retry).*
+*See [Integration guide › Delivery state & retry](../../../README.md#delivery--read-state).*
 
 ### Retry removes the failed draft, then re-sends — `Views/ChatViewController.swift`
 
-**Under the hood:** retrying a failed user message first drops the failed draft
-via `session.removeMessage(draftId:)`, then sends the text again — so the
-transcript never keeps a stale failed bubble alongside the new attempt.
+A failed optimistic message stays in `messages` as a real draft keyed by its `draftId`. Retry drops the stale bubble first, then re-sends the text:
+
+The SDK calls:
+
+```swift
+session.removeMessage(draftId:)   // drop the failed optimistic draft from messages
+session.send(_:)                  // re-send as a fresh draft (new id)
+```
+
+In a view controller (inside the diffable data source's cell provider):
 
 ```swift
 cell.onRetry = { [weak self] text in
-    if let draftId = self?.draftId(for: id) { self?.session.removeMessage(draftId: draftId) }
+    if let draftId = self?.draftId(for: id) {
+        self?.session.removeMessage(draftId: draftId)
+    }
     Task { try? await self?.session.send(text) }
+}
+
+private func draftId(for id: UUID) -> String? {
+    guard case .user(let u) = session.messages.first(where: { $0.id == id }) else { return nil }
+    return u.draftId
 }
 ```
 
-— `Views/ChatViewController.swift`
+**Under the hood:** without `removeMessage`, retrying would leave a "Failed" bubble next to the new attempt — `send()` always creates a fresh draft id rather than mutating the old one. Dropping the failed draft first is what keeps the transcript clean.
 
-*See [Build your own UI › Delivery state & retry](../../../README.md#delivery-state--retry).*
+*See [Integration guide › Delivery state & retry](../../../README.md#delivery--read-state).*
 
-## What it skips → where next
+> **Streaming:** agent replies grow token-by-token by default (`Configuration.streamingEnabled: true` — ChatGPT-style). The chat's diffable data source uses `snapshot.reconfigureItems(...)` on the agent message's id every time `$messages` re-publishes, so the cell re-runs with the longer text and the table animates the height change. See the root README's [*Streaming*](../../../README.md#streaming) section and [`07-Playground`](../07-Playground/) for a live toggle.
 
-06 deliberately leaves out the developer-only surface. The next level adds it:
+## What this example skips
 
-- **`DevSettings` runtime configuration**, a **raw-transport tap** for the live
-  event stream, on-screen **diagnostics**, and **progressive streaming** →
-  [`07-Playground`](../07-Playground/).
-
-## Copy these into your app
-
-The views here are copy-paste ready — they use only **public SDK types**, so they
-drop into any app that has the package. Add it via
-root [README → Install](../../../README.md#install), then follow
-root [README → "Build your own UI"](../../../README.md#build-your-own-ui) to drive
-the components from `ChatSession`.
+- runtime configuration knobs (`DevSettings`), raw transport tap, live diagnostics, event log, message timestamps → [`07-Playground/`](../07-Playground/)
 
 ---
 
-**Cross-framework counterpart:** the SwiftUI twin of this app is
-[`Examples/SwiftUI/06-FullReference/`](../../SwiftUI/06-FullReference/) — same
-feature set, same connector-token wiring; only the UI binding differs.
-
-When you change this example, update the matching snippets in the project
-[`README.md`](../../../README.md) **and** the SwiftUI counterpart at
-[`Examples/SwiftUI/06-FullReference/`](../../SwiftUI/06-FullReference/). See
-`SKILL.md §12`.
+- **SwiftUI counterpart:** [`Examples/SwiftUI/06-FullReference/`](../../SwiftUI/06-FullReference/)
+- **SDK reference:** root [README → Integration guide](../../../README.md#integration-guide)
+- **Install the package:** root [README → Install](../../../README.md#install)

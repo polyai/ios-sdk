@@ -1,13 +1,8 @@
-# 07-Playground
+# 07-Playground (SwiftUI)
 
-The most extensive example in the ladder: **[`06-FullReference`](../06-FullReference/)
-plus a developer toolbox.** Same complete chat app — every connect / loading /
-chat / error screen and every rendering component is inherited from 06 — wrapped
-in a QA surface for poking at the protocol: runtime `Configuration` knobs, a raw
-transport tap, live diagnostics, a filterable event log, progressive-streaming
-verification, and message timestamps.
+The developer toolbox on top of [`06-FullReference`](../06-FullReference/) — the same complete chat (`connect → loading → chat → error`, resume-or-start, in-place restart, streaming-aware scroll, delivery tracking) wrapped in a QA surface for poking at the protocol: runtime `Configuration` via `DevSettings`, a live streaming toggle, raw-transport `getConnection()` pokes (frames + close-code simulations), a filterable event log, live `DevDiagnostics`, and iMessage-style message timestamps.
 
-Use 06 to learn the chat. Use 07 to test the SDK.
+Use [`06-FullReference`](../06-FullReference/) to learn the chat. Use this one to test the SDK.
 
 ## Run it
 
@@ -16,148 +11,225 @@ open PlaygroundSwiftUI.xcodeproj   # from this folder
 # Cmd+R on an iPhone simulator
 ```
 
-## Inherits the full reference
+Set your connector token in `PlaygroundApp.swift` (currently `"YOUR_CONNECTOR_TOKEN"`).
 
-07 reuses 06's complete chat verbatim — the same `enum AppScreen` screen-state
-machine (`connect → loading → chat → error`), resume-or-start via
-`PolyMessaging.hasResumableSession()`, in-place `startNewSession()` + `clearChat()`,
-recoverable error routing, delayed "Sending…" labels, retry, and streaming-aware
-scroll — driven by the same `client.events` / `client.connectionStatus` /
-`client.sessionState` streams. It also draws every message with 06's component
-set — see [`Examples/SwiftUI/06-FullReference/Components/`](../06-FullReference/Components/).
+## What this example demonstrates
 
-None of that is re-documented here. For the base chat see
-[`06-FullReference`](../06-FullReference/), and for the per-feature build-your-own-UI
-recipes see the root [Build your own UI](../../../README.md#build-your-own-ui).
-This README deep-dives only what 07 *adds*.
+- Edit a fresh `Configuration` at runtime via `DevSettings` (a public SDK type) and apply it on the next session
+- Toggle `Configuration.streamingEnabled` live and verify token-by-token vs complete-message rendering
+- Poke the live WebSocket via `client.getConnection().send(_:)` (raw frames) and `.disconnect(code:reason:)` (close-code simulations)
+- Tap `client.events` for a filterable, copyable log of every typed event
+- Subscribe to `client.events` / `client.connectionStatus` / `client.sessionState` for live diagnostic counters
+- Render iMessage-style timestamp separators using each `ChatMessage.timestamp`
 
-## The developer toolbox (unique to 07)
+## How it works
 
-Everything below is real code from this app, against public SDK types only.
+Each subsection leads with **the SDK call(s)** (the actual API), then shows **how it's wired into a view**.
 
-### 1. Runtime config via `DevSettings` — `Views/SettingsSheet.swift`
+### Runtime configuration via `DevSettings` — `Views/SettingsSheet.swift`
 
-**Under the hood:** `DevSettings` is a **public SDK type**
-(`Sources/PolyMessaging/Public/DevSettings.swift`, a `@MainActor open class
-DevSettings: ObservableObject`) — not an example file. Construct it with no
-arguments after `initialize(_:)`: it reads the connector token from
-`PolyMessaging.currentConfig` and seeds its environment from it (the `X-Host` is
-derived from the selected environment), so it bakes in no credentials. It's a
-UserDefaults-backed bag of runtime knobs — environment (production / staging / dev /
-cluster / custom URLs), `streamingEnabled`, and the timing knobs
-`heartbeatIntervalSeconds` / `sessionTimeoutSeconds` / `maxReconnectAttempts`
-(0 = "use the SDK default").
-`SettingsSheet` edits those `@Published` knobs live; `buildConfiguration()` folds
-them into a `Configuration` the SDK consumes **on the next session** (existing
-sessions don't change — the sheet shows an "Apply & Start New Session" banner for
-exactly that reason).
+`DevSettings` is a **public SDK type** (`Sources/PolyMessaging/Public/DevSettings.swift`) — an `@MainActor open class DevSettings: ObservableObject` backed by `UserDefaults`. Construct it with no arguments after `initialize(_:)`; it reads the connector token from `PolyMessaging.currentConfig` and seeds its environment from there, so it bakes in no credentials. Edit the published knobs live; `buildConfiguration()` folds them into a `Configuration` the SDK consumes on the **next** session.
+
+The SDK calls:
 
 ```swift
-// SettingsSheet.swift — each knob is a two-way binding onto the SDK object
-@ObservedObject var settings: DevSettings
+DevSettings()                       // a UserDefaults-backed bag of @Published runtime knobs
+settings.environmentKind            // .production / .staging / .dev / .cluster / .custom
+settings.streamingEnabled           // session-creation knob — flip resets text-by-token rendering
+settings.heartbeatIntervalSeconds   // 0 = "use the SDK default"
+settings.sessionTimeoutSeconds      // 0 = "use the SDK default"
+settings.maxReconnectAttempts       // 0 = "use the SDK default"
 
-Picker("Target", selection: Binding(
-    get: { settings.environmentKind },
-    set: { settings.environmentKind = $0 }
-)) {
-    ForEach(DevSettings.EnvironmentKind.allCases) { kind in
-        Text(kind.displayName).tag(kind)
+settings.buildConfiguration()       // → Configuration consumed on the next session
+PolyMessaging.chat(_: Configuration)
+PolyMessaging.start(_: Configuration)
+```
+
+In a view (settings sheet):
+
+```swift
+struct SettingsSheet: View {
+    @ObservedObject var settings: DevSettings
+
+    var body: some View {
+        Form {
+            Section("Connection") {
+                Picker("Target", selection: Binding(
+                    get: { settings.environmentKind },
+                    set: { settings.environmentKind = $0 }
+                )) {
+                    ForEach(DevSettings.EnvironmentKind.allCases) { kind in
+                        Text(kind.displayName).tag(kind)
+                    }
+                }
+                // ...timing knobs, log level, custom URL fields...
+            }
+        }
     }
 }
 ```
 
 ```swift
-// ContentView.swift — buildConfiguration() → applied on the next session
+// ContentView.configureAndStart — buildConfiguration → applied on the next session
 let config = devSettings.buildConfiguration()
 let s = forceFresh
     ? PolyMessaging.start(config)
     : PolyMessaging.chat(config)
 diagnostics.attach(to: s.client)
+session = s
 ```
 
-*See [Reference › Dev tools (QA)](../../../README.md#dev-tools-qa).*
+**Under the hood:** session-creation knobs (environment, streaming, greeting) take effect only on a fresh session — that's why the sheet shows "Apply & Start New Session". `lastAppliedStreamingEnabled` on `DevSettings` lets the UI flag when the running session is out of sync with the current knobs.
 
-### 2. Streaming toggle — `Views/SettingsSheet.swift`
+*See [Integration guide › Configuration](../../../README.md#configuration).*
 
-**Under the hood:** `Configuration.streamingEnabled` is the single switch for streaming.
-When `true` (default) `ChatSession` grows the agent bubble token-by-token as chunks land;
-when `false`, the SDK shows the assembled message in one shot (and keeps the typing
-indicator alive while the agent thinks). Flip the toggle in the Settings sheet — it lives
-on the `DevSettings.streamingEnabled` knob, which flows into the next `buildConfiguration()`.
+### Streaming toggle — `Views/SettingsSheet.swift`
+
+The Connection section of the sheet flips `settings.streamingEnabled` (default **on**), which flows into the next `buildConfiguration()`:
+
+The SDK signal:
 
 ```swift
-// SettingsSheet.swift — Connection section already has this toggle:
+Configuration.streamingEnabled   // the single switch for token-by-token vs complete-message
+settings.streamingEnabled        // the live DevSettings knob
+settings.lastAppliedStreamingEnabled   // the value the running session was started with
+```
+
+In a view:
+
+```swift
 Toggle("Streaming (server chunks)", isOn: Binding(
     get: { settings.streamingEnabled },
     set: { settings.streamingEnabled = $0 }
 ))
+if hasAnySession && settings.streamingEnabled != settings.lastAppliedStreamingEnabled {
+    Text("Restart the session to apply").font(.caption).foregroundColor(.orange)
+}
 ```
 
-A changed `streamingEnabled` applies on the next session — pause back to the
-connect screen and resume, or tap "New conversation". `lastAppliedStreamingEnabled`
-on `DevSettings` lets the UI flag that a restart is needed.
+**Under the hood:** when `streamingEnabled: true` (default), `ChatSession` extends the last `.agent` message's `text` on every chunk and re-publishes `messages` — your `Text(message.text)` re-renders in place. When `false`, the SDK shows the assembled message in one shot and keeps `isAgentTyping == true` while the agent thinks. The chat view code is identical either way; the same `messages` array just updates differently.
 
-*See [Build your own UI › Streaming](../../../README.md#streaming).*
+*See [Integration guide › Streaming](../../../README.md#streaming).*
 
-### 3. The WebSocket buttons (raw transport tap) — `Views/SettingsSheet.swift`, `Views/ContentView.swift`
+### Raw transport: send frames — `Views/SettingsSheet.swift`, `Views/ContentView.swift`
 
-The Settings sheet has two groups of buttons that poke the live socket directly through `session.client.getConnection()` — the SDK's raw-transport escape hatch.
+`getConnection()` hands you the *same* live `Connection` the SDK is already running on. Frames sent through it **bypass the managed `send(_:)` path** — no delivery tracking, no retry, no `local_id` correlation, no `.messagePending` / `.messageConfirmed`. It's for protocol-level pokes, not normal sending.
 
-**Under the hood:** `getConnection()` hands you the *same* live `Connection` the SDK is already running on. Frames sent through it **bypass the managed `send(_:)` path** — no delivery tracking, no retry, no `local_id` correlation, so they emit no `.messagePending` / `.messageConfirmed`. It's for protocol-level pokes, not normal sending.
+The SDK call:
 
-**"Send frames"** — `rawSend(_:)` → `getConnection().send(OutgoingEvent)`:
+```swift
+session.client.getConnection().send(_: OutgoingEvent)   // raw frame injection
+```
 
-| Button | Frame it injects |
+Buttons in the Settings sheet inject these frames:
+
+| Button | Frame |
 |---|---|
 | Send HEARTBEAT | `.heartbeat` |
 | Send USER_TYPING (started / stopped) | `.userTyping(.started)` / `.userTyping(.stopped)` |
 | Send USER_END_SESSION | `.userEndConversation` |
 | Send USER_LEFT | `.userLeft` |
 
-**"Disconnect / reconnect"** — `closeWith(code:reason:)` → `getConnection().disconnect(code:reason:)`. The synthesised close code feeds the SDK's classification in `ConnectionService`, so each button exercises a different recovery path:
+In a view:
 
-| Button | Close code | What the SDK does under the hood |
+```swift
+// ContentView wires Settings buttons to rawSend(...)
+.sheet(isPresented: $showSettings) {
+    SettingsSheet(
+        settings: devSettings,
+        // ...
+        onSendHeartbeat:        { rawSend(.heartbeat) },
+        onSendTypingStart:      { rawSend(.userTyping(.started)) },
+        onSendTypingStop:       { rawSend(.userTyping(.stopped)) },
+        onSendUserEndSession:   { rawSend(.userEndConversation) },
+        onSendUserLeft:         { rawSend(.userLeft) }
+    )
+}
+
+private func rawSend(_ event: OutgoingEvent) {
+    guard let c = session?.client else { return }
+    Task {
+        await c.getConnection().send(event)
+        diagnostics.recordOutgoing()   // SDK has no outbound-frame stream — count manually
+    }
+}
+```
+
+**Under the hood:** `.userEndConversation` / `.userLeft` are real frames the backend processes (a server-side `EVENT_TYPE_USER_END_SESSION`); `.heartbeat` and `.userTyping` are protocol bookkeeping. Because the managed `send(_:)` path isn't involved, the SDK won't surface these as messages or delivery events — they're invisible to `session.messages`.
+
+*See [Integration guide › Raw transport](../../../README.md#raw-transport).*
+
+### Raw transport: close-code simulations — `Views/SettingsSheet.swift`, `Views/ContentView.swift`
+
+`disconnect(code:reason:)` tears the socket down and **synthesises a local close event** with your chosen code, which the SDK's own `ConnectionService` then classifies. Each close code exercises a different recovery path:
+
+The SDK call:
+
+```swift
+session.client.getConnection().disconnect(code: Int, reason: String)
+```
+
+| Button | Close code | What the SDK does |
 |---|---|---|
 | Force reconnect · Simulate network drop | **1006** | transient → reconnect ladder (exponential backoff + jitter), keeps the same `session_id`, replays from the last cursor |
 | Simulate idle timeout | **4002** | transient → reconnect (same path as 1006) |
-| Simulate server reject | **4001** | invalid session → the SDK refetches a fresh session (new access token + `session_id`), then reconnects |
-| Clean disconnect | **1000** | terminal → the reconnect ladder stops; the conversation is over |
+| Simulate server reject | **4001** | invalid session → SDK refetches a fresh session (new access token + `session_id`), then reconnects |
+| Clean disconnect | **1000** | terminal → reconnect ladder stops; the conversation is over |
 
-> **These are client-side simulations, not backend round-trips.** `disconnect(code:reason:)` tears the socket down and **synthesises a local close event** with the chosen code, which the SDK's *own* `ConnectionService` then classifies. The `40xx` codes are the SDK's internal vocabulary — they are **not** sent to the server as-is (`URLSessionWebSocketTask` coerces the wire close frame to a standard code, ~1000). So these buttons exercise the SDK's reconnect logic locally; the server isn't asked to reject or idle-out. (The **Send frames** buttons above are different — `.userEndConversation` / `.userLeft` send a real `EVENT_TYPE_USER_END_SESSION` to the backend.)
+In a view:
 
 ```swift
-// ContentView.swift — inject a wire frame / drive a close code, bypassing the managed path
-private func rawSend(_ event: OutgoingEvent) {
-    guard let c = session?.client else { return }
-    Task { await c.getConnection().send(event); diagnostics.recordOutgoing() }
-}
 private func closeWith(code: Int, reason: String) {
     guard let c = session?.client else { return }
     Task { await c.getConnection().disconnect(code: code, reason: reason) }
 }
-```
 
-```swift
-// SettingsSheet wires each button; ContentView maps it to a frame or a close code
-onSendHeartbeat:        { rawSend(.heartbeat) },
-onSendUserLeft:         { rawSend(.userLeft) },
-onForceReconnect:       { forceReconnect() },                                  // disconnect(1006)
+// SettingsSheet wires each button:
+onForceReconnect:       { closeWith(code: 1006, reason: "Debug force reconnect") },
 onSimulateServerReject: { closeWith(code: 4001, reason: "Debug server-reject simulation") },
+onSimulateIdleTimeout:  { closeWith(code: 4002, reason: "Debug idle-timeout simulation") },
 onDisconnectClean:      { closeWith(code: 1000, reason: "Debug clean disconnect") },
 ```
 
-*See [Reference › Advanced: raw transport](../../../README.md#advanced-raw-transport) for the escape hatch, and [How it works](../../../README.md#how-it-works) for the close-code reconnect ladder.*
+**Under the hood:** these are **client-side simulations**, not backend round-trips. The `40xx` codes are the SDK's internal vocabulary — they're **not** sent to the server as-is (`URLSessionWebSocketTask` coerces the wire close frame to a standard code, ~1000). The buttons exercise the SDK's own reconnect classification locally; the server isn't asked to reject or idle-out.
 
-### 4. Event log — `Helpers/EventLogger.swift`, `Views/LogsSheet.swift`
+*See [Integration guide › Raw transport](../../../README.md#raw-transport).*
 
-**Under the hood:** `client.events` is the typed, decoded event stream the SDK
-already runs internally to drive its own behaviour — the playground just taps it
-for logging, adding no new transport. `EventLogger` turns each `MessagingEvent`
-into a `LogEntry` (a `summary` + optional `detail`, from the SDK's own
-`event.debugSummary` / `event.debugDetail`); `LogsSheet` renders, filters, and
-copies them. A `shouldLog(_:)` predicate drops the noisy high-frequency events
-(heartbeats, typing, and the optimistic `messagePending` / `messageConfirmed` /
-`messageFailed`) so the log stays readable.
+### Event log — `Helpers/EventLogger.swift`, `Views/LogsSheet.swift`
+
+Tap `client.events` for a filterable, copyable record of every typed event. `EventLogger` turns each `MessagingEvent` into a `LogEntry` using the SDK's own `debugSummary` / `debugDetail`:
+
+The SDK signal:
+
+```swift
+session.client.events     // AsyncStream<MessagingEvent> — the typed, decoded stream
+event.debugSummary        // public: one-line human summary
+event.debugDetail         // public: optional multi-line detail
+```
+
+In a view:
+
+```swift
+// ContentView.swift — tap the same stream that drives lifecycle, skip the noisy ones
+Task {
+    for await event in client.events {
+        if shouldLog(event) {
+            logs.append(EventLogger.makeEntry(event: event))
+        }
+        // ...also drive the loading → chat transitions...
+    }
+}
+
+private func shouldLog(_ event: MessagingEvent) -> Bool {
+    switch event {
+    case .messagePending, .messageConfirmed, .messageFailed,
+         .heartbeat, .userTyping, .userEndSession, .requestPolyAgentJoin:
+        return false   // drop high-frequency / optimistic noise
+    default:
+        return true
+    }
+}
+```
 
 ```swift
 // EventLogger.swift — SDK event → log row
@@ -166,50 +238,32 @@ static func makeEntry(event: MessagingEvent) -> LogEntry {
 }
 ```
 
-```swift
-// ContentView.swift — tap client.events, skipping the noisy ones
-for await event in client.events {
-    if shouldLog(event) {
-        logs.append(EventLogger.makeEntry(event: event))
-    }
-    // ...
-}
+**Under the hood:** `client.events` is the same stream the SDK uses internally to drive its own behaviour — tapping it adds no new transport. `debugSummary` / `debugDetail` are public helpers that format envelope + payload in a stable way, so log rows survive SDK upgrades.
 
-private func shouldLog(_ event: MessagingEvent) -> Bool {
-    switch event {
-    case .messagePending, .messageConfirmed, .messageFailed,
-         .heartbeat, .userTyping, .userEndSession, .requestPolyAgentJoin:
-        return false
-    default:
-        return true
-    }
-}
+### Live diagnostics — `Helpers/DevDiagnostics.swift`, `Components/DebugStrip.swift`
+
+`DevDiagnostics` is an `ObservableObject` that subscribes to the same three lifecycle streams and tallies counters — session id, ready state, reconnect cursor (`lastSequence`), frames in/out, streaming chunks, heartbeats, reconnects, last-inbound time, and the negotiated `SessionCapabilities`:
+
+The SDK signals:
+
+```swift
+client.events                     // tally framesIn, chunksIn, heartbeatsIn, lastSequence
+client.connectionStatus           // tally reconnects, current state
+client.sessionState               // capture sessionId / ready state
+event.envelope?.sequence          // reconnect cursor
+.sessionStart(_, payload).capabilities   // server-negotiated SessionCapabilities
 ```
 
-*See [Reference › Dev tools (QA)](../../../README.md#dev-tools-qa).*
-
-### 5. Diagnostics — `Helpers/DevDiagnostics.swift`, `Components/DebugStrip.swift`
-
-**Under the hood:** `DevDiagnostics` is an `ObservableObject` that subscribes to
-the same three SDK streams (`client.events`, `client.connectionStatus`,
-`client.sessionState`) and tallies live counters — session id, ready state, the
-reconnect cursor (`lastSequence`), frames in/out, streaming chunks, heartbeats,
-reconnects, last-inbound time, plus the server `SessionCapabilities` reported at
-`.sessionStart`. The SDK has no outbound-frame stream, so `recordOutgoing()` is
-called by the raw-transport tap to count frames out. `DebugStrip` mirrors the most
-useful counters into a one-line always-on chip over the chat (gated by
-`DevSettings.showDebugStrip`); the full read-out lives in the settings sheet's
-Diagnostics section.
+In a view:
 
 ```swift
 // DevDiagnostics.swift — subscribe once, tally from the SDK streams
 func attach(to client: PolyMessagingClient) {
     reset()
-    let events = client.events
     eventTask = Task { [weak self] in
-        for await event in events { await self?.consume(event) }
+        for await event in client.events { await self?.consume(event) }
     }
-    // ...also connectionStatus and sessionState
+    // ...also connectionStatus + sessionState...
 }
 
 private func consume(event: MessagingEvent) {
@@ -227,30 +281,41 @@ private func consume(event: MessagingEvent) {
 ```
 
 ```swift
-// DebugStrip.swift — live one-line overlay
-chip(systemImage: "number", text: "seq \(diagnostics.lastSequence)")
-chip(systemImage: "arrow.up.arrow.down", text: "\(diagnostics.framesOut)→ ←\(diagnostics.framesIn)")
+// DebugStrip.swift — always-on one-line chip over the chat
+HStack {
+    chip(systemImage: "number",
+         text: "seq \(diagnostics.lastSequence)")
+    chip(systemImage: "arrow.up.arrow.down",
+         text: "\(diagnostics.framesOut)→ ←\(diagnostics.framesIn)")
+}
 ```
 
-*See [Reference › Dev tools (QA)](../../../README.md#dev-tools-qa).*
+**Under the hood:** the SDK has no outbound-frame stream, so `recordOutgoing()` is called by the raw-transport tap to count frames out — every other counter is read off the SDK's published streams. The full read-out lives in the Settings sheet's Diagnostics section; `DebugStrip` shows the headline numbers gated by `DevSettings.showDebugStrip`.
 
-### 6. Message timestamps — `Helpers/MessageTimestamp.swift`, `Components/TimestampSeparator.swift`
+### Message timestamps — `Helpers/MessageTimestamp.swift`, `Components/TimestampSeparator.swift`
 
-**Under the hood:** every `ChatMessage` already carries a `timestamp`. When
-`DevSettings.showMessageTimestamps` is on, `ChatView` walks the list and inserts a
-centered separator row (iMessage style) wherever the gap between two consecutive
-messages exceeds `MessageTimestamp.groupGapSeconds` (~5 min), plus above the very
-first message. `MessageTimestamp` owns the grouping rule and the cached
-locale-aware formatters; `TimestampSeparator` draws the pill.
+Every `ChatMessage` already carries a `timestamp`. When `DevSettings.showMessageTimestamps` is on, the chat view inserts a centered iMessage-style separator wherever the gap between two consecutive messages exceeds ~5 minutes:
+
+The SDK signal:
+
+```swift
+ChatMessage.timestamp   // Date set when the message was sent / received
+```
+
+In a view:
 
 ```swift
 // ChatView.swift — insert a separator when the time gap is large enough
-if showTimestamps,
-   MessageTimestamp.shouldInsertSeparator(
-       previous: index > 0 ? messages[index - 1].timestamp : nil,
-       current: message.timestamp
-   ) {
-    TimestampSeparator(date: message.timestamp)
+ForEach(Array(messages.enumerated()), id: \.element.id) { index, message in
+    if showTimestamps,
+       MessageTimestamp.shouldInsertSeparator(
+           previous: index > 0 ? messages[index - 1].timestamp : nil,
+           current: message.timestamp
+       ) {
+        TimestampSeparator(date: message.timestamp)
+    }
+    MessageBubbleView(message: message, /* ... */)
+        .id(message.id)
 }
 ```
 
@@ -258,29 +323,21 @@ if showTimestamps,
 // MessageTimestamp.swift — the grouping rule (true also for the first message)
 static func shouldInsertSeparator(previous: Date?, current: Date) -> Bool {
     guard let previous else { return true }
-    return current.timeIntervalSince(previous) > groupGapSeconds
+    return current.timeIntervalSince(previous) > groupGapSeconds   // ~5 * 60
 }
 ```
 
-*See [Build your own UI › Message timestamps](../../../README.md#message-timestamps).*
+**Under the hood:** the timestamp is already on every `ChatMessage` the SDK publishes — there's no extra subscription. `MessageTimestamp` owns the grouping rule and the locale-aware formatters (time today, "Yesterday 3:42 PM", weekday this week, month/day this year, else full date).
 
 ## What this example is for
 
 - protocol smoke tests against dev / staging / cluster / custom environments
 - reconnect and close-code experiments (1006 / 4001 / 4002 / 1000)
-- progressive-streaming verification
+- progressive-streaming verification with the live toggle
 - inspecting raw event payloads while keeping `ChatSession`'s UI behaviour visible
 
 ---
 
-**Cross-framework counterpart:** the UIKit twin of this app is
-[`Examples/UIKit/07-Playground/`](../../UIKit/07-Playground/) — same toolbox, same
-connector-token wiring; only the UI binding differs.
-
-Add the package via root [README → Install](../../../README.md#install), then
-follow root [README → Build your own UI](../../../README.md#build-your-own-ui) to
-drive these components from `ChatSession`.
-
-When you change this example, update the matching snippets in the project
-[`README.md`](../../../README.md) **and** the UIKit counterpart at
-[`Examples/UIKit/07-Playground/`](../../UIKit/07-Playground/). See `SKILL.md §12`.
+- **UIKit counterpart:** [`Examples/UIKit/07-Playground/`](../../UIKit/07-Playground/)
+- **SDK reference:** root [README → Integration guide](../../../README.md#integration-guide)
+- **Install the package:** root [README → Install](../../../README.md#install)

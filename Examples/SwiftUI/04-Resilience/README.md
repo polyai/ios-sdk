@@ -1,6 +1,6 @@
-# 04-Resilience
+# 04-Resilience (SwiftUI)
 
-Offline banner, loading skeleton, and a terminal error screen on top of [`03-RichContent`](../03-RichContent/).
+Device-offline banner, pre-handshake loading skeleton, and a full-screen terminal-error screen on top of [`03-RichContent`](../03-RichContent/).
 
 ## Run it
 
@@ -9,144 +9,178 @@ open ResilienceSwiftUI.xcodeproj   # from this folder
 # Cmd+R on an iPhone simulator
 ```
 
-## New in this level
+Set your connector token in `ResilienceApp.swift` (currently `"YOUR_CONNECTOR_TOKEN"`).
 
-- `Helpers/NetworkMonitor.swift` — `NWPathMonitor` wrapper exposing `@Published isOnline`.
-- `Components/OfflineBanner.swift` — translucent-red "You're offline" banner (distinct from the reconnect pill).
-- `Components/LoadingSkeleton.swift` — pulsing placeholder rows while the socket opens.
-- `Views/TerminalErrorScreen.swift` — full-screen retry screen once reconnects are exhausted.
+## What this example demonstrates
 
-Everything else — rich content, suggestions, typing, the reconnect banner — is inherited from [`03-RichContent`](../03-RichContent/); see its README.
+- Track device connectivity with `NWPathMonitor` independently of the SDK's socket state
+- Stack a red "offline" banner above the SDK's yellow "reconnecting" banner
+- Gate a pulsing loading skeleton on `!session.isReady && session.messages.isEmpty`
+- Replace the entire chat surface with a full-screen retry screen when `session.failureReason` is non-nil
+- Recover via `session.client.resume()` from the terminal screen
+
+The SDK invariants behind each pattern are in the root README's [Integration guide](../../../README.md#integration-guide); this example shows them as one concrete view.
 
 ## How it works
 
-### Network monitor — `Helpers/NetworkMonitor.swift`
+Each subsection leads with **the SDK call** (one or a few lines — the actual API), then shows **how it's wired into a view**.
 
-A SwiftUI `ObservableObject` wrapping `NWPathMonitor`. Started on a dedicated background queue (NWPathMonitor requires it); `@MainActor` ensures `@Published` updates land on the main thread.
+### Device-offline banner — `Components/OfflineBanner.swift`
 
-**Under the hood:** This tracks the OS network path (`NWPathMonitor`) — an app concern that's separate from the SDK's own socket reconnect state, so device-offline and socket-reconnecting are reported independently.
+Track the OS network path separately from the SDK's socket and render a red bar above the yellow reconnect banner:
+
+The SDK call:
+
+```swift
+session.connection   // .connected / .reconnecting / .disconnected / .failed — fires on every transition
+```
+
+`isOnline` is your own state, sourced from `NWPathMonitor`:
 
 ```swift
 @MainActor
 final class NetworkMonitor: ObservableObject {
     @Published private(set) var isOnline: Bool = true
 
-    private let monitor: NWPathMonitor
+    private let monitor = NWPathMonitor()
     private let queue = DispatchQueue(label: "poly.example.NetworkMonitor")
 
     init() {
-        monitor = NWPathMonitor()
         monitor.pathUpdateHandler = { [weak self] path in
             let online = path.status == .satisfied
-            Task { @MainActor in
-                self?.isOnline = online
-            }
+            Task { @MainActor in self?.isOnline = online }
         }
         monitor.start(queue: queue)
     }
 
-    deinit {
-        monitor.cancel()
-    }
+    deinit { monitor.cancel() }
 }
 ```
 
-*See [Build your own UI › Connection & reconnect](../../../README.md#connection--reconnect).*
-
-### Offline banner — `Components/OfflineBanner.swift`
-
-Takes `isOnline` and renders itself only when offline (above the connection banner). A translucent red bar so device-offline reads differently from the yellow socket-reconnecting banner.
-
-**Under the hood:** When the OS reports offline, the SDK drops the dead socket within ~100ms and surfaces `.reconnecting`; this banner reflects the OS path while the connection banner reflects the SDK's socket state, so both can show at once.
+In a view:
 
 ```swift
-struct OfflineBanner: View {
-    let isOnline: Bool
+struct ContentView: View {
+    @StateObject var session = PolyMessaging.chat()
+    @StateObject var network = NetworkMonitor()
 
     var body: some View {
-        if !isOnline {
-            HStack(spacing: 8) {
-                Image(systemName: "wifi.slash")
-                Text("You're offline").font(.caption.bold())
-            }
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 6)
-            .background(Color(.systemRed).opacity(0.18))
-            .foregroundColor(.red)
+        VStack(spacing: 0) {
+            // OS-level offline pill (red) stacks ABOVE the SDK's reconnect pill (yellow).
+            // Both can be visible simultaneously.
+            OfflineBanner(isOnline: network.isOnline)
+            ConnectionBanner(status: session.connection)
+
+            // ...message list + composer...
         }
     }
 }
 ```
 
-Wired in `Views/ContentView.swift`:
+**Under the hood:** when the OS reports `path.status != .satisfied`, the SDK's reachability watcher drops its dead socket within ~100ms and `session.connection` flips to `.reconnecting`. The two banners measure different things — the offline pill is the device, the reconnect pill is the socket — so it's fine (and meaningful) to show both.
 
-```swift
-OfflineBanner(isOnline: network.isOnline)
-ConnectionBanner(status: session.connection)
-```
-
-*See [Build your own UI › Connection & reconnect](../../../README.md#connection--reconnect).*
+*See [Integration guide › Connection & reconnect](../../../README.md#connection--reconnect).*
 
 ### Loading skeleton — `Components/LoadingSkeleton.swift`
 
-Pulsing gray rows shown while the WebSocket is still opening. The gate (in `Views/ContentView.swift`) is `!isReady && messages.isEmpty` — skip the skeleton on warm resume where prior messages are already in memory.
+Show pulsing placeholder rows only while the WebSocket is opening for the first time. Warm resumes already have messages in memory, so they skip the skeleton.
 
-**Under the hood:** `isReady` stays `false` until the SDK finishes the handshake and the session can send; it flips to `true` once ready, which clears the skeleton.
+The SDK signals:
 
 ```swift
-if !session.isReady && session.messages.isEmpty {
-    LoadingSkeleton()
-} else {
-    LazyVStack(spacing: 8) {
-        ForEach(session.messages) { message in
-            MessageBubbleView(message: message)
-                .id(message.id)
+session.isReady        // false until the SDK has finished its handshake and can send
+session.messages       // non-empty on warm resume → skip the skeleton entirely
+```
+
+In a view:
+
+```swift
+ScrollViewReader { proxy in
+    ScrollView {
+        if !session.isReady && session.messages.isEmpty {
+            LoadingSkeleton()
+        } else {
+            LazyVStack(spacing: 8) {
+                ForEach(session.messages) { message in
+                    MessageBubbleView(message: message, /* ... */)
+                        .id(message.id)
+                }
+                if session.isAgentTyping {
+                    TypingIndicator(avatarUrl: session.lastAgentMessage?.avatarUrl)
+                }
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 8)
         }
     }
-    // …
 }
 ```
 
-*See [Build your own UI › Loading & empty states](../../../README.md#loading--empty-states).*
+**Under the hood:** `isReady` stays `false` until the REST + WebSocket handshake completes and the session can send; the SDK flips it to `true` the moment a session id is in hand. On a cold relaunch where there's a stored session within the timeout, `messages` is hydrated from the cache before `isReady` flips — the `messages.isEmpty` half of the gate is what skips the skeleton in that path.
+
+> **Streaming:** agent replies grow token-by-token by default (`Configuration.streamingEnabled: true` — ChatGPT-style). Set `streamingEnabled: false` to render completed bubbles only. See the root README's [*Streaming*](../../../README.md#streaming) section and [`07-Playground`](../07-Playground/) for a live toggle.
+
+*See [Integration guide › Loading & empty states](../../../README.md#loading--empty-states).*
 
 ### Terminal error screen — `Views/TerminalErrorScreen.swift`
 
-Replaces the whole chat surface when `session.failureReason != nil`. Once the SDK has exhausted its reconnect budget, the chat UI is useless until the user explicitly retries.
+Once the SDK has given up reconnecting, replace the whole chat with a single retry button. The chat is useless in this state until the user explicitly retries.
 
-**Under the hood:** `failureReason` is non-nil only after the SDK's auto-reconnect (exponential backoff + jitter) is exhausted — a terminal state needing the user, which is why retry calls `client.resume()`.
+The SDK calls:
 
 ```swift
-if let reason = session.failureReason {
-    TerminalErrorScreen(reason: reason) {
-        Task { try? await session.client.resume() }
+session.failureReason     // PolyError? — non-nil after the reconnect budget is exhausted
+session.client.resume()   // re-arm the connection from the retry button
+```
+
+In a view:
+
+```swift
+var body: some View {
+    NavigationView {
+        Group {
+            if let reason = session.failureReason {
+                TerminalErrorScreen(reason: reason) {
+                    Task { try? await session.client.resume() }
+                }
+            } else {
+                mainChat   // banners + message list + composer
+            }
+        }
+        .navigationTitle("Chat")
+        .toolbar {
+            ToolbarItem(placement: .navigationBarTrailing) {
+                if !session.hasEnded && session.failureReason == nil {
+                    Button("End Chat") { Task { try? await session.end() } }
+                }
+            }
+        }
     }
-} else {
-    mainChat
 }
 ```
 
-`PolyError` doesn't conform to `LocalizedError`, so the screen uses `String(describing: reason)` for the subtitle.
+The screen itself uses `String(describing: reason)` for the subtitle — `PolyError` doesn't conform to `LocalizedError`, so `.localizedDescription` would just say "The operation couldn't be completed". `String(describing:)` gives the case name (`auth(unauthorized)`, `session(sessionExpired)`, etc.) which is far more useful.
 
-*See [Build your own UI › Terminal errors](../../../README.md#terminal-errors).*
+**Under the hood:** `failureReason` is set only after the SDK's exponential-backoff reconnect ladder (with jitter) is exhausted, or on a terminal session error (auth, session-expired, session-ended). Transient blips don't trip it — those just flip `connection` to `.reconnecting` and back. That's why this screen is full-screen and gated on `failureReason` rather than on `connection`.
+
+*See [Integration guide › Terminal errors](../../../README.md#terminal-errors).*
 
 ## Try this in the simulator
 
 | Action | What you should see |
 |---|---|
-| Toggle airplane mode mid-chat | Red offline banner; messages queue; toggle off → reconnect banner → cleared |
-| Kill network during cold launch | Loading skeleton → eventually terminal error → tap retry |
-| Cold launch with existing session within ~10 min | Brief skeleton → restored messages render |
+| Toggle airplane mode mid-chat | Red offline banner; messages stay composable; toggle off → yellow reconnect banner → cleared |
+| Kill network during cold launch | Loading skeleton → eventually terminal-error screen → tap "Try Again" |
+| Cold launch with a stored session within ~10 min | No skeleton → restored messages render immediately |
 
 ## What this example skips
 
 - live agent handoff → [`05-Handoff/`](../05-Handoff/)
-
-## Copy these into your app
-
-The views in this folder are copy-paste ready — they use only **public SDK types**, so they drop into any app that has the package. Add the package (root [README → Install](../../../README.md#install)) and drive these views from `ChatSession`: root [README → "Build your own UI"](../../../README.md#build-your-own-ui).
+- resume / start-new on a dedicated connect screen, in-place restart → [`06-FullReference/`](../06-FullReference/)
+- runtime configuration, raw transport, diagnostics → [`07-Playground/`](../07-Playground/)
 
 ---
 
-**Counterpart:** UIKit version at [`Examples/UIKit/04-Resilience/`](../../UIKit/04-Resilience/).
-
-When you change this example, update the matching snippets in the project [`README.md`](../../../README.md) **and** the UIKit counterpart. See `SKILL.md §12`.
+- **UIKit counterpart:** [`Examples/UIKit/04-Resilience/`](../../UIKit/04-Resilience/)
+- **SDK reference:** root [README → Integration guide](../../../README.md#integration-guide)
+- **Install the package:** root [README → Install](../../../README.md#install)
