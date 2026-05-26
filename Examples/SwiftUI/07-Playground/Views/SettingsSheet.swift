@@ -352,7 +352,7 @@ struct SettingsSheet: View {
                 get: { settings.sessionTimeoutSeconds },
                 set: { settings.sessionTimeoutSeconds = $0 }
             ), in: 0...86400, step: 60) {
-                LabeledValue(label: "Session timeout", value: secondsLabel(settings.sessionTimeoutSeconds, defaultLabel: "1h"))
+                LabeledValue(label: "Session timeout", value: secondsLabel(settings.sessionTimeoutSeconds, defaultLabel: "10m"))
             }
 
             Stepper(value: Binding(

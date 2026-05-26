@@ -30,12 +30,14 @@ actor SessionService {
     nonisolated let stateChanges = Multicaster<SessionState>(replayLastValue: true)
 
     /// Idle window after which a session is considered expired. Injectable so
-    /// tests can drive idle/expiry deterministically; production default 3600s.
+    /// tests can drive idle/expiry deterministically; production default 600s
+    /// (matches the backend's WebSocket idle timeout — sessions older than
+    /// this have been killed server-side, so attempting to resume 404s).
     private let sessionTimeoutSeconds: TimeInterval
     private static let maxRefetchAttempts = 3
     private static let refetchDebounceNanos: UInt64 = 300_000_000
 
-    init(api: any RestApiPort, config: Configuration, logger: PolyLogger, sessionTimeoutSeconds: TimeInterval = 3600) {
+    init(api: any RestApiPort, config: Configuration, logger: PolyLogger, sessionTimeoutSeconds: TimeInterval = 600) {
         self.api = api
         self.config = config
         self.logger = logger

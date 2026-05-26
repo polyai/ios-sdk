@@ -2,7 +2,10 @@ import Foundation
 
 public enum PolyMessaging {
 
-    private static let resumeWindowSeconds: TimeInterval = 3600
+    /// Matches the backend's WebSocket idle timeout. Sessions older than this
+    /// have been killed server-side, so offering "Resume" would 404. See
+    /// `poly_core/.../sessions/manager.go` (CHANNEL_TYPE_WEBSOCKET → 10 min).
+    private static let resumeWindowSeconds: TimeInterval = 600
     private static var _config: Configuration?
 
     /// Call once at app launch (e.g. in `App.init` or `application(_:didFinishLaunching:)`).
@@ -40,7 +43,7 @@ public enum PolyMessaging {
     /// True when a previously-persisted session for this connector token can
     /// still be resumed. Use this to drive UI decisions like showing a
     /// "Resume Chat" button. A `true` return means:
-    ///   - The stored session row is within the idle window (1h).
+    ///   - The stored session row is within the idle window (~10 min).
     ///   - The stored access token is structurally valid and unexpired.
     /// Both halves are required: restoring half a session creates a
     /// mismatched user identity and the server rejects the connection.

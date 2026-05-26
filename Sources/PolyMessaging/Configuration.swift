@@ -14,7 +14,9 @@ public struct Configuration: Sendable {
     /// Override the default heartbeat interval (30s). Server `SessionCapabilities`
     /// still overrides this once the session is established.
     public let heartbeatIntervalSeconds: Int?
-    /// Override the default session idle timeout (3600s = 1h).
+    /// Override the default session idle timeout (600s = 10 min). Mirrors the
+    /// backend's WebSocket idle timeout — sessions still alive on the server
+    /// can be resumed within this window; older ones are gone.
     public let sessionTimeoutSeconds: Int?
     /// Override the default max-reconnect attempts (10). Server `SessionCapabilities`
     /// still overrides this once the session is established.
