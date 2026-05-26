@@ -16,10 +16,10 @@ struct SessionStore: Sendable {
         self.tokenNamespace = ""
     }
 
-    init(connectorToken: String) {
+    init(apiKey: String) {
         // SHA-256 truncated to 8 hex chars — collision-resistant enough for
         // local disk isolation and short enough to keep keys readable.
-        let hash = SHA256.hash(data: Data(connectorToken.utf8))
+        let hash = SHA256.hash(data: Data(apiKey.utf8))
         let hex = hash.prefix(4).map { String(format: "%02x", $0) }.joined()
         self.tokenNamespace = hex + "."
     }

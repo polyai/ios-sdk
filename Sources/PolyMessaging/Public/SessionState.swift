@@ -27,7 +27,7 @@ public struct SessionState: Sendable, Equatable {
 
 public extension SessionState {
     var isError: Bool { hasInvalidConnectorToken || error != nil }
-    var errorMessage: String? { hasInvalidConnectorToken ? "Invalid connector token" : error?.rawValue }
+    var errorMessage: String? { hasInvalidConnectorToken ? "Invalid API key" : error?.rawValue }
     var canSendMessages: Bool { isReady && !isError }
     var isTerminal: Bool { status == .ended || status == .expired }
 }

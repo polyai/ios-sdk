@@ -23,4 +23,4 @@ open Examples/SwiftUI/01-Hello/HelloSwiftUI.xcodeproj   # or any other
 # Cmd+R on an iPhone simulator
 ```
 
-If you change `project.yml`, regenerate with `xcodegen` from inside that folder. Set your connector token where the example calls `PolyMessaging.initialize(...)`.
+If you change `project.yml`, regenerate with `xcodegen` from inside that folder. Set your API key where the example calls `PolyMessaging.initialize(...)`.

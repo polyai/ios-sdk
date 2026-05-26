@@ -6,12 +6,12 @@ import XCTest
 final class ConfigurationTests: XCTestCase {
 
     func testConfigureWithValidToken() throws {
-        let client = try PolyMessaging.configure(.init(connectorToken: "ct_test_abc", environment: .dev))
-        XCTAssertEqual(client.config.connectorToken, "ct_test_abc")
+        let client = try PolyMessaging.configure(.init(apiKey: "ct_test_abc", environment: .dev))
+        XCTAssertEqual(client.config.apiKey, "ct_test_abc")
     }
 
     func testConfigureWithEmptyTokenThrows() {
-        XCTAssertThrowsError(try PolyMessaging.configure(.init(connectorToken: "", environment: .dev))) { error in
+        XCTAssertThrowsError(try PolyMessaging.configure(.init(apiKey: "", environment: .dev))) { error in
             guard case PolyError.invalidConfiguration = error else {
                 XCTFail("Expected invalidConfiguration, got \(error)")
                 return

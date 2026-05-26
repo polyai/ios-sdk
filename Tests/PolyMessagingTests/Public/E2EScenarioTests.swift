@@ -35,10 +35,10 @@ final class E2EScenarioTests: XCTestCase {
         open: Bool = true,
         streamingEnabled: Bool? = nil
     ) async throws -> (ChatSession, MockConnection, MockRestApi) {
-        SessionStore(connectorToken: "test_token").clear()
+        SessionStore(apiKey: "test_token").clear()
 
         let connection = MockConnection()
-        let config = Configuration(connectorToken: "test_token", environment: .dev)
+        let config = Configuration(apiKey: "test_token", environment: .dev)
         let logger = NoopLogger()
 
         let session = SessionService(api: api, config: config, logger: logger)

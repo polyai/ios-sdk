@@ -76,5 +76,5 @@ body:
     id: logs
     attributes:
       label: Logs
-      description: Console output, especially from `PolyMessaging` log statements. **Redact connector tokens.**
+      description: Console output, especially from `PolyMessaging` log statements. **Redact API keys.**
       render: shell

@@ -23,7 +23,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
     ) -> Bool {
         PolyMessaging.initialize(.init(
-            connectorToken: "YOUR_CONNECTOR_TOKEN",
+            apiKey: "YOUR_API_KEY",
             environment: .dev,
             streamingEnabled: true,
             logLevel: .debug

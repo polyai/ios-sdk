@@ -32,10 +32,10 @@ final class ResilienceMatrixTests: XCTestCase {
     private func makeCoordinator(
         sessionTimeoutSeconds: TimeInterval = 3600
     ) async -> (Coordinator, MockRestApi, MockConnection, NetworkMonitor, AppLifecycleObserver) {
-        SessionStore(connectorToken: "test_token").clear()
+        SessionStore(apiKey: "test_token").clear()
         let api = MockRestApi()
         let connection = MockConnection()
-        let config = Configuration(connectorToken: "test_token", environment: .dev)
+        let config = Configuration(apiKey: "test_token", environment: .dev)
         let logger = NoopLogger()
         let session = SessionService(api: api, config: config, logger: logger,
                                      sessionTimeoutSeconds: sessionTimeoutSeconds)
@@ -241,7 +241,7 @@ final class ResilienceMatrixTests: XCTestCase {
 
     func test_idleExpiry_checkTimeoutFiresPastWindow() async {
         let api = MockRestApi()
-        let config = Configuration(connectorToken: "test_token_idle", environment: .dev)
+        let config = Configuration(apiKey: "test_token_idle", environment: .dev)
         let session = SessionService(api: api, config: config, logger: NoopLogger(),
                                      sessionTimeoutSeconds: 0.05)
         await session.touch()

@@ -9,7 +9,7 @@ open HelloSwiftUI.xcodeproj   # from this folder
 # Cmd+R on an iPhone simulator
 ```
 
-Set your connector token in `HelloApp.swift` (currently `"YOUR_CONNECTOR_TOKEN"`).
+Set your API key in `HelloApp.swift` (currently `"YOUR_API_KEY"`).
 
 ## What this example demonstrates
 
@@ -32,7 +32,7 @@ Configure the SDK once at launch:
 
 ```swift
 PolyMessaging.initialize(.init(
-    connectorToken: "YOUR_CONNECTOR_TOKEN",  // from Agent Studio → Connector Settings
+    apiKey: "YOUR_API_KEY",  // from Agent Studio → Connector Settings
     environment: .dev                        // .production / .cluster("us-1") / .staging / .dev / .custom(...)
 ))
 ```
@@ -44,7 +44,7 @@ In an `@main` App:
 struct HelloApp: App {
     init() {
         PolyMessaging.initialize(.init(
-            connectorToken: "YOUR_CONNECTOR_TOKEN",
+            apiKey: "YOUR_API_KEY",
             environment: .dev
         ))
     }
@@ -54,7 +54,7 @@ struct HelloApp: App {
 
 After this, `PolyMessaging.chat()` works from any view.
 
-**Under the hood:** `initialize` just stashes your connector token and environment process-wide — no network happens yet. The work starts when you call `chat()`.
+**Under the hood:** `initialize` just stashes your API key and environment process-wide — no network happens yet. The work starts when you call `chat()`.
 
 *See [Quick start](../../../README.md#quick-start).*
 
@@ -179,13 +179,13 @@ Sending stays available even while offline or reconnecting — gate only on `has
 
 *See [Integration guide › The core pattern](../../../README.md#the-core-pattern-render-messages-yourself).*
 
-### Catch a bad connector token — `ContentView.swift`
+### Catch a bad API key — `ContentView.swift`
 
 Detect a terminal failure + offer retry:
 
 ```swift
 session.failureReason   // PolyError? — non-nil when the chat can't auto-recover:
-                        //   invalid connectorToken (initial connect 401/403),
+                        //   invalid apiKey (initial connect 401/403),
                         //   reconnect budget exhausted,
                         //   session expired (idle past sessionTimeoutSeconds, default 10 min)
 

@@ -14,7 +14,7 @@ the tool-agnostic agent brief; `CLAUDE.md` imports it.
 ## Recommended integration path (use this unless the user asks otherwise)
 
 1. **Initialize once at app launch** (SwiftUI `App.init` / UIKit `AppDelegate`):
-   `PolyMessaging.initialize(.init(connectorToken: "…", environment: .cluster("us-1")))`
+   `PolyMessaging.initialize(.init(apiKey: "…", environment: .cluster("us-1")))`
 2. **Create one `ChatSession` per chat surface** — `let session = PolyMessaging.chat()`.
    It's a `@MainActor ObservableObject`. Don't recreate it per view render.
 3. **Bind its published state:** `messages`, `isAgentTyping`, `connection`, `isReady`,
@@ -50,7 +50,7 @@ The agent joins and greets automatically. Full walkthrough: README **Step 1**.
   `clearSuggestions(for:)`/`clearChat()`; plus `client` (the lower-level `PolyMessagingClient`).
 - **`ChatMessage`** enum (`.user/.agent/.system`, `Identifiable`) with `text`,
   `delivery`, `suggestions`, `attachments`.
-- **`Configuration`:** `connectorToken` (required), `environment` (required),
+- **`Configuration`:** `apiKey` (required), `environment` (required),
   `streamingEnabled`, `logLevel`, `sessionTimeoutSeconds`,
   `heartbeatIntervalSeconds`, `maxReconnectAttempts`.
 - **`Environment`:** `.production`, `.staging`, `.dev`, `.cluster("us-1")`,
@@ -75,7 +75,7 @@ The agent joins and greets automatically. Full walkthrough: README **Step 1**.
   rendering for you.
 - **Suggestion pills** render under the last agent message and clear when the user sends
   (see the example `ChatViewController` / `MessageBubbleView`).
-- **Never log the connector token.**
+- **Never log the API key.**
 
 ## Verifying changes
 
@@ -89,4 +89,4 @@ The agent joins and greets automatically. Full walkthrough: README **Step 1**.
 - **Don't add third-party dependencies** — this package is intentionally dependency-free.
 - When integrating into an app, **consume the public API**; don't edit
   `Sources/PolyMessaging/` to make integration "easier."
-- Keep credentials out of source — set the connector token via `initialize(...)`.
+- Keep credentials out of source — set the API key via `initialize(...)`.

@@ -8,7 +8,7 @@ import Combine
 /// and protocol testing. Backed by `UserDefaults`, observable from both
 /// SwiftUI (`@StateObject` / `@ObservedObject`) and UIKit (Combine `sink`).
 ///
-/// The connector token is taken from the config you passed to
+/// The API key is taken from the config you passed to
 /// ``PolyMessaging/initialize(_:)`` — call `initialize` first, then construct
 /// `DevSettings()` with no arguments. The default environment is seeded from
 /// that same config, and the `X-Host` is derived from the selected environment
@@ -18,7 +18,7 @@ import Combine
 /// Subclass and override `buildConfiguration()` (or any `open` member) to
 /// customise behaviour.
 ///
-///     PolyMessaging.initialize(.init(connectorToken: "ct_live_...", environment: .dev))
+///     PolyMessaging.initialize(.init(apiKey: "...", environment: .dev))
 ///     let settings = DevSettings()
 ///     let session = PolyMessaging.chat(settings.buildConfiguration())
 @MainActor
@@ -82,7 +82,7 @@ open class DevSettings: ObservableObject {
 
     // MARK: - Init
 
-    /// Call ``PolyMessaging/initialize(_:)`` first — the connector token and the
+    /// Call ``PolyMessaging/initialize(_:)`` first — the API key and the
     /// seed environment are read from that config.
     ///
     /// - Parameters:
@@ -203,7 +203,7 @@ open class DevSettings: ObservableObject {
         lastAppliedStreamingEnabled = streamingEnabled
     }
 
-    /// Builds a ``Configuration`` from the `initialize(_:)` connector token and
+    /// Builds a ``Configuration`` from the `initialize(_:)` API key and
     /// the current runtime knobs. The `X-Host` is left to the SDK to derive from
     /// the selected environment unless a `hostIdentifier` override was supplied.
     /// Override this method to customise.
@@ -211,7 +211,7 @@ open class DevSettings: ObservableObject {
         let base = PolyMessaging.currentConfig
 
         return Configuration(
-            connectorToken: base.connectorToken,
+            apiKey: base.apiKey,
             environment: resolvedEnvironment(),
             hostIdentifier: hostIdentifierOverride ?? base.hostIdentifier,
             streamingEnabled: streamingEnabled,

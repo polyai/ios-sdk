@@ -7,7 +7,7 @@ final class SessionServiceTests: XCTestCase {
 
     private func makeService(api: MockRestApi? = nil) -> (SessionService, MockRestApi) {
         let mockApi = api ?? MockRestApi()
-        let config = Configuration(connectorToken: "test_token", environment: .dev)
+        let config = Configuration(apiKey: "test_token", environment: .dev)
         let service = SessionService(api: mockApi, config: config, logger: NoopLogger())
         return (service, mockApi)
     }
@@ -47,7 +47,7 @@ final class SessionServiceTests: XCTestCase {
     func testCreateSessionOnTokenFailureSetsError() async {
         let api = MockRestApi()
         api.obtainTokenResult = .failure(PolyError.auth(.unauthorized))
-        let config = Configuration(connectorToken: "bad_token", environment: .dev)
+        let config = Configuration(apiKey: "bad_token", environment: .dev)
         let service = SessionService(api: api, config: config, logger: NoopLogger())
 
         do {
@@ -139,7 +139,7 @@ final class SessionServiceTests: XCTestCase {
     func testRefetchSessionCapsAt3Attempts() async throws {
         let api = MockRestApi()
         api.createSessionResult = .failure(PolyError.session(.sessionCreationFailed(.unknown)))
-        let config = Configuration(connectorToken: "test", environment: .dev)
+        let config = Configuration(apiKey: "test", environment: .dev)
         let service = SessionService(api: api, config: config, logger: NoopLogger())
 
         // First createSession will fail
@@ -169,7 +169,7 @@ final class SessionServiceTests: XCTestCase {
 
     func testResumeCreatesNewSessionWhenNoneStored() async throws {
         // Clear any leftover UserDefaults from other tests (token-namespaced).
-        SessionStore(connectorToken: "test_token").clear()
+        SessionStore(apiKey: "test_token").clear()
 
         let (service, api) = makeService()
         try await service.resume()

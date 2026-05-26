@@ -14,7 +14,7 @@ open StandardUIKit.xcodeproj   # from this folder
 # Cmd+R on an iPhone simulator
 ```
 
-Set your connector token in `App/AppDelegate.swift` (currently `"YOUR_CONNECTOR_TOKEN"`).
+Set your API key in `App/AppDelegate.swift` (currently `"YOUR_API_KEY"`).
 
 ## What this example demonstrates
 
@@ -287,7 +287,7 @@ Surface a terminal failure + offer retry:
 
 ```swift
 session.$failureReason   // Combine publisher of PolyError? — non-nil when the chat can't auto-recover:
-                         //   invalid connectorToken (initial connect 401/403),
+                         //   invalid apiKey (initial connect 401/403),
                          //   reconnect budget exhausted,
                          //   session expired (idle past sessionTimeoutSeconds, default 10 min)
 
@@ -321,7 +321,7 @@ override func viewDidLoad() {
 }
 ```
 
-**Under the hood:** `failureReason` is set whenever the chat can't auto-recover — an invalid `connectorToken` rejected at the initial connect, the auto-reconnect budget exhausted, or the session expiring. Recovery is consumer-driven — call `client.resume()` to retry.
+**Under the hood:** `failureReason` is set whenever the chat can't auto-recover — an invalid `apiKey` rejected at the initial connect, the auto-reconnect budget exhausted, or the session expiring. Recovery is consumer-driven — call `client.resume()` to retry.
 
 *See [Integration guide › Terminal errors](../../../README.md#terminal-errors).*
 

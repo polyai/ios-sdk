@@ -5,7 +5,7 @@ import Foundation
 actor RestApi: RestApiPort {
 
     private let baseURL: URL
-    private let connectorToken: String
+    private let apiKey: String
     private let hostIdentifier: String
     private let logger: PolyLogger
     private let urlSession: URLSession
@@ -17,9 +17,9 @@ actor RestApi: RestApiPort {
     private static let maxRetryAfter: TimeInterval = 30
     private static let defaultRetryAfter: TimeInterval = 5
 
-    init(baseURL: URL, connectorToken: String, hostIdentifier: String, logger: PolyLogger, urlSession: URLSession = .shared) {
+    init(baseURL: URL, apiKey: String, hostIdentifier: String, logger: PolyLogger, urlSession: URLSession = .shared) {
         self.baseURL = baseURL
-        self.connectorToken = connectorToken
+        self.apiKey = apiKey
         self.hostIdentifier = hostIdentifier
         self.logger = logger
         self.urlSession = urlSession
@@ -38,7 +38,7 @@ actor RestApi: RestApiPort {
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Accept")
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.setValue(connectorToken, forHTTPHeaderField: "X-Token")
+        request.setValue(apiKey, forHTTPHeaderField: "X-Token")
         request.setValue(hostIdentifier, forHTTPHeaderField: "X-Host")
         request.setValue(UUID().uuidString, forHTTPHeaderField: "X-Polyai-Correlation-Id")
         request.httpBody = "{}".data(using: .utf8)

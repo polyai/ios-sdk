@@ -56,7 +56,7 @@ If you change the SDK, mirror the change across the SwiftUI and UIKit example la
 - Public types and methods need a doc comment (`///`) describing **why** to use them, not just what they do.
 - Don't introduce comments that simply restate the code. Only comment non-obvious invariants.
 - The SDK is `@MainActor` where it touches `ChatSession` state — preserve those annotations.
-- Never log connector tokens or session identifiers.
+- Never log API keys or session identifiers.
 
 ## Commit conventions
 
@@ -100,4 +100,4 @@ For UI/example changes, open the relevant `Examples/<platform>/<NN-Name>` projec
 
 - **No third-party dependencies.** This package is intentionally dependency-free.
 - **Don't edit `Sources/PolyMessaging/` to make integration "easier"** — the public API is the contract; integration changes belong in the consuming app.
-- **Keep credentials out of source.** Connector tokens are set via `PolyMessaging.initialize(...)` at runtime, never committed.
+- **Keep credentials out of source.** API keys are set via `PolyMessaging.initialize(...)` at runtime, never committed.

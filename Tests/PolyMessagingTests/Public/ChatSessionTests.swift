@@ -29,11 +29,11 @@ final class ChatSessionTests: XCTestCase {
     ) async throws -> (ChatSession, MockConnection, MockRestApi) {
         // SessionStore persists in UserDefaults; clear so a prior run's stored
         // session doesn't short-circuit resume() and skip createSession.
-        SessionStore(connectorToken: "test_token").clear()
+        SessionStore(apiKey: "test_token").clear()
 
         let api = MockRestApi()
         let connection = MockConnection()
-        let config = Configuration(connectorToken: "test_token", environment: .dev)
+        let config = Configuration(apiKey: "test_token", environment: .dev)
         let logger = NoopLogger()
 
         let session = SessionService(api: api, config: config, logger: logger)

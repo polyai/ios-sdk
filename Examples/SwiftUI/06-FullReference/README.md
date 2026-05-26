@@ -9,7 +9,7 @@ open FullReferenceSwiftUI.xcodeproj   # from this folder
 # Cmd+R on an iPhone simulator
 ```
 
-Set your connector token in `FullReferenceApp.swift` (currently `"YOUR_CONNECTOR_TOKEN"`).
+Set your API key in `FullReferenceApp.swift` (currently `"YOUR_API_KEY"`).
 
 ## What this example demonstrates
 
@@ -97,7 +97,7 @@ struct ContentView: View {
 }
 ```
 
-**Under the hood:** `initialize` stashes the connector token and environment process-wide — no network happens yet. The no-arg facade calls (`chat()`, `start()`, `hasResumableSession()`) reuse that config from any view. `chat()` resumes the persisted session when it's still valid (within the session timeout) and otherwise creates a fresh one; `start()` always discards. `hasResumableSession()` is a pure on-disk probe with no side effects, so it's safe to call on every render of the connect screen.
+**Under the hood:** `initialize` stashes the API key and environment process-wide — no network happens yet. The no-arg facade calls (`chat()`, `start()`, `hasResumableSession()`) reuse that config from any view. `chat()` resumes the persisted session when it's still valid (within the session timeout) and otherwise creates a fresh one; `start()` always discards. `hasResumableSession()` is a pure on-disk probe with no side effects, so it's safe to call on every render of the connect screen.
 
 *See [Integration guide › Quick start](../../../README.md#quick-start) and [Integration guide › Session lifecycle](../../../README.md#session-lifecycle).*
 

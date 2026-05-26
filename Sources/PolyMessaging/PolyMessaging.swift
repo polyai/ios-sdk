@@ -13,11 +13,11 @@ public enum PolyMessaging {
     /// After this, `chat()` and `start()` work with no arguments.
     ///
     ///     PolyMessaging.initialize(.init(
-    ///         connectorToken: "ct_live_...",
+    ///         apiKey: "...",
     ///         environment: .cluster("us-1")
     ///     ))
     public static func initialize(_ config: Configuration) {
-        precondition(!config.connectorToken.isEmpty, "PolyMessaging: connectorToken must not be empty")
+        precondition(!config.apiKey.isEmpty, "PolyMessaging: apiKey must not be empty")
         _config = config
     }
 
@@ -30,18 +30,18 @@ public enum PolyMessaging {
 
     @discardableResult
     public static func configure(_ config: Configuration) throws -> PolyMessagingClient {
-        guard !config.connectorToken.isEmpty else {
-            throw PolyError.invalidConfiguration("connectorToken must not be empty")
+        guard !config.apiKey.isEmpty else {
+            throw PolyError.invalidConfiguration("apiKey must not be empty")
         }
         return PolyMessagingClient(config: config)
     }
 
     private static func makeClient(_ config: Configuration) -> PolyMessagingClient {
-        precondition(!config.connectorToken.isEmpty, "PolyMessaging: connectorToken must not be empty")
+        precondition(!config.apiKey.isEmpty, "PolyMessaging: apiKey must not be empty")
         return PolyMessagingClient(config: config)
     }
 
-    /// True when a previously-persisted session for this connector token can
+    /// True when a previously-persisted session for this API key can
     /// still be resumed. Use this to drive UI decisions like showing a
     /// "Resume Chat" button. A `true` return means:
     ///   - The stored session row is within the idle window (~10 min).
@@ -51,16 +51,16 @@ public enum PolyMessaging {
     ///
     /// Reading is side-effect-free — no SDK state is mutated, no network
     /// call is made. Safe to call from any thread before `configure(...)`.
-    public static func hasResumableSession(connectorToken: String) -> Bool {
-        guard !connectorToken.isEmpty else { return false }
-        let store = SessionStore(connectorToken: connectorToken)
+    public static func hasResumableSession(apiKey: String) -> Bool {
+        guard !apiKey.isEmpty else { return false }
+        let store = SessionStore(apiKey: apiKey)
         guard let stored = store.load() else { return false }
         guard Date().timeIntervalSince(stored.timestamp) < resumeWindowSeconds else { return false }
         guard let token = stored.accessToken else { return false }
         return JWTValidator.isStructurallyValid(token)
     }
 
-    /// Wipe the persisted session for this connector token.
+    /// Wipe the persisted session for this API key.
     ///
     /// You don't need this if you use `start(...)` — it clears the store
     /// automatically. This method exists for the lower-level `configure(...)`
@@ -69,17 +69,17 @@ public enum PolyMessaging {
     ///
     /// Side-effect-free with respect to the SDK in memory — only touches
     /// the on-disk store (`SessionStore`). Safe to call from any thread.
-    public static func clearResumableSession(connectorToken: String) {
-        guard !connectorToken.isEmpty else { return }
-        SessionStore(connectorToken: connectorToken).clear()
+    public static func clearResumableSession(apiKey: String) {
+        guard !apiKey.isEmpty else { return }
+        SessionStore(apiKey: apiKey).clear()
     }
 
     public static func hasResumableSession() -> Bool {
-        hasResumableSession(connectorToken: currentConfig.connectorToken)
+        hasResumableSession(apiKey: currentConfig.apiKey)
     }
 
     public static func clearResumableSession() {
-        clearResumableSession(connectorToken: currentConfig.connectorToken)
+        clearResumableSession(apiKey: currentConfig.apiKey)
     }
 
     // MARK: - One-shot API
@@ -97,7 +97,7 @@ public enum PolyMessaging {
     /// existing session if one is available, otherwise creates a fresh one.
     ///
     ///     let session = PolyMessaging.chat(.init(
-    ///         connectorToken: "ct_live_...",
+    ///         apiKey: "...",
     ///         environment: .cluster("us-1"),
     ///         streamingEnabled: true
     ///     ))
@@ -121,7 +121,7 @@ public enum PolyMessaging {
     /// - Parameter streamingEnabled: see ``chat(_:streamingEnabled:)``.
     @MainActor
     public static func start(_ config: Configuration, streamingEnabled: Bool? = nil) -> ChatSession {
-        clearResumableSession(connectorToken: config.connectorToken)
+        clearResumableSession(apiKey: config.apiKey)
         let client = makeClient(config)
         return ChatSession(client: client, streamingEnabled: streamingEnabled)
     }

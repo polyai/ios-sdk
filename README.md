@@ -65,13 +65,13 @@ targets:
 
 Then initialize once at app launch. The exact placement — SwiftUI's `@main` App init, or UIKit's `AppDelegate.application(_:didFinishLaunchingWithOptions:)` — is shown in full in the [Quick start](#quick-start) below.
 
-> Your app's bundle identifier is sent automatically as the `X-Host` header — it must match the host registered in Agent Studio for your connector token.
+> Your app's bundle identifier is sent automatically as the `X-Host` header — it must match the host registered in Agent Studio for your API key.
 
 ---
 
 # Quick start
 
-The smallest thing that works. Make a new Xcode App project (File → New → Project → App), set your `connectorToken`, paste, and Cmd+R. Only `import PolyMessaging` — no helper files to copy.
+The smallest thing that works. Make a new Xcode App project (File → New → Project → App), set your `apiKey`, paste, and Cmd+R. Only `import PolyMessaging` — no helper files to copy.
 
 ### SwiftUI
 
@@ -84,7 +84,7 @@ import PolyMessaging
 struct MyApp: App {
     init() {
         PolyMessaging.initialize(.init(
-            connectorToken: "YOUR_CONNECTOR_TOKEN",   // Agent Studio → Connector Settings
+            apiKey: "YOUR_API_KEY",   // Agent Studio → Connector Settings
             environment: .cluster("us-1")
         ))
     }
@@ -146,7 +146,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         // Initialize the SDK once at launch. No network happens here —
         // chat() / start() does the work later.
         PolyMessaging.initialize(.init(
-            connectorToken: "YOUR_CONNECTOR_TOKEN",   // Agent Studio → Connector Settings
+            apiKey: "YOUR_API_KEY",   // Agent Studio → Connector Settings
             environment: .cluster("us-1")
         ))
         return true
@@ -246,7 +246,7 @@ final class ViewController: UIViewController, UITableViewDataSource {
 
 ```swift
 PolyMessaging.initialize(.init(
-    connectorToken: "YOUR_CONNECTOR_TOKEN",
+    apiKey: "YOUR_API_KEY",
     environment: .cluster("us-1"),
     streamingEnabled: false      // off → completed bubbles only
 ))
@@ -278,7 +278,7 @@ The SDK is headless: it gives you one observable object — **`ChatSession`** �
 | `agentAvatarUrl` | `URL?` | latest agent / live-agent avatar |
 | `hasStarted` | `Bool` | the conversation has begun |
 | `hasEnded` | `Bool` | conversation is over — swap the composer for a "start new" CTA |
-| `failureReason` | `PolyError?` | non-nil once the chat hits a terminal failure it can't auto-recover from — invalid connector token, reconnect budget exhausted, session expired |
+| `failureReason` | `PolyError?` | non-nil once the chat hits a terminal failure it can't auto-recover from — invalid API key, reconnect budget exhausted, session expired |
 
 **Methods you call:**
 
@@ -427,7 +427,7 @@ The agent's reply arrives as a sequence of chunks. `ChatSession` reassembles the
 
 ```swift
 PolyMessaging.initialize(.init(
-    connectorToken: "your_token",
+    apiKey: "your_token",
     environment: .cluster("us-1"),
     streamingEnabled: true       // default — set to false for complete messages only
 ))
@@ -492,7 +492,7 @@ private func showRetry(_ retry: @escaping () -> Void) { /* … */ }
 **Device offline is a separate signal.** `session.connection` tracks the *socket*, not whether the *phone* lost Wi-Fi. For that, watch the OS network path with `Network.NWPathMonitor` and show a distinct "You're offline" bar — the two can stack: offline (device) on top, reconnecting (socket) below. See [04-Resilience](Examples/SwiftUI/04-Resilience/).
 
 ### Terminal errors
-**Data:** `session.failureReason` (non-nil whenever the chat hits a terminal failure it can't auto-recover from — an invalid `connectorToken` rejected at the initial connect, the reconnect budget exhausted, or the session expiring. The one state that needs the user). `PolyError` isn't `LocalizedError`, so use `String(describing: reason)`, not `.localizedDescription`.
+**Data:** `session.failureReason` (non-nil whenever the chat hits a terminal failure it can't auto-recover from — an invalid `apiKey` rejected at the initial connect, the reconnect budget exhausted, or the session expiring. The one state that needs the user). `PolyError` isn't `LocalizedError`, so use `String(describing: reason)`, not `.localizedDescription`.
 
 ```swift
 // SwiftUI
@@ -1260,7 +1260,7 @@ deinit { eventsTask?.cancel() }
 
 ```swift
 PolyMessaging.initialize(.init(
-    connectorToken: "your_token",
+    apiKey: "your_token",
     environment: .cluster("us-1")
 ))
 ```
@@ -1269,7 +1269,7 @@ PolyMessaging.initialize(.init(
 
 | Field | Default | Description |
 |---|---|---|
-| `connectorToken` | — (required) | Auth token from Agent Studio. Treat as a credential — never log it. |
+| `apiKey` | — (required) | Auth token from Agent Studio. Treat as a credential — never log it. |
 | `environment` | — (required) | API + WebSocket endpoints (see below) |
 | `hostIdentifier` | Bundle ID | `X-Host` for connector validation; auto-derived from `Bundle.main.bundleIdentifier` |
 | `streamingEnabled` | `true` | `true`: agent replies grow token-by-token (ChatGPT-style). `false`: complete-message bubbles only. See [Streaming](#streaming) |
@@ -1284,7 +1284,7 @@ A fully-specified configuration (every value here has a working default — set 
 
 ```swift
 PolyMessaging.initialize(.init(
-    connectorToken: "your_token",
+    apiKey: "your_token",
     environment: .cluster("us-1"),
     hostIdentifier: "com.yourapp.ios",       // X-Host for connector validation; defaults to your bundle id
     streamingEnabled: true,                  // server streams agent replies as chunks
@@ -1310,7 +1310,7 @@ do {
 }
 
 switch error {
-case .auth(.unauthorized):                  showError("Invalid connector token")
+case .auth(.unauthorized):                  showError("Invalid API key")
 case .session(.sessionExpired):             showError("Session timed out")
 case .transport(.networkError(let reason)): showError("Network: \(reason)")
 default:                                     showError("\(error)")
@@ -1322,7 +1322,7 @@ Every case `PolyError` can throw, and when:
 | Case | Fires when | Retryable |
 |---|---|---|
 | `.auth(.tokenAcquisitionFailed)` | the access-token request failed | no |
-| `.auth(.unauthorized)` | the connector token was rejected (401/403) | no |
+| `.auth(.unauthorized)` | the API key was rejected (401/403) | no |
 | `.session(.sessionCreationFailed(code))` | the server refused to create a session (`code` says why) | no |
 | `.session(.unexpectedDisconnect(code:reason:))` | the socket dropped unexpectedly | yes |
 | `.session(.maxReconnectAttemptsExceeded)` | reconnects were exhausted (terminal — offer `resume()`) | yes |
@@ -1407,7 +1407,7 @@ For internal builds, `DevSettings` (a public `ObservableObject`) is a UserDefaul
 
 ## Example apps
 
-Working apps mirrored across SwiftUI and UIKit — open any `.xcodeproj`, set your `connectorToken`, and Cmd+R. Each level builds on the previous one; see its README for what's new.
+Working apps mirrored across SwiftUI and UIKit — open any `.xcodeproj`, set your `apiKey`, and Cmd+R. Each level builds on the previous one; see its README for what's new.
 
 | Level | What it adds | SwiftUI · UIKit |
 |---|---|---|

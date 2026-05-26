@@ -44,7 +44,7 @@ actor SessionService {
         self.config = config
         self.logger = logger
         self.sessionTimeoutSeconds = sessionTimeoutSeconds
-        self.store = SessionStore(connectorToken: config.connectorToken)
+        self.store = SessionStore(apiKey: config.apiKey)
         self.state = SessionState(
             sessionId: nil, status: .unknown,
             isReady: false, isLoading: false,

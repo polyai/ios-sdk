@@ -8,7 +8,7 @@ import XCTest
 /// `.voice(.notImplemented)` — never silently no-op or appear to connect.
 final class PolyCallTests: XCTestCase {
 
-    private let config = Configuration(connectorToken: "ct_test", environment: .dev)
+    private let config = Configuration(apiKey: "ct_test", environment: .dev)
 
     func test_start_throwsNotImplemented() async {
         let call = PolyMessaging.voice(config)

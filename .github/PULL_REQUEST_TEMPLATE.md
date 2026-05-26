@@ -27,7 +27,7 @@ Closes #
 
 - [ ] Commit messages follow [Conventional Commits](https://www.conventionalcommits.org/)
 - [ ] No third-party dependencies added to `Package.swift`
-- [ ] No connector tokens, session IDs, or credentials in the diff
+- [ ] No API keys, session IDs, or credentials in the diff
 - [ ] `README.md` updated if public API or behavior changed
 - [ ] SwiftUI and UIKit example ladders mirrored (if SDK behavior changed)
 - [ ] `Version.swift` not edited by hand (release-please owns it)
