@@ -623,7 +623,8 @@ func retry(_ m: UserMessage) {
 }
 ```
 
-<details><summary>Show <code>MessageCell</code> (subviews + constraints)</summary>
+<details>
+<summary>Show <code>MessageCell</code> (subviews + constraints)</summary>
 
 ```swift
 // Register with `tableView.register(MessageCell.self, forCellReuseIdentifier: "cell")`.
@@ -744,7 +745,8 @@ func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> U
 }
 ```
 
-<details><summary>Show <code>MessageCell</code> (subviews + constraints)</summary>
+<details>
+<summary>Show <code>MessageCell</code> (subviews + constraints)</summary>
 
 ```swift
 final class MessageCell: UITableViewCell {
@@ -811,7 +813,8 @@ func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> U
 }
 ```
 
-<details><summary>Show <code>MessageCell</code> (subviews + constraints)</summary>
+<details>
+<summary>Show <code>MessageCell</code> (subviews + constraints)</summary>
 
 ```swift
 final class MessageCell: UITableViewCell {
@@ -924,7 +927,8 @@ func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> U
 }
 ```
 
-<details><summary>Show <code>MessageCell</code> (subviews + constraints)</summary>
+<details>
+<summary>Show <code>MessageCell</code> (subviews + constraints)</summary>
 
 ```swift
 final class MessageCell: UITableViewCell {
@@ -992,7 +996,8 @@ func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> U
 }
 ```
 
-<details><summary>Show <code>MessageCell</code> (subviews + constraints)</summary>
+<details>
+<summary>Show <code>MessageCell</code> (subviews + constraints)</summary>
 
 ```swift
 final class MessageCell: UITableViewCell {
@@ -1060,7 +1065,8 @@ func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> U
 }
 ```
 
-<details><summary>Show <code>MessageCell</code> (subviews + constraints)</summary>
+<details>
+<summary>Show <code>MessageCell</code> (subviews + constraints)</summary>
 
 ```swift
 final class MessageCell: UITableViewCell {
@@ -1147,7 +1153,8 @@ func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> U
 inputBar.bottomAnchor.constraint(equalTo: view.keyboardLayoutGuide.topAnchor).isActive = true
 ```
 
-<details><summary>Show <code>MessageCell</code> (subviews + constraints)</summary>
+<details>
+<summary>Show <code>MessageCell</code> (subviews + constraints)</summary>
 
 ```swift
 final class MessageCell: UITableViewCell {
