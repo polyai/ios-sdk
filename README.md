@@ -398,12 +398,14 @@ func tableView(_ t: UITableView, cellForRowAt i: IndexPath) -> UITableViewCell {
 func systemLabel(_ event: SystemEvent) -> String {
     switch event {
     case .handoffStarted:                    return "Transferring you to an agent…"
+    case .handoffRequired(let reason):       return "Agent connection issue: \(reason)"
     case .queueStatus(let pos, let msg):     return msg ?? pos.map { "You're #\($0) in line" } ?? "Waiting…"
     case .handoffAccepted:                   return "An agent will be with you shortly"
     case .liveAgentJoined(let name):         return "\(name ?? "An agent") joined"
-    case .liveAgentLeft, .conversationEnded: return "Conversation ended"
+    case .liveAgentLeft, .agentLeft, .conversationEnded: return "Conversation ended"
     case .handoffFailed(let reason):         return "Transfer failed: \(reason ?? "unknown")"
     case .handoffTimeout:                    return "No agents available right now"
+    case .idleWarning:                       return "Connection idle — you may be disconnected soon"
     case .serverMessage(let text, _):        return text
     default:                                 return ""
     }
@@ -707,7 +709,7 @@ ForEach(session.messages) { message in
        !agent.suggestions.isEmpty {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 8) {
-                ForEach(agent.suggestions, id: \.messageText) { suggestion in
+                ForEach(agent.suggestions) { suggestion in
                     Button(suggestion.messageText) {
                         session.clearSuggestions(for: message.id)
                         Task { try? await session.send(suggestion.messageText) }
@@ -1210,7 +1212,7 @@ var body: some View {
                 haptics.success(); analytics.track("handoff", agent.agentName)
             case .clientHandoffRequired(_, let payload):
                 if let route = payload.route, let url = URL(string: route) { await UIApplication.shared.open(url) }
-            case .sessionEnd:
+            case .sessionEnd(_, _):
                 analytics.track("chat_ended")
             default:
                 break
@@ -1235,7 +1237,7 @@ override func viewDidLoad() {
                 haptics.success(); analytics.track("handoff", agent.agentName)
             case .clientHandoffRequired(_, let payload):
                 if let route = payload.route, let url = URL(string: route) { await UIApplication.shared.open(url) }
-            case .sessionEnd:
+            case .sessionEnd(_, _):
                 analytics.track("chat_ended")
             default:
                 break
