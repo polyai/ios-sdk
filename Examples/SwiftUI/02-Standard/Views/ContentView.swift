@@ -132,7 +132,10 @@ struct ContentView: View {
             VStack(spacing: 12) {
                 Text("Connection lost")
                     .font(.headline)
-                Text(reason.localizedDescription)
+                // PolyError doesn't conform to LocalizedError, so .localizedDescription
+                // is Error's useless default. String(describing:) gives the case name
+                // (e.g. "auth(unauthorized)") which is far more actionable in an example.
+                Text(String(describing: reason))
                     .font(.caption)
                     .multilineTextAlignment(.center)
                     .foregroundColor(.secondary)

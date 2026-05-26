@@ -67,6 +67,24 @@ Sending stays available even while offline or reconnecting — gate only on `has
 
 *See [Build your own UI › The core pattern](../../../README.md#the-core-pattern-render-messages-yourself).*
 
+### Catch a bad connector token — `ContentView.swift`
+
+If `connectorToken` is wrong or expired the chat can't ever connect — without surfacing that, the app would sit silently with an empty message list. `session.failureReason` is non-nil whenever the SDK hits a terminal failure it can't auto-recover from (most commonly an invalid token), so bind it to `.alert`:
+
+```swift
+.alert("Couldn't connect", isPresented: failureAlertBinding) {
+    Button("Try Again") {
+        Task { try? await session.client.resume() }
+    }
+} message: {
+    Text(session.failureReason.map { String(describing: $0) } ?? "")
+}
+```
+
+`String(describing:)` is intentional — `PolyError` doesn't conform to `LocalizedError`, so `.localizedDescription` is the generic "The operation couldn't be completed". `String(describing:)` gives the case name (`auth(unauthorized)`) which is far more useful in an example.
+
+**Under the hood:** `failureReason` is fed by both `client.connectionStatus.failed` (reconnect budget exhausted, session expired) and the initial-connect path that catches an unauthorized REST response and flags `sessionState.hasInvalidConnectorToken`. Either way you get a single source of truth for "the chat can't recover from this".
+
 ## What this example skips
 
 - typing indicator, connection banner, delivery dots, suggestions, end button → [`02-Standard/`](../02-Standard/)

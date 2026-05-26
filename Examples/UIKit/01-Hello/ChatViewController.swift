@@ -89,6 +89,37 @@ final class ChatViewController: UIViewController {
                 self?.updateSendEnabled()
             }
             .store(in: &bag)
+
+        // `failureReason` is non-nil once the SDK hits a terminal failure it
+        // can't auto-recover from — most notably an invalid `connectorToken`.
+        // Show a "Couldn't connect" alert with a Try Again button instead of
+        // letting the app sit silently with an empty table view.
+        session.$failureReason
+            .receive(on: RunLoop.main)
+            .compactMap { $0 }
+            .sink { [weak self] reason in
+                self?.presentFailureAlert(reason: reason)
+            }
+            .store(in: &bag)
+    }
+
+    private var isPresentingFailureAlert = false
+
+    private func presentFailureAlert(reason: PolyError) {
+        guard !isPresentingFailureAlert, presentedViewController == nil else { return }
+        isPresentingFailureAlert = true
+        // PolyError doesn't conform to LocalizedError — String(describing:) gives
+        // a useful "auth(unauthorized)" instead of Error's generic default.
+        let alert = UIAlertController(
+            title: "Couldn't connect",
+            message: String(describing: reason),
+            preferredStyle: .alert
+        )
+        alert.addAction(UIAlertAction(title: "Try Again", style: .default) { [weak self] _ in
+            self?.isPresentingFailureAlert = false
+            Task { try? await self?.session.client.resume() }
+        })
+        present(alert, animated: true)
     }
 
     private func render(_ messages: [ChatMessage]) {

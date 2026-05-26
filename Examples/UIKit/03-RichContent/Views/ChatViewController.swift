@@ -398,7 +398,10 @@ final class ChatViewController: UIViewController {
             .receive(on: RunLoop.main)
             .sink { [weak self] reason in
                 self?.failureOverlay.isHidden = (reason == nil)
-                self?.failureLabel.text = reason?.localizedDescription
+                // PolyError doesn't conform to LocalizedError, so .localizedDescription
+                // is Error's useless default. String(describing:) gives the case name
+                // (e.g. "auth(unauthorized)") which is far more actionable in an example.
+                self?.failureLabel.text = reason.map { String(describing: $0) }
             }
             .store(in: &bag)
 

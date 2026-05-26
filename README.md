@@ -246,7 +246,7 @@ If our components don't fit your design, you don't need them. The entire chat is
 | `agentAvatarUrl` | `URL?` | latest agent / live-agent avatar |
 | `hasStarted` | `Bool` | the conversation has begun |
 | `hasEnded` | `Bool` | conversation is over — swap the composer for a "start new" CTA |
-| `failureReason` | `PolyError?` | non-nil once the connection has *terminally* failed |
+| `failureReason` | `PolyError?` | non-nil once the chat hits a terminal failure it can't auto-recover from — invalid connector token, reconnect budget exhausted, session expired |
 
 **Methods you call:**
 
@@ -600,7 +600,7 @@ tableView.isHidden = showSkeleton
 *Example:* [`LoadingSkeleton.swift`](Examples/Components/SwiftUI/LoadingSkeleton.swift) · [`LoadingSkeleton.swift`](Examples/Components/UIKit/LoadingSkeleton.swift)
 
 ### Terminal errors
-**Data:** `session.failureReason` (non-nil once auto-reconnect is exhausted — the one state that needs the user). `PolyError` isn't `LocalizedError`, so use `String(describing: reason)`, not `.localizedDescription`.
+**Data:** `session.failureReason` (non-nil whenever the chat hits a terminal failure it can't auto-recover from — an invalid `connectorToken` rejected at the initial connect, the reconnect budget exhausted, or the session expiring. The one state that needs the user). `PolyError` isn't `LocalizedError`, so use `String(describing: reason)`, not `.localizedDescription`.
 
 ```swift
 // SwiftUI — full-screen error + retry

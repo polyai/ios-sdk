@@ -142,15 +142,15 @@ case .user(let m):
 
 ### Failure overlay — `Views/ContentView.swift`
 
-**Under the hood:** `session.connection` reaches `.failed` only after the SDK's auto-reconnect budget is exhausted; `failureReason` then holds the terminal error. Recovery is consumer-driven — call `client.resume()` to restart the connection.
+**Under the hood:** `failureReason` is set whenever the chat can't auto-recover — an invalid `connectorToken` rejected at the initial connect, the auto-reconnect budget exhausted, or the session expiring. Recovery is consumer-driven — call `client.resume()` to restart the connection.
 
-Once the SDK gives up reconnecting, `session.failureReason` is set. Offer a manual retry.
+When `failureReason` is set, offer a manual retry. `String(describing: reason)` is intentional — `PolyError` doesn't conform to `LocalizedError`, so `.localizedDescription` is the generic "The operation couldn't be completed".
 
 ```swift
 if let reason = session.failureReason {
     VStack(spacing: 12) {
         Text("Connection lost").font(.headline)
-        Text(reason.localizedDescription).font(.caption).foregroundColor(.secondary)
+        Text(String(describing: reason)).font(.caption).foregroundColor(.secondary)
         Button("Reconnect") {
             Task { try? await session.client.resume() }
         }
