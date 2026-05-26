@@ -4,6 +4,23 @@ All notable changes to the PolyMessaging iOS SDK are documented here.
 This project adheres to [Semantic Versioning](https://semver.org). While the SDK
 is pre-1.0, breaking changes bump the **minor** version.
 
+## [0.5.0](https://github.com/PolyAI-LDN/poly_messaging_ios/compare/v0.4.0...v0.5.0) (2026-05-26)
+
+
+### ⚠ BREAKING CHANGES
+
+* rename Configuration.connectorToken to apiKey
+* rename Configuration.connectorToken to apiKey
+* complete the connector-token → api-key rename
+* `Configuration.connectorToken` is renamed to `Configuration.apiKey`. Callers must update their `Configuration.init` arguments:
+
+### Features
+
+* complete the connector-token → api-key rename ([587d7dc](https://github.com/PolyAI-LDN/poly_messaging_ios/commit/587d7dce53336bf19ca805021affba627f02eb35))
+* rename Configuration.connectorToken to apiKey ([da30d4b](https://github.com/PolyAI-LDN/poly_messaging_ios/commit/da30d4bfa048fc7f4d9024a3dbe27bfbfcfaf2d4))
+* rename Configuration.connectorToken to apiKey ([da30d4b](https://github.com/PolyAI-LDN/poly_messaging_ios/commit/da30d4bfa048fc7f4d9024a3dbe27bfbfcfaf2d4))
+* rename Configuration.connectorToken to apiKey ([4e5c634](https://github.com/PolyAI-LDN/poly_messaging_ios/commit/4e5c634bad430719cfce70ecd77c85921efdead6))
+
 ## [0.4.0](https://github.com/PolyAI-LDN/poly_messaging_ios/compare/v0.3.0...v0.4.0) (2026-05-26)
 
 
