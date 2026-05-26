@@ -2,9 +2,8 @@ import Foundation
 
 public enum PolyMessaging {
 
-    /// Matches the backend's WebSocket idle timeout. Sessions older than this
-    /// have been killed server-side, so offering "Resume" would 404. See
-    /// `poly_core/.../sessions/manager.go` (CHANNEL_TYPE_WEBSOCKET → 10 min).
+    /// Matches the backend's WebSocket idle timeout (10 min). Sessions older
+    /// than this have been killed server-side, so offering "Resume" would 404.
     private static let resumeWindowSeconds: TimeInterval = 600
     private static var _config: Configuration?
 
