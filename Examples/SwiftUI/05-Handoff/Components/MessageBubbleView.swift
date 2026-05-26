@@ -23,14 +23,21 @@ struct MessageBubbleView: View {
     var onSuggestionTap: ((String) -> Void)? = nil
 
     var body: some View {
-        switch message {
-        case .user(let m):
-            userRow(m)
-        case .agent(let m):
-            agentRow(m)
-        case .system(let m):
-            systemRow(m)
+        // Outer HStack wrapper expands each row to fill the available width.
+        // Without it, the inner content sizes to its intrinsic width and
+        // hugs the leading edge in landscape (where the canvas is wider
+        // than the longest bubble). Matches the 06-FullReference pattern.
+        HStack {
+            switch message {
+            case .user(let m):
+                userRow(m)
+            case .agent(let m):
+                agentRow(m)
+            case .system(let m):
+                systemRow(m)
+            }
         }
+        .padding(.horizontal)
     }
 
     // MARK: - User
@@ -55,6 +62,10 @@ struct MessageBubbleView: View {
                     .background(m.delivery == .failed ? Color.red.opacity(0.15) : Color.blue)
                     .foregroundColor(m.delivery == .failed ? .primary : .white)
                     .clipShape(RoundedRectangle(cornerRadius: 18))
+                    // Cap bubble width at ~75% of the screen so very long
+                    // messages wrap inside the bubble instead of pushing
+                    // past the row's trailing edge into the nav bar.
+                    .frame(maxWidth: UIScreen.main.bounds.width * 0.75, alignment: .trailing)
 
                 if showSendingLabel && m.delivery == .pending {
                     Text("Sending...")

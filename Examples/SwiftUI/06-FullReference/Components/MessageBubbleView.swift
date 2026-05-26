@@ -34,6 +34,10 @@ struct MessageBubbleView: View {
                             .background(m.delivery == .failed ? Color.red.opacity(0.15) : Color.blue)
                             .foregroundColor(m.delivery == .failed ? .primary : .white)
                             .clipShape(RoundedRectangle(cornerRadius: 18))
+                            // Cap bubble width at ~75% of the screen so very long
+                            // messages wrap inside the bubble instead of pushing
+                            // past the row's trailing edge into the nav bar.
+                            .frame(maxWidth: UIScreen.main.bounds.width * 0.75, alignment: .trailing)
 
                         if showSendingLabel && m.delivery == .pending {
                             Text("Sending...")

@@ -149,23 +149,38 @@ final class WebSocketTransport: @unchecked Sendable, Connection {
         guard let data = WireEncoder.encode(event) else { return }
         let wireType = (try? JSONSerialization.jsonObject(with: data) as? [String: Any])?["type"] as? String
         logger.info("WS frame sending", metadata: ["type": wireType ?? "(unparsable)"])
-        await sendRaw(data)
+        // `send(_:)` is fire-and-forget — if the socket is mid-reconnect,
+        // ChatService's retry ladder owns recovery for user messages and
+        // the heartbeat/typing frames are safely droppable. Surface the
+        // `.notConnected` throw via the error stream so observers still
+        // get visibility, but don't propagate to legacy callers that
+        // expect a non-throwing API.
+        do {
+            try await sendRaw(data)
+        } catch let error as PolyError {
+            errorCaster.emit(error)
+        } catch {
+            errorCaster.emit(.transport(.networkError(error.localizedDescription)))
+        }
     }
 
-    func sendRaw(_ data: Data) async {
+    func sendRaw(_ data: Data) async throws {
         guard let t = task else {
+            // Surfacing this as a throw (rather than silent return) lets
+            // ChatService's retry ladder back off and wait for the next
+            // `.open` instead of treating the send as accepted.
             logger.warn("Send dropped — no active task", metadata: nil)
-            return
+            throw PolyError.transport(.notConnected)
         }
         let currentStatus = await status
         if case .closed = currentStatus {
             logger.warn("Send dropped — socket closed", metadata: nil)
-            return
+            throw PolyError.transport(.notConnected)
         }
 
         guard let string = String(data: data, encoding: .utf8) else {
             errorCaster.emit(.transport(.protocolError(reason: "Cannot encode data as UTF-8")))
-            return
+            throw PolyError.transport(.protocolError(reason: "Cannot encode data as UTF-8"))
         }
 
         do {
@@ -173,6 +188,7 @@ final class WebSocketTransport: @unchecked Sendable, Connection {
         } catch {
             logger.warn("Send failed", metadata: ["error": error.localizedDescription])
             errorCaster.emit(.transport(.networkError(error.localizedDescription)))
+            throw PolyError.transport(.networkError(error.localizedDescription))
         }
     }
 

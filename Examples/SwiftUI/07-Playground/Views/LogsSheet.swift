@@ -79,6 +79,9 @@ struct LogsSheet: View {
                 }
             }
         }
+        // Force single-column stack style so the sheet doesn't try to
+        // split-view itself in landscape on regular-width devices.
+        .navigationViewStyle(.stack)
     }
 }
 

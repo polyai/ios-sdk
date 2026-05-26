@@ -20,102 +20,110 @@ struct MessageBubbleView: View {
     var onSuggestionTap: ((String) -> Void)? = nil
 
     var body: some View {
-        switch message {
-        case .user(let m):
-            HStack(alignment: .bottom, spacing: 6) {
-                Spacer(minLength: 60)
-                if m.delivery == .failed {
-                    Button {
-                        onRetry?(m.text)
-                    } label: {
-                        Image(systemName: "exclamationmark.circle.fill")
-                            .foregroundColor(.red)
-                            .font(.title3)
+        // Outer HStack wrapper expands each row to fill the available width.
+        // Without it, the inner content sizes to its intrinsic width and
+        // hugs the leading edge in landscape (where the canvas is wider
+        // than the longest bubble). Matches the 06-FullReference pattern.
+        HStack {
+            switch message {
+            case .user(let m):
+                HStack(alignment: .bottom, spacing: 6) {
+                    Spacer(minLength: 60)
+                    if m.delivery == .failed {
+                        Button {
+                            onRetry?(m.text)
+                        } label: {
+                            Image(systemName: "exclamationmark.circle.fill")
+                                .foregroundColor(.red)
+                                .font(.title3)
+                        }
+                        .accessibilityLabel("Retry sending message")
                     }
-                    .accessibilityLabel("Retry sending message")
-                }
-                VStack(alignment: .trailing, spacing: 4) {
-                    Text(m.text)
-                        .padding(.horizontal, 14)
-                        .padding(.vertical, 10)
-                        .background(m.delivery == .failed ? Color.red.opacity(0.15) : Color.blue)
-                        .foregroundColor(m.delivery == .failed ? .primary : .white)
-                        .clipShape(RoundedRectangle(cornerRadius: 18))
+                    VStack(alignment: .trailing, spacing: 4) {
+                        Text(m.text)
+                            .padding(.horizontal, 14)
+                            .padding(.vertical, 10)
+                            .background(m.delivery == .failed ? Color.red.opacity(0.15) : Color.blue)
+                            .foregroundColor(m.delivery == .failed ? .primary : .white)
+                            .clipShape(RoundedRectangle(cornerRadius: 18))
+                            // Cap bubble width at ~75% of the screen so very long
+                            // messages wrap inside the bubble instead of pushing
+                            // past the row's trailing edge into the nav bar.
+                            .frame(maxWidth: UIScreen.main.bounds.width * 0.75, alignment: .trailing)
 
-                    if showSendingLabel && m.delivery == .pending {
-                        Text("Sending...")
-                            .font(.caption2)
-                            .foregroundColor(.secondary)
-                    } else if m.delivery == .failed {
-                        Text("Tap to retry")
-                            .font(.caption2)
-                            .foregroundColor(.red)
-                    }
-                }
-            }
-
-        case .agent(let m):
-            HStack(alignment: .top, spacing: 8) {
-                AgentAvatarView(url: m.avatarUrl)
-                VStack(alignment: .leading, spacing: 4) {
-                    if let name = m.agentName, !name.isEmpty {
-                        Text(name)
-                            .font(.caption2)
-                            .foregroundColor(.secondary)
-                    }
-
-                    // 1. Rich text (basic markdown — bold, italic, links).
-                    if !m.text.isEmpty {
-                        HStack {
-                            RichText(m.text)
-                                .padding(.horizontal, 14)
-                                .padding(.vertical, 10)
-                                .background(Color(.systemGray5))
-                                .clipShape(RoundedRectangle(cornerRadius: 18))
-                            Spacer(minLength: 60)
+                        if showSendingLabel && m.delivery == .pending {
+                            Text("Sending...")
+                                .font(.caption2)
+                                .foregroundColor(.secondary)
+                        } else if m.delivery == .failed {
+                            Text("Tap to retry")
+                                .font(.caption2)
+                                .foregroundColor(.red)
                         }
                     }
+                }
 
-                    // 2. Image attachments → horizontal carousel.
-                    let images = m.attachments.filter { $0.contentType == .image }
-                    if !images.isEmpty {
-                        AttachmentCarousel(attachments: images)
-                    }
+            case .agent(let m):
+                HStack(alignment: .top, spacing: 8) {
+                    AgentAvatarView(url: m.avatarUrl)
+                    VStack(alignment: .leading, spacing: 4) {
+                        if let name = m.agentName, !name.isEmpty {
+                            Text(name)
+                                .font(.caption2)
+                                .foregroundColor(.secondary)
+                        }
 
-                    // 3. URL attachments → vertical stack of cards.
-                    let urls = m.attachments.filter { $0.contentType == .url }
-                    if !urls.isEmpty {
-                        VStack(alignment: .leading, spacing: 8) {
-                            ForEach(Array(urls.enumerated()), id: \.offset) { _, att in
-                                URLCard(attachment: att)
+                        // 1. Rich text (basic markdown — bold, italic, links).
+                        if !m.text.isEmpty {
+                            HStack {
+                                RichText(m.text)
+                                    .padding(.horizontal, 14)
+                                    .padding(.vertical, 10)
+                                    .background(Color(.systemGray5))
+                                    .clipShape(RoundedRectangle(cornerRadius: 18))
+                                Spacer(minLength: 60)
                             }
                         }
-                    }
 
-                    // 4. `.unknown` content types are intentionally dropped —
-                    //    forward-compat for new attachment kinds the SDK may add.
+                        // 2. Image attachments → horizontal carousel.
+                        let images = m.attachments.filter { $0.contentType == .image }
+                        if !images.isEmpty {
+                            AttachmentCarousel(attachments: images)
+                        }
 
-                    // 5. Call-to-call actions → row of green tel: buttons.
-                    if !m.callActions.isEmpty {
-                        VStack(spacing: 6) {
-                            ForEach(m.callActions) { action in
-                                CallActionButton(action: action)
+                        // 3. URL attachments → vertical stack of cards.
+                        let urls = m.attachments.filter { $0.contentType == .url }
+                        if !urls.isEmpty {
+                            VStack(alignment: .leading, spacing: 8) {
+                                ForEach(Array(urls.enumerated()), id: \.offset) { _, att in
+                                    URLCard(attachment: att)
+                                }
                             }
                         }
-                    }
 
-                    // 6. Quick-reply suggestions, under the last agent message.
-                    if showSuggestions && !m.suggestions.isEmpty {
-                        SuggestionRow(suggestions: m.suggestions.map { $0.messageText }) { s in
-                            onSuggestionTap?(s)
+                        // 4. `.unknown` content types are intentionally dropped —
+                        //    forward-compat for new attachment kinds the SDK may add.
+
+                        // 5. Call-to-call actions → row of green tel: buttons.
+                        if !m.callActions.isEmpty {
+                            VStack(spacing: 6) {
+                                ForEach(m.callActions) { action in
+                                    CallActionButton(action: action)
+                                }
+                            }
                         }
-                        .padding(.top, 4)
+
+                        // 6. Quick-reply suggestions, under the last agent message.
+                        if showSuggestions && !m.suggestions.isEmpty {
+                            SuggestionRow(suggestions: m.suggestions.map { $0.messageText }) { s in
+                                onSuggestionTap?(s)
+                            }
+                            .padding(.top, 4)
+                        }
                     }
                 }
-            }
 
-        case .system(let m):
-            HStack {
+            case .system(let m):
                 Spacer()
                 Text(systemText(for: m.event))
                     .font(.caption)
@@ -127,6 +135,7 @@ struct MessageBubbleView: View {
                 Spacer()
             }
         }
+        .padding(.horizontal)
     }
 
     private func systemText(for event: SystemEvent) -> String {

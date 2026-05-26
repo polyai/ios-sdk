@@ -1392,12 +1392,12 @@ let raw = session.client.getConnection()
 
 await raw.send(.userMessage(text: "Hello"))   // typed OutgoingEvent — SDK encodes JSON
 await raw.send(.heartbeat)
-await raw.sendRaw(Data(#"{"type":"EVENT_TYPE_CUSTOM"}"#.utf8))   // arbitrary frame
+try await raw.sendRaw(Data(#"{"type":"EVENT_TYPE_CUSTOM"}"#.utf8))   // arbitrary frame; throws .transport(.notConnected) if socket isn't open
 
 Task { for await frame in raw.rawFrames { analytics.record(frame) } }   // tap every frame
 ```
 
-`send(_:)` (typed `OutgoingEvent`), `sendRaw(_:)` (arbitrary JSON), `rawFrames` / `messages` (`AsyncStream`s), `openEvents` / `closeEvents`.
+`send(_:)` (typed `OutgoingEvent`), `sendRaw(_:)` (arbitrary JSON — `async throws`; throws `.transport(.notConnected)` if the socket isn't open), `rawFrames` / `messages` (`AsyncStream`s), `openEvents` / `closeEvents`.
 
 > `sendRaw` bypasses delivery tracking, retry, and `local_id` correlation — no `.messagePending` / `.messageConfirmed`. Use it only when the managed `client.send(_:)` path doesn't fit.
 

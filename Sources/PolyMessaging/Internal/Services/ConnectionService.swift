@@ -95,6 +95,33 @@ actor ConnectionService {
         await transport.send(event)
     }
 
+    /// Awaits the transport reaching `.open`, returning `true` if it does
+    /// within `timeout` seconds, or `false` if the deadline elapses first.
+    /// Returns immediately if the transport is already `.open`.
+    ///
+    /// Used by `ChatService.retryIfPending` to back off briefly while a
+    /// reconnect ladder is in flight rather than burning a retry slot on
+    /// a `.notConnected` send.
+    func waitForOpen(timeout: TimeInterval) async -> Bool {
+        if case .open = await transport.status { return true }
+
+        return await withTaskGroup(of: Bool.self) { group in
+            group.addTask { [statusChanges] in
+                for await status in statusChanges.subscribe() {
+                    if case .open = status { return true }
+                }
+                return false
+            }
+            group.addTask {
+                try? await Task.sleep(nanoseconds: UInt64(timeout * 1_000_000_000))
+                return false
+            }
+            let result = await group.next() ?? false
+            group.cancelAll()
+            return result
+        }
+    }
+
     /// Live transport status. Used by Coordinator to gate per-tick heartbeat
     /// sends so frames aren't queued against a closed or connecting socket.
     func currentStatus() async -> ConnectionStatus {

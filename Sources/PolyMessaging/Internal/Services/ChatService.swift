@@ -23,10 +23,21 @@ actor ChatService {
     nonisolated let eventStream = Multicaster<MessagingEvent>()
     private let logger: PolyLogger
     private var retrySender: (@Sendable (OutgoingEvent) async -> Void)?
+    /// Optional hook the Coordinator wires up so retries can pause until the
+    /// transport flips back to `.open`. Closure should return `true` once
+    /// `.open` is observed within `timeout`, or `false` on timeout. When
+    /// unset, retries proceed immediately (legacy behavior).
+    private var waitForTransportOpen: (@Sendable (_ timeout: TimeInterval) async -> Bool)?
 
     private static let retryIntervalSeconds: TimeInterval = 3
     private static let maxRetries: Int = 3
     private static let typingTimeoutSeconds: TimeInterval = 10
+    /// Upper bound on how long a retry will wait for the transport to come
+    /// back to `.open` before failing this attempt. Sized generously so a
+    /// typical reconnect (1-5s of backoff + handshake) completes well inside
+    /// the window; anything beyond this and the user genuinely needs to know
+    /// the send hasn't gone through.
+    private static let waitForOpenTimeoutSeconds: TimeInterval = 15
 
     init(logger: PolyLogger) {
         self.logger = logger
@@ -34,6 +45,10 @@ actor ChatService {
 
     func setRetrySender(_ sender: @escaping @Sendable (OutgoingEvent) async -> Void) {
         retrySender = sender
+    }
+
+    func setWaitForTransportOpen(_ hook: @escaping @Sendable (_ timeout: TimeInterval) async -> Bool) {
+        waitForTransportOpen = hook
     }
 
     // MARK: - Event routing
@@ -404,7 +419,19 @@ actor ChatService {
             "draftId": draftId,
         ])
 
+        // Wait (up to a bounded window) for the transport to be `.open`
+        // before performing the send. Without this, a retry that happens
+        // while the SDK is mid-reconnect (`.connecting` / `.reconnecting`)
+        // would hit `WebSocketTransport.sendRaw` with a nil task and the
+        // send would throw `.notConnected` — the retry slot is then spent
+        // even though the user genuinely just needs a few more seconds for
+        // the new socket to come up. With the hook installed, retries
+        // ride out a typical reconnect window cleanly.
+        let waitHook = waitForTransportOpen
         Task { [retrySender] in
+            if let waitHook {
+                _ = await waitHook(Self.waitForOpenTimeoutSeconds)
+            }
             await retrySender?(outgoing)
         }
     }

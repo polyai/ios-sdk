@@ -44,7 +44,15 @@ final class MockConnection: Connection, @unchecked Sendable {
         sentEvents.append(event)
     }
 
-    func sendRaw(_ data: Data) async {
+    /// When `nextSendRawError` is non-nil, the next sendRaw call throws it
+    /// (and clears the slot). Otherwise the data is recorded as usual.
+    var nextSendRawError: PolyError?
+
+    func sendRaw(_ data: Data) async throws {
+        if let err = nextSendRawError {
+            nextSendRawError = nil
+            throw err
+        }
         sentRawData.append(data)
     }
 
