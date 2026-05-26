@@ -4,12 +4,10 @@
 ![Swift](https://img.shields.io/badge/Swift-5.9%2B-orange)
 ![Dependencies](https://img.shields.io/badge/dependencies-none-green)
 
-Add AI-powered chat to your iOS app. The SDK handles token auth, the WebSocket, streaming, reconnection, delivery tracking, and live-agent handoff — you build (or copy) the UI.
+Add AI-powered chat to your iOS app. The SDK is **headless** — it handles token auth, the WebSocket, streaming, reconnection, delivery tracking, and live-agent handoff. You bring the UI.
 
-**Two ways to build, depending on how much control you want:**
-
-- **[Quick start](#quick-start--drop-in-our-ui)** — copy our prebuilt SwiftUI/UIKit components, bind a `ChatSession`, and you have a working chat in minutes.
-- **[Build your own UI](#build-your-own-ui)** — observe one object (`ChatSession`) and render the chat however you like, in your own views. This is where you'll understand the SDK well enough to fit it into any app.
+- **[Quick start](#quick-start)** — paste a `ContentView` (SwiftUI) or `ViewController` (UIKit) into a fresh Xcode project and you have a working chat.
+- **[Integration guide](#integration-guide)** — observe one object (`ChatSession`) and render the chat however you like.
 
 Reference: [Configuration](#configuration) · [Error handling](#error-handling) · [How it works](#how-it-works) · [Raw transport](#advanced-raw-transport) · [Example apps](#example-apps).
 
@@ -29,15 +27,19 @@ Reference: [Configuration](#configuration) · [Error handling](#error-handling) 
 
 ## Install
 
-Add the package by its Git URL, pinned to a version.
+Add the package by its Git URL, pinned to a version. Pick **one** of the three options below.
 
-**In Xcode** — File → Add Package Dependencies → paste the URL → Dependency Rule "Up to Next Major Version" `0.2.2` → Add Package → tick the **PolyMessaging** library for your app target:
+### Option 1 — Xcode (recommended)
 
-```
-https://github.com/PolyAI-LDN/poly_messaging_ios
-```
+1. **File → Add Package Dependencies…**
+2. Paste this URL into the **search field in the top-right** of the dialog:
+   ```
+   https://github.com/PolyAI-LDN/poly_messaging_ios
+   ```
+3. Set **Dependency Rule** → *Up to Next Major Version* → `0.2.2`
+4. Click **Add Package** → tick the **PolyMessaging** library for your app target → **Add Package** again.
 
-**In `Package.swift`:**
+### Option 2 — Swift Package Manager (`Package.swift`)
 
 ```swift
 dependencies: [
@@ -47,189 +49,206 @@ dependencies: [
 .product(name: "PolyMessaging", package: "poly_messaging_ios")
 ```
 
-**Using [XcodeGen](https://github.com/yonomoto/XcodeGen) or a generated `.xcodeproj`?** Declare it as a remote package in `project.yml`:
+### Option 3 — [XcodeGen](https://github.com/yonomoto/XcodeGen) (`project.yml`)
 
 ```yaml
 packages:
   PolyMessaging:
     url: https://github.com/PolyAI-LDN/poly_messaging_ios
-    exactVersion: 0.2.1      # or: upToNextMajorVersion: 0.2.1
+    exactVersion: 0.2.2      # or: upToNextMajorVersion: 0.2.2
 targets:
   YourApp:
     dependencies:
       - package: PolyMessaging
 ```
 
-Then initialize once at launch (same for both tracks):
-
-```swift
-// SwiftUI — in your @main App init; UIKit — in AppDelegate.didFinishLaunching.
-PolyMessaging.initialize(.init(
-    connectorToken: "your_token",     // Agent Studio → Connector Settings
-    environment: .cluster("us-1")     // regional routing
-))
-```
+Then initialize once at app launch. The exact placement — SwiftUI's `@main` App init, or UIKit's `AppDelegate.application(_:didFinishLaunchingWithOptions:)` — is shown in full in the [Quick start](#quick-start) below.
 
 > Your app's bundle identifier is sent automatically as the `X-Host` header — it must match the host registered in Agent Studio for your connector token.
 
 ---
 
-# Quick start — drop in our UI
+# Quick start
 
-The fastest path: copy our prebuilt components and bind a `ChatSession`. You get bubbles, delivery state, suggestion pills, typing, attachments, and a reconnect banner — all wired.
+The smallest thing that works. Make a new Xcode App project (File → New → Project → App), set your `connectorToken`, paste, and Cmd+R. Only `import PolyMessaging` — no helper files to copy.
 
-> **What you `import` vs what you copy.** The SDK module exports only the data/behavior types — `ChatSession`, `ChatMessage`, `Delivery`, `SystemEvent`, `Configuration`, etc. The view names you'll see below and in the examples — `MessageBubbleView`, `RichText`, `AttachmentCarousel`, `TypingIndicator`, `MessageCell`, … — are **files you copy from [`Examples/`](Examples/), not symbols you import**. You own the views; the SDK owns the state.
-
-**1. Start from 02-Standard.** Copy the [02-Standard](Examples/SwiftUI/02-Standard/) example's screen and the views next to it — `ChatView` (SwiftUI) / `ChatViewController` (UIKit) plus the bubble, pill, typing, and banner components in its folder. Each example level is self-contained and internally consistent, so it drops in cleanly (everything takes only public SDK types). [`Examples/Components/`](Examples/Components/) collects the richer **06-FullReference** versions if you'd rather start there — just keep a level's screen and its components together, since the composition roots (`MessageBubbleView` / `MessageCell`) differ slightly per level.
-
-**2. Bind a `ChatSession` and render it.** `PolyMessaging.chat()` returns a `ChatSession` — an `ObservableObject` holding the whole chat state. The screen below mirrors 02-Standard:
+### SwiftUI
 
 ```swift
-// SwiftUI — a complete chat screen using our components.
-struct ChatView: View {
-    @StateObject var session = PolyMessaging.chat()
+// MyApp.swift
+import SwiftUI
+import PolyMessaging
+
+@main
+struct MyApp: App {
+    init() {
+        PolyMessaging.initialize(.init(
+            connectorToken: "YOUR_CONNECTOR_TOKEN",   // Agent Studio → Connector Settings
+            environment: .cluster("us-1")
+        ))
+    }
+    var body: some Scene { WindowGroup { ContentView() } }
+}
+```
+
+```swift
+// ContentView.swift
+import SwiftUI
+import PolyMessaging
+
+struct ContentView: View {
+    @StateObject private var session = PolyMessaging.chat()
     @State private var text = ""
 
     var body: some View {
         VStack(spacing: 0) {
-            if case .reconnecting = session.connection {            // reconnect banner
-                Text("Reconnecting…").font(.caption)
-                    .frame(maxWidth: .infinity).padding(6).background(.yellow.opacity(0.15))
-            }
-
-            ScrollView {                                            // bubbles + delivery + pills
-                LazyVStack(spacing: 8) {
+            ScrollView {
+                LazyVStack(alignment: .leading, spacing: 8) {
                     ForEach(session.messages) { message in
-                        MessageBubbleView(
-                            message: message,
-                            onRetry: { text in Task { try? await session.send(text) } },
-                            showSuggestions: !session.hasEnded && message.id == session.messages.last?.id,
-                            onSuggestionTap: { tapped in
-                                session.clearSuggestions(for: message.id)
-                                Task { try? await session.send(tapped) }
-                            }
-                        )
+                        Text(message.text ?? "")
+                            .padding(10)
+                            .background(Color(.systemGray6))
+                            .cornerRadius(12)
                     }
-                    if session.isAgentTyping { TypingIndicator(avatarUrl: session.agentAvatarUrl) }
-                }.padding()
+                }
+                .padding()
             }
-
-            if session.hasEnded {                                   // composer → "start new" CTA
-                Button("Start New Chat") {
-                    session.clearChat()
-                    Task { try? await session.client.startNewSession() }
-                }.padding()
-            } else {
-                HStack {
-                    TextField("Message", text: $text)
-                        .onChange(of: text) { _ in Task { await session.sendTyping() } }
-                    Button("Send") {
-                        let t = text; text = ""
-                        Task { try? await session.send(t) }
-                    }.disabled(!session.isReady || text.isEmpty)
-                }.padding()
+            HStack {
+                TextField("Message", text: $text)
+                    .textFieldStyle(.roundedBorder)
+                Button("Send") {
+                    let body = text; text = ""
+                    Task { try? await session.send(body) }
+                }
+                .disabled(text.isEmpty)
             }
+            .padding()
         }
+    }
+}
+```
+
+### UIKit
+
+```swift
+// AppDelegate.swift
+import UIKit
+import PolyMessaging
+
+@main
+final class AppDelegate: UIResponder, UIApplicationDelegate {
+    func application(_ application: UIApplication,
+                     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
+        PolyMessaging.initialize(.init(
+            connectorToken: "YOUR_CONNECTOR_TOKEN",   // Agent Studio → Connector Settings
+            environment: .cluster("us-1")
+        ))
+        return true
+    }
+
+    func application(_ application: UIApplication,
+                     configurationForConnecting connectingSceneSession: UISceneSession,
+                     options: UIScene.ConnectionOptions) -> UISceneConfiguration {
+        let config = UISceneConfiguration(name: nil, sessionRole: connectingSceneSession.role)
+        config.delegateClass = SceneDelegate.self
+        return config
+    }
+}
+
+final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
+    var window: UIWindow?
+    func scene(_ scene: UIScene,
+               willConnectTo session: UISceneSession,
+               options connectionOptions: UIScene.ConnectionOptions) {
+        guard let windowScene = scene as? UIWindowScene else { return }
+        window = UIWindow(windowScene: windowScene)
+        window?.rootViewController = ViewController()
+        window?.makeKeyAndVisible()
     }
 }
 ```
 
 ```swift
-// UIKit — the same screen. One Combine sink per piece of state; a diffable data
-// source with two row kinds so suggestion pills sit under the last message.
-final class ChatViewController: UIViewController {
+// ViewController.swift
+import UIKit
+import Combine
+import PolyMessaging
+
+final class ViewController: UIViewController, UITableViewDataSource {
     private let session = PolyMessaging.chat()
     private let tableView = UITableView()
     private let inputField = UITextField()
-    private let reconnectBanner = UILabel()
+    private let sendButton = UIButton(type: .system)
     private var bag = Set<AnyCancellable>()
-
-    private enum Row: Hashable { case message(UUID); case suggestions(UUID) }
-    private var dataSource: UITableViewDiffableDataSource<Int, Row>!
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        tableView.register(MessageCell.self, forCellReuseIdentifier: MessageCell.reuseID)
-        tableView.register(SuggestionsCell.self, forCellReuseIdentifier: SuggestionsCell.reuseID)
-        // …lay out reconnectBanner, tableView, inputField, and a send button…
-        configureDataSource()
+        view.backgroundColor = .systemBackground
 
+        tableView.register(UITableViewCell.self, forCellReuseIdentifier: "cell")
+        tableView.dataSource = self
+        tableView.translatesAutoresizingMaskIntoConstraints = false
+        view.addSubview(tableView)
+
+        inputField.placeholder = "Message"
+        inputField.borderStyle = .roundedRect
+        inputField.translatesAutoresizingMaskIntoConstraints = false
+        view.addSubview(inputField)
+
+        sendButton.setTitle("Send", for: .normal)
+        sendButton.addTarget(self, action: #selector(sendTapped), for: .touchUpInside)
+        sendButton.translatesAutoresizingMaskIntoConstraints = false
+        view.addSubview(sendButton)
+
+        let safe = view.safeAreaLayoutGuide
+        NSLayoutConstraint.activate([
+            tableView.topAnchor.constraint(equalTo: safe.topAnchor),
+            tableView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            tableView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            tableView.bottomAnchor.constraint(equalTo: inputField.topAnchor, constant: -8),
+            inputField.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 12),
+            inputField.bottomAnchor.constraint(equalTo: safe.bottomAnchor, constant: -8),
+            sendButton.leadingAnchor.constraint(equalTo: inputField.trailingAnchor, constant: 8),
+            sendButton.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -12),
+            sendButton.centerYAnchor.constraint(equalTo: inputField.centerYAnchor),
+        ])
+
+        // Re-render whenever the SDK updates the transcript.
         session.$messages
             .receive(on: RunLoop.main)
-            .sink { [weak self] messages in self?.render(messages) }
+            .sink { [weak self] _ in self?.tableView.reloadData() }
             .store(in: &bag)
-        session.$isAgentTyping
-            .receive(on: RunLoop.main)
-            .sink { [weak self] typing in self?.setTypingIndicatorVisible(typing) }
-            .store(in: &bag)
-        session.$connection
-            .receive(on: RunLoop.main)
-            .sink { [weak self] status in self?.reconnectBanner.isHidden = !status.isReconnecting }
-            .store(in: &bag)
-        session.$hasEnded
-            .receive(on: RunLoop.main)
-            .sink { [weak self] ended in self?.inputField.isEnabled = !ended }
-            .store(in: &bag)
-
-        inputField.addAction(UIAction { [weak self] _ in
-            Task { await self?.session.sendTyping() }
-        }, for: .editingChanged)
-    }
-
-    private func configureDataSource() {
-        dataSource = UITableViewDiffableDataSource(tableView: tableView) { [weak self] table, indexPath, row in
-            guard let self else { return UITableViewCell() }
-            switch row {
-            case .message(let id):
-                let cell = table.dequeueReusableCell(withIdentifier: MessageCell.reuseID, for: indexPath) as! MessageCell
-                if let message = self.session.messages.first(where: { $0.id == id }) {
-                    cell.configure(with: message,
-                                   onRetry: { [weak self] text in Task { try? await self?.session.send(text) } })
-                }
-                return cell
-            case .suggestions(let id):
-                let cell = table.dequeueReusableCell(withIdentifier: SuggestionsCell.reuseID, for: indexPath) as! SuggestionsCell
-                if let message = self.session.messages.first(where: { $0.id == id }) {
-                    cell.configure(suggestions: message.suggestions) { [weak self] suggestion in
-                        self?.session.clearSuggestions(for: id)
-                        Task { try? await self?.session.send(suggestion.messageText) }
-                    }
-                }
-                return cell
-            }
-        }
-    }
-
-    private func render(_ messages: [ChatMessage]) {
-        var snapshot = NSDiffableDataSourceSnapshot<Int, Row>()
-        snapshot.appendSections([0])
-        var rows = messages.map { Row.message($0.id) }
-        if !session.hasEnded, let last = messages.last, !last.suggestions.isEmpty {
-            rows.append(.suggestions(last.id))
-        }
-        snapshot.appendItems(rows)
-        dataSource.apply(snapshot, animatingDifferences: true)
     }
 
     @objc private func sendTapped() {
-        let text = inputField.text ?? ""
-        guard !text.isEmpty else { return }
+        let body = inputField.text ?? ""
+        guard !body.isEmpty else { return }
         inputField.text = ""
-        Task { try? await session.send(text) }
+        Task { try? await session.send(body) }
+    }
+
+    // MARK: UITableViewDataSource
+    func tableView(_ t: UITableView, numberOfRowsInSection s: Int) -> Int {
+        session.messages.count
+    }
+    func tableView(_ t: UITableView, cellForRowAt i: IndexPath) -> UITableViewCell {
+        let cell = t.dequeueReusableCell(withIdentifier: "cell", for: i)
+        cell.textLabel?.text = session.messages[i.row].text ?? ""
+        cell.textLabel?.numberOfLines = 0
+        return cell
     }
 }
 ```
 
-**3. Run an example to see it all.** Every feature is wired in the [example ladder](#example-apps) — open any `.xcodeproj` and Cmd+R. To go beyond what the components expose, read **Build your own UI** next.
-
+> **Streaming is on by default** — agent replies grow token-by-token (ChatGPT-style). To switch to complete-message bubbles instead, set `streamingEnabled: false` in your `Configuration`. Full details in [Streaming](#streaming).
 > **`chat()` vs `start()`** — `chat()` resumes the previous conversation if one exists (within 1 hour), else starts fresh; `start()` always starts fresh. `PolyMessaging.hasResumableSession()` tells you which to offer.
 > **Lifecycle:** initialize once; keep one `ChatSession` per chat surface (`@StateObject` / a stored property); call `await session.client.shutdown()` when the surface goes away for good.
 
 ---
 
-# Build your own UI
+# Integration guide
 
-If our components don't fit your design, you don't need them. The entire chat is one observable object — **`ChatSession`** — and building any UI is just: *observe its state, and render it.*
+The SDK is headless: it gives you one observable object — **`ChatSession`** — and your UI is *whatever you build by observing its state.*
 
 ## Meet `ChatSession`
 
@@ -373,55 +392,111 @@ func systemLabel(_ event: SystemEvent) -> String {
 }
 ```
 
-That's the foundation. The rest of this section is just *which field or case* each feature uses — and the component you can copy to skip the boilerplate.
+That's the foundation. The rest of this section is just *which field or case* each feature uses.
 
 ## Adding each feature
 
-Each feature is data already on `ChatSession`. For each: the data, a **SwiftUI** snippet, a **UIKit** snippet, and the **example** it comes from. Copy the named component to skip the boilerplate, or render the field yourself with [the core pattern](#the-core-pattern-render-messages-yourself).
+Each feature is data already on `ChatSession`. For each: the data, a vanilla **SwiftUI** snippet, a vanilla **UIKit** snippet, and the **example app** that ties it all together end-to-end. The SDK ships no views — these snippets use only stock SwiftUI / UIKit primitives + the public SDK types from [the core pattern](#the-core-pattern-render-messages-yourself).
 
-### Typing
-**Data:** `isAgentTyping` (+ `agentAvatarUrl`) shows the dots; call `sendTyping()` on every keystroke to tell the agent — throttled, auto-STOPPED after 5 s idle, and `isAgentTyping` clears on the next agent message.
+### Streaming
+The agent's reply arrives as a sequence of chunks. `ChatSession` reassembles them for you and updates `messages` — you never touch chunks directly. You only choose **how a reply appears**, with **one** switch.
+
+**`Configuration.streamingEnabled`** (default `true`) is the single knob — set it once at `initialize(...)` and you're done:
+
+- **`streamingEnabled: true`** (default) → the bubble appears immediately and **grows token-by-token** as chunks land (ChatGPT-style), then settles into the final, fully-formatted message.
+- **`streamingEnabled: false`** → the server sends complete messages only; the bubble appears whole when ready. While the agent thinks, `isAgentTyping` is `true` — show the typing dots.
+
+```swift
+PolyMessaging.initialize(.init(
+    connectorToken: "your_token",
+    environment: .cluster("us-1"),
+    streamingEnabled: true       // default — set to false for complete messages only
+))
+
+// Then anywhere in your app — no extra args needed.
+let session = PolyMessaging.chat()
+```
+
+**Need to override for one surface?** `chat()` / `start()` accept an optional `streamingEnabled:` argument. Pass it only if you want this session to differ from the config default; otherwise leave it off.
+
+```swift
+let alt = PolyMessaging.chat(streamingEnabled: false)   // this surface only
+```
+
+Either way, your render code — the `switch` over `messages` from [the core pattern](#the-core-pattern-render-messages-yourself) — doesn't change.
+
+*Example app:* [01-Hello (SwiftUI)](Examples/SwiftUI/01-Hello/) · [01-Hello (UIKit)](Examples/UIKit/01-Hello/) — both stream agent replies by default (just `PolyMessaging.chat()` with the default config). For a live toggle to compare with `streamingEnabled: false` side by side, see [07-Playground](Examples/SwiftUI/07-Playground/).
+
+### Connection & reconnect
+**Data:** `session.connection` — show a banner only while `.reconnecting` (drops go `.open → .reconnecting(n) → .open`, no `.closed` flash). `session.failureReason` is terminal — offer `client.resume()`. Use `isConnected` / `isReconnecting` / `isFailed` (full list under [Connection states](#connection-states)).
 
 ```swift
 // SwiftUI
-if session.isAgentTyping { TypingIndicator(avatarUrl: session.agentAvatarUrl) }
-
-TextField("Message", text: $text)
-    .onChange(of: text) { _ in Task { await session.sendTyping() } }
+if case .reconnecting = session.connection {
+    Text("Reconnecting…").font(.caption)
+        .frame(maxWidth: .infinity).padding(6).background(.yellow.opacity(0.15))
+}
+if session.failureReason != nil {
+    Button("Try again") { Task { try? await session.client.resume() } }
+}
 ```
 ```swift
 // UIKit
-session.$isAgentTyping
+session.$connection
     .receive(on: RunLoop.main)
-    .sink { [weak self] typing in self?.setTypingIndicatorVisible(typing) }
+    .sink { [weak self] status in
+        self?.reconnectBanner.isHidden = !status.isReconnecting
+        if status.isFailed { self?.showRetry { Task { try? await self?.session.client.resume() } } }
+    }
     .store(in: &bag)
-
-inputField.addAction(UIAction { [weak self] _ in
-    Task { await self?.session.sendTyping() }
-}, for: .editingChanged)
 ```
-*Example:* [`TypingIndicator.swift`](Examples/Components/SwiftUI/TypingIndicator.swift) · `TypingDotsView` in [`02-Standard ChatViewController.swift`](Examples/UIKit/02-Standard/Views/ChatViewController.swift)
+*Example app:* [02-Standard (SwiftUI)](Examples/SwiftUI/02-Standard/) · [02-Standard (UIKit)](Examples/UIKit/02-Standard/)
 
-### Suggestions (quick replies)
-**Data:** `AgentMessage.suggestions` (`[ResponseSuggestion]`, agent-only). Render under the last message; on tap, clear then send. Only the latest agent message shows pills, and they scroll away with history.
+**Device offline is a separate signal.** `session.connection` tracks the *socket*, not whether the *phone* lost Wi-Fi. For that, watch the OS network path with `Network.NWPathMonitor` and show a distinct "You're offline" bar — the two can stack: offline (device) on top, reconnecting (socket) below. See [04-Resilience](Examples/SwiftUI/04-Resilience/).
+
+### Terminal errors
+**Data:** `session.failureReason` (non-nil whenever the chat hits a terminal failure it can't auto-recover from — an invalid `connectorToken` rejected at the initial connect, the reconnect budget exhausted, or the session expiring. The one state that needs the user). `PolyError` isn't `LocalizedError`, so use `String(describing: reason)`, not `.localizedDescription`.
 
 ```swift
-// SwiftUI — under the last message (inside MessageBubbleView)
-if isLast, !message.suggestions.isEmpty {
-    SuggestionRow(suggestions: message.suggestions.map(\.messageText)) { tapped in
-        session.clearSuggestions(for: message.id)
-        Task { try? await session.send(tapped) }
+// SwiftUI — full-screen error + retry
+if let reason = session.failureReason {
+    VStack(spacing: 12) {
+        Text("Connection lost").font(.headline)
+        Text(String(describing: reason)).foregroundStyle(.secondary)
+        Button("Try again") { Task { try? await session.client.resume() } }
     }
 }
 ```
 ```swift
-// UIKit — a SuggestionsView in its own row/cell
-cell.configure(suggestions: message.suggestions) { [weak self] suggestion in
-    self?.session.clearSuggestions(for: message.id)
-    Task { try? await self?.session.send(suggestion.messageText) }
+// UIKit
+session.$failureReason
+    .receive(on: RunLoop.main)
+    .sink { [weak self] reason in
+        self?.errorView.isHidden = (reason == nil)
+        self?.errorLabel.text = reason.map { String(describing: $0) }
+    }
+    .store(in: &bag)
+// retry button → Task { try? await session.client.resume() }
+```
+*Example app:* [04-Resilience (SwiftUI)](Examples/SwiftUI/04-Resilience/) · [04-Resilience (UIKit)](Examples/UIKit/04-Resilience/) (full-screen `TerminalErrorScreen`) · [06-FullReference (SwiftUI)](Examples/SwiftUI/06-FullReference/) · [06-FullReference (UIKit)](Examples/UIKit/06-FullReference/) (in a screen state machine)
+
+### Loading & empty states
+**Data:** `isReady` (false until connected) + `messages.isEmpty`. Show a skeleton until the first messages arrive, then swap to the transcript.
+
+```swift
+// SwiftUI — stock spinner; swap for shimmer/skeleton placeholders if you prefer
+if !session.isReady && session.messages.isEmpty {
+    ProgressView("Connecting…")
 }
 ```
-*Example:* [`SuggestionRow.swift`](Examples/Components/SwiftUI/SuggestionRow.swift) · [`SuggestionsView.swift`](Examples/Components/UIKit/SuggestionsView.swift)
+```swift
+// UIKit
+let showSpinner = !session.isReady && session.messages.isEmpty
+spinner.isHidden = !showSpinner
+showSpinner ? spinner.startAnimating() : spinner.stopAnimating()
+tableView.isHidden = showSpinner
+```
+*Example app:* [04-Resilience (SwiftUI)](Examples/SwiftUI/04-Resilience/) · [04-Resilience (UIKit)](Examples/UIKit/04-Resilience/)
 
 ### Delivery state & retry
 **Data:** `UserMessage.delivery` is a `Delivery` enum (`.pending` → `.sent` → `.failed`). Restyle the bubble per state; on `.failed`, drop the draft with `removeMessage(draftId:)` then re-send so you don't duplicate. Tip: delay the "Sending…" label ~500 ms so fast confirmations don't flash it.
@@ -454,48 +529,78 @@ func retry(_ m: UserMessage) {
     Task { try? await session.send(m.text) }
 }
 ```
-*Example:* [`MessageBubbleView.swift`](Examples/Components/SwiftUI/MessageBubbleView.swift) · [`MessageCell.swift`](Examples/Components/UIKit/MessageCell.swift)
+*Example app:* [02-Standard (SwiftUI)](Examples/SwiftUI/02-Standard/) · [02-Standard (UIKit)](Examples/UIKit/02-Standard/)
 
-### Attachments, link cards & call buttons
-An agent message can carry images, link preview-cards, and `tel:` call buttons — all on `AgentMessage`. Filter `attachments` by `contentType` and render each kind; drop `.unknown` (it exists for forward-compat).
-
-**Data:** `AgentMessage.attachments` (`[Attachment]`) and `AgentMessage.callActions` (`[ChatCallAction]`).
-- `Attachment`: `contentType` (`.image` / `.url` / `.unknown`), `contentUrl`, `previewImageUrl`, `title`, `callToActionText`
-- `ChatCallAction`: `title`, `contactNumber`
-
-| Kind | Filter | Component — SwiftUI · UIKit | Renders |
-|---|---|---|---|
-| Image | `contentType == .image` | `AttachmentCarousel` · `AttachmentCarouselView` | horizontal strip of image cards |
-| Link card | `contentType == .url` | `URLCard` (03; 06 folds into `AttachmentCarousel`) · `URLCardView` | preview image + title + CTA |
-| Call button | `callActions` | `CallActionButton` · `CallActionsRow` | green button that dials `tel:` |
+### Typing
+**Data:** `isAgentTyping` (+ `agentAvatarUrl`) shows the dots; call `sendTyping()` on every keystroke to tell the agent — throttled, auto-STOPPED after 5 s idle, and `isAgentTyping` clears on the next agent message.
 
 ```swift
-// SwiftUI — in the agent branch of your bubble (see the core pattern):
-let images = m.attachments.filter { $0.contentType == .image }
-if !images.isEmpty { AttachmentCarousel(attachments: images) }
-
-ForEach(Array(m.attachments.filter { $0.contentType == .url }.enumerated()), id: \.offset) { _, att in
-    URLCard(attachment: att)
+// SwiftUI
+if session.isAgentTyping {
+    Text("typing…").font(.caption).foregroundStyle(.secondary)
 }
-ForEach(m.callActions) { CallActionButton(action: $0) }
+
+TextField("Message", text: $text)
+    .onChange(of: text) { _ in Task { await session.sendTyping() } }
 ```
 ```swift
-// UIKit — in your cell, feed each view its slice of the attachments:
-imageCarousel.configure(with: m.attachments.filter { $0.contentType == .image })
-urlCarousel.configure(with:   m.attachments.filter { $0.contentType == .url })
-callActionsRow.configure(actions: m.callActions)
+// UIKit
+session.$isAgentTyping
+    .receive(on: RunLoop.main)
+    .sink { [weak self] typing in self?.typingLabel.isHidden = !typing }
+    .store(in: &bag)
+
+inputField.addAction(UIAction { [weak self] _ in
+    Task { await self?.session.sendTyping() }
+}, for: .editingChanged)
 ```
+*Example app:* [02-Standard (SwiftUI)](Examples/SwiftUI/02-Standard/) · [02-Standard (UIKit)](Examples/UIKit/02-Standard/)
 
-Each card opens `contentUrl` on tap; call buttons dial a sanitized `tel:` (digits + leading `+`). Remote images load through `RetryableAsyncImage` (SwiftUI) / `RetryableImageView` (UIKit) — a URLSession loader with a placeholder, fallback, and tap-to-retry — so a slow image never blocks the bubble.
+### Suggestions (quick replies)
+**Data:** `AgentMessage.suggestions` (`[ResponseSuggestion]`, agent-only). Render under the last message; on tap, clear then send. Only the latest agent message shows pills, and they scroll away with history.
 
-*Example:* [`AttachmentCarousel.swift`](Examples/Components/SwiftUI/AttachmentCarousel.swift) · [`AttachmentCarouselView.swift`](Examples/Components/UIKit/AttachmentCarouselView.swift) · [`URLCardView.swift`](Examples/Components/UIKit/URLCardView.swift) · [`CallActionsRow.swift`](Examples/Components/UIKit/CallActionsRow.swift)
+```swift
+// SwiftUI — under the last agent message
+if case .agent(let agent) = message, message.id == session.messages.last?.id,
+   !agent.suggestions.isEmpty {
+    ScrollView(.horizontal, showsIndicators: false) {
+        HStack(spacing: 8) {
+            ForEach(agent.suggestions, id: \.messageText) { suggestion in
+                Button(suggestion.messageText) {
+                    session.clearSuggestions(for: message.id)
+                    Task { try? await session.send(suggestion.messageText) }
+                }
+                .buttonStyle(.bordered)
+            }
+        }
+    }
+}
+```
+```swift
+// UIKit — horizontal stack of UIButtons in a stack view under the last agent cell
+for suggestion in agent.suggestions {
+    let button = UIButton(type: .system)
+    button.setTitle(suggestion.messageText, for: .normal)
+    button.addAction(UIAction { [weak self] _ in
+        self?.session.clearSuggestions(for: message.id)
+        Task { try? await self?.session.send(suggestion.messageText) }
+    }, for: .touchUpInside)
+    suggestionsStack.addArrangedSubview(button)
+}
+```
+*Example app:* [02-Standard (SwiftUI)](Examples/SwiftUI/02-Standard/) · [02-Standard (UIKit)](Examples/UIKit/02-Standard/)
 
 ### Rich text & links
 **Data:** `AgentMessage.text` is Markdown — `**bold**`, `*italic*`, `` `code` ``, `[links](https://…)`.
 
 ```swift
-// SwiftUI — RichText parses Markdown → AttributedString and opens links via openURL
-RichText(m.text)
+// SwiftUI — Text takes AttributedString and handles taps via openURL
+let opts = AttributedString.MarkdownParsingOptions(interpretedSyntax: .inlineOnlyPreservingWhitespace)
+if let attributed = try? AttributedString(markdown: m.text, options: opts) {
+    Text(attributed)
+} else {
+    Text(m.text)
+}
 ```
 ```swift
 // UIKit — render into a UITextView (NOT a UILabel) so links are tappable
@@ -504,36 +609,75 @@ textView.attributedText = (try? AttributedString(markdown: m.text, options: opts
 textView.isEditable = false
 textView.isScrollEnabled = false   // self-sizes in the cell
 ```
-> `AttributedString(markdown:)` doesn't linkify *bare* URLs — `RichText` adds a regex pass for those and tolerates half-open Markdown from streaming.
+> `AttributedString(markdown:)` doesn't linkify *bare* URLs — add a regex pass if your agent sends them, and be tolerant of half-open Markdown during progressive streaming.
 
-*Example:* [`RichText.swift`](Examples/Components/SwiftUI/RichText.swift) · `renderMarkdown` in [`MessageCell.swift`](Examples/Components/UIKit/MessageCell.swift)
+*Example app:* [03-RichContent (SwiftUI)](Examples/SwiftUI/03-RichContent/) · [03-RichContent (UIKit)](Examples/UIKit/03-RichContent/)
 
-### Connection & reconnect
-**Data:** `session.connection` — show a banner only while `.reconnecting` (drops go `.open → .reconnecting(n) → .open`, no `.closed` flash). `session.failureReason` is terminal — offer `client.resume()`. Use `isConnected` / `isReconnecting` / `isFailed` (full list under [Connection states](#connection-states)).
+### Attachments, link cards & call buttons
+An agent message can carry images, link preview-cards, and `tel:` call buttons — all on `AgentMessage`. Filter `attachments` by `contentType` and render each kind; drop `.unknown` (it exists for forward-compat).
+
+**Data:** `AgentMessage.attachments` (`[Attachment]`) and `AgentMessage.callActions` (`[ChatCallAction]`).
+- `Attachment`: `contentType` (`.image` / `.url` / `.unknown`), `contentUrl`, `previewImageUrl`, `title`, `callToActionText`
+- `ChatCallAction`: `title`, `contactNumber`
 
 ```swift
-// SwiftUI
-if case .reconnecting = session.connection {
-    Text("Reconnecting…").font(.caption)
-        .frame(maxWidth: .infinity).padding(6).background(.yellow.opacity(0.15))
-}
-if session.failureReason != nil {
-    Button("Try again") { Task { try? await session.client.resume() } }
-}
-```
-```swift
-// UIKit
-session.$connection
-    .receive(on: RunLoop.main)
-    .sink { [weak self] status in
-        self?.reconnectBanner.isHidden = !status.isReconnecting
-        if status.isFailed { self?.showRetry { Task { try? await self?.session.client.resume() } } }
+// SwiftUI — in the .agent branch of your bubble (see the core pattern).
+// Images: stock AsyncImage. URL cards: a Link. Call buttons: tel: via openURL.
+@Environment(\.openURL) private var openURL
+
+ScrollView(.horizontal, showsIndicators: false) {
+    HStack(spacing: 8) {
+        ForEach(m.attachments.filter { $0.contentType == .image }, id: \.contentUrl) { att in
+            AsyncImage(url: att.contentUrl) { $0.resizable().scaledToFill() } placeholder: { Color(.systemGray5) }
+                .frame(width: 160, height: 120).clipShape(RoundedRectangle(cornerRadius: 12))
+        }
     }
-    .store(in: &bag)
-```
-*Example:* [`ConnectionBanner.swift`](Examples/SwiftUI/02-Standard/Components/ConnectionBanner.swift) · reconnect banner in [`02-Standard ChatViewController.swift`](Examples/UIKit/02-Standard/Views/ChatViewController.swift)
+}
 
-**Device offline is a separate signal.** `session.connection` tracks the *socket*, not whether the *phone* lost Wi-Fi. For that, watch the OS network path with `NWPathMonitor` and show a distinct "You're offline" bar — the examples wrap this as `NetworkMonitor` + `OfflineBanner` (04-Resilience). The two can stack: offline (device) on top, reconnecting (socket) below.
+ForEach(m.attachments.filter { $0.contentType == .url }, id: \.contentUrl) { att in
+    if let url = att.contentUrl {
+        Link(att.title ?? url.absoluteString, destination: url)
+    }
+}
+
+ForEach(m.callActions) { action in
+    Button("\(action.title) · \(action.contactNumber)") {
+        let digits = action.contactNumber.filter { $0.isNumber || $0 == "+" }
+        if let url = URL(string: "tel:\(digits)") { openURL(url) }
+    }
+    .buttonStyle(.borderedProminent)
+}
+```
+```swift
+// UIKit — in your cell, hand each attachment to a UIImageView / UILabel / UIButton.
+for att in m.attachments where att.contentType == .image {
+    let iv = UIImageView()
+    iv.contentMode = .scaleAspectFill
+    iv.clipsToBounds = true
+    // Load image yourself — URLSession + assignment on the main queue is enough.
+    if let url = att.contentUrl {
+        URLSession.shared.dataTask(with: url) { data, _, _ in
+            guard let data, let image = UIImage(data: data) else { return }
+            DispatchQueue.main.async { iv.image = image }
+        }.resume()
+    }
+    imageStack.addArrangedSubview(iv)
+}
+
+for action in m.callActions {
+    let button = UIButton(type: .system)
+    button.setTitle("\(action.title) · \(action.contactNumber)", for: .normal)
+    button.addAction(UIAction { _ in
+        let digits = action.contactNumber.filter { $0.isNumber || $0 == "+" }
+        if let url = URL(string: "tel:\(digits)") { UIApplication.shared.open(url) }
+    }, for: .touchUpInside)
+    callsStack.addArrangedSubview(button)
+}
+```
+
+Each link card opens `contentUrl` on tap; call buttons dial a sanitized `tel:` (digits + leading `+`).
+
+*Example app:* [03-RichContent (SwiftUI)](Examples/SwiftUI/03-RichContent/) · [03-RichContent (UIKit)](Examples/UIKit/03-RichContent/)
 
 ### Live agent handoff
 **No special listening** — handoff is already in `messages`: progress as `.system` events (your `systemLabel(_:)` from the core pattern renders them), live-agent replies as `.agent` with `agentKind == .live`, live typing via `isAgentTyping`. Just tint the live agent so the user can tell a human took over.
@@ -555,75 +699,7 @@ nameLabel.text = isLive ? "\(m.agentName ?? "Agent") · live agent" : m.agentNam
 ```
 `.liveAgentLeft` is terminal (the SDK flips `hasEnded`). To deep-link a handoff route, observe [`client.events`](#side-effects-clientevents).
 
-*Example:* [`05-Handoff MessageBubbleView.swift`](Examples/SwiftUI/05-Handoff/Components/MessageBubbleView.swift) · [`05-Handoff MessageCell.swift`](Examples/UIKit/05-Handoff/Components/MessageCell.swift)
-
-### Streaming
-The agent's reply arrives as a sequence of chunks. `ChatSession` reassembles them for you and updates `messages` — you never touch chunks directly. You only choose **how a reply appears**:
-
-- **Completed (default).** The bubble shows up once, fully formed, when the reply finishes. While the agent writes, `isAgentTyping` is `true` (show the typing dots); then the assembled message simply appears in `messages`.
-- **Progressive (opt-in).** The bubble appears immediately and **grows token-by-token** as chunks land (ChatGPT-style), then is replaced in place by the final, fully-formatted message. Turn it on at session creation — **the view code is identical**, the same `messages` array just updates more often:
-
-```swift
-// SwiftUI
-@StateObject var session = PolyMessaging.chat(progressiveStreaming: true)
-```
-```swift
-// UIKit
-session = PolyMessaging.chat(progressiveStreaming: true)
-```
-(With an explicit config: `PolyMessaging.chat(config, progressiveStreaming: true)`; `start(...)` takes it too.)
-
-Two switches govern streaming, and they're independent:
-
-| Switch | Where | Controls |
-|---|---|---|
-| `streamingEnabled` | `Configuration` (default `true`) | whether the **server** sends chunks at all |
-| `progressiveStreaming` | `chat()` / `start()` (default `false`) | whether `ChatSession` **renders** chunks live vs. waiting for the assembled message |
-
-Leave `streamingEnabled` on and add `progressiveStreaming: true` for live text. With `streamingEnabled: false`, replies arrive whole and `progressiveStreaming` has nothing to animate. Either way, your render code — the `switch` over `messages` from [the core pattern](#the-core-pattern-render-messages-yourself) — doesn't change.
-
-*Example:* [`07-Playground`](Examples/SwiftUI/07-Playground/) · [`07-Playground`](Examples/UIKit/07-Playground/) — both toggle `progressiveStreaming` live so you can feel the difference.
-
-### Loading & empty states
-**Data:** `isReady` (false until connected) + `messages.isEmpty`. Show a skeleton until the first messages arrive, then swap to the transcript.
-
-```swift
-// SwiftUI
-if !session.isReady && session.messages.isEmpty { LoadingSkeleton() }
-```
-```swift
-// UIKit
-let showSkeleton = !session.isReady && session.messages.isEmpty
-skeleton.isHidden  = !showSkeleton
-tableView.isHidden = showSkeleton
-```
-*Example:* [`LoadingSkeleton.swift`](Examples/Components/SwiftUI/LoadingSkeleton.swift) · [`LoadingSkeleton.swift`](Examples/Components/UIKit/LoadingSkeleton.swift)
-
-### Terminal errors
-**Data:** `session.failureReason` (non-nil whenever the chat hits a terminal failure it can't auto-recover from — an invalid `connectorToken` rejected at the initial connect, the reconnect budget exhausted, or the session expiring. The one state that needs the user). `PolyError` isn't `LocalizedError`, so use `String(describing: reason)`, not `.localizedDescription`.
-
-```swift
-// SwiftUI — full-screen error + retry
-if let reason = session.failureReason {
-    VStack(spacing: 12) {
-        Text("Connection lost").font(.headline)
-        Text(String(describing: reason)).foregroundStyle(.secondary)
-        Button("Try again") { Task { try? await session.client.resume() } }
-    }
-}
-```
-```swift
-// UIKit
-session.$failureReason
-    .receive(on: RunLoop.main)
-    .sink { [weak self] reason in
-        self?.errorView.isHidden = (reason == nil)
-        self?.errorLabel.text = reason.map { String(describing: $0) }
-    }
-    .store(in: &bag)
-// retry button → Task { try? await session.client.resume() }
-```
-*Example:* [`ErrorScreen.swift`](Examples/SwiftUI/06-FullReference/Views/ErrorScreen.swift) · [`ErrorViewController.swift`](Examples/UIKit/06-FullReference/Views/ErrorViewController.swift)
+*Example app:* [05-Handoff (SwiftUI)](Examples/SwiftUI/05-Handoff/) · [05-Handoff (UIKit)](Examples/UIKit/05-Handoff/)
 
 ### Message timestamps
 **Data:** `ChatMessage.timestamp` (also on each `UserMessage` / `AgentMessage` / `SystemMessage`).
@@ -638,27 +714,34 @@ Text(message.timestamp, style: .time)               // e.g. "3:42 PM"
 let f = DateFormatter(); f.timeStyle = .short
 timeLabel.text = f.string(from: message.timestamp)
 ```
-For a date-grouped separator row, see the examples' `MessageTimestamp` + `TimestampSeparator`.
+For a date-grouped separator row (when the gap between consecutive messages crosses a date boundary, insert a row with the date), see the playground.
 
-*Example:* [`TimestampSeparator.swift`](Examples/SwiftUI/07-Playground/Components/TimestampSeparator.swift) · [`MessageTimestamp.swift`](Examples/UIKit/07-Playground/Helpers/MessageTimestamp.swift)
+*Example app:* [07-Playground (SwiftUI)](Examples/SwiftUI/07-Playground/) · [07-Playground (UIKit)](Examples/UIKit/07-Playground/)
 
 ### Avatars & keyboard
 **Data:** `agentAvatarUrl` (latest) and `AgentMessage.avatarUrl` (per-message). Keyboard handling is yours.
 
 ```swift
-// SwiftUI — avatar + interactive keyboard dismiss.
+// SwiftUI — avatar with AsyncImage + interactive keyboard dismiss.
 // NOTE: scrollDismissesKeyboard is iOS 16+, but the SDK supports iOS 15 — guard it
 // (e.g. wrap in a ViewModifier behind `if #available(iOS 16, *)`) or it won't compile
 // on an iOS-15 deployment target.
-AgentAvatarView(url: m.avatarUrl)
+AsyncImage(url: m.avatarUrl) { $0.resizable().scaledToFill() } placeholder: { Color(.systemGray5) }
+    .frame(width: 28, height: 28).clipShape(Circle())
+
 ScrollView { /* messages */ }.scrollDismissesKeyboard(.interactively)   // iOS 16+
 ```
 ```swift
-// UIKit — load the avatar with the retryable image view; ride the keyboard
-avatarView.load(url: m.avatarUrl)
+// UIKit — load the avatar with URLSession; ride the keyboard with keyboardLayoutGuide
+if let url = m.avatarUrl {
+    URLSession.shared.dataTask(with: url) { data, _, _ in
+        guard let data, let image = UIImage(data: data) else { return }
+        DispatchQueue.main.async { avatarView.image = image }
+    }.resume()
+}
 inputBar.bottomAnchor.constraint(equalTo: view.keyboardLayoutGuide.topAnchor).isActive = true
 ```
-*Example:* [`AgentAvatarView.swift`](Examples/SwiftUI/05-Handoff/Components/AgentAvatarView.swift) · [`RetryableImageView.swift`](Examples/Components/UIKit/RetryableImageView.swift) · [`InteractiveKeyboardDismiss.swift`](Examples/Components/SwiftUI/Helpers/InteractiveKeyboardDismiss.swift)
+*Example app:* [05-Handoff (SwiftUI)](Examples/SwiftUI/05-Handoff/) · [05-Handoff (UIKit)](Examples/UIKit/05-Handoff/)
 
 ## Side effects: `client.events`
 
@@ -701,14 +784,12 @@ PolyMessaging.initialize(.init(
 | `connectorToken` | — (required) | Auth token from Agent Studio. Treat as a credential — never log it. |
 | `environment` | — (required) | API + WebSocket endpoints (see below) |
 | `hostIdentifier` | Bundle ID | `X-Host` for connector validation; auto-derived from `Bundle.main.bundleIdentifier` |
-| `streamingEnabled` | `true` | `true`: server streams chunks. `false`: complete messages only |
+| `streamingEnabled` | `true` | `true`: agent replies grow token-by-token (ChatGPT-style). `false`: complete-message bubbles only. See [Streaming](#streaming) |
 | `greetingMessage` | `nil` | Custom welcome message shown when the agent joins (overrides the agent's default) |
 | `logLevel` | `.error` | `.none` \| `.error` \| `.warn` \| `.info` \| `.debug` |
 | `heartbeatIntervalSeconds` | `nil` (30 s) | Override the heartbeat interval; server caps may overrule |
 | `sessionTimeoutSeconds` | `nil` (3600) | Override the idle-timeout |
 | `maxReconnectAttempts` | `nil` (10) | Override the reconnect cap |
-
-> `streamingEnabled` controls whether the **server** streams chunks; `progressiveStreaming` (a parameter on `chat()` / `start()`, not a `Configuration` field) controls whether `ChatSession` renders them live.
 
 **Environments:** `.production` (`messaging.poly.ai`) · `.cluster("us-1")` (`messaging.us-1.poly.ai`, also `uk-1`, `euw-1`, …) · `.staging` · `.dev` · `.custom(restBaseURL:, wsBaseURL:)`.
 
@@ -840,7 +921,7 @@ For internal builds, `DevSettings` (a public `ObservableObject`) is a UserDefaul
 
 ## Example apps
 
-A progressive ladder, mirrored across SwiftUI and UIKit — open any `.xcodeproj` and Cmd+R (pre-wired against the dev environment). The components used throughout live in [`Examples/Components/`](Examples/Components/).
+Working apps mirrored across SwiftUI and UIKit — open any `.xcodeproj`, set your `connectorToken`, and Cmd+R. Each level builds on the previous one; see its README for what's new.
 
 | Level | What it adds | SwiftUI · UIKit |
 |---|---|---|
@@ -851,8 +932,6 @@ A progressive ladder, mirrored across SwiftUI and UIKit — open any `.xcodeproj
 | **05 Handoff** | full live-agent ladder | [SwiftUI](Examples/SwiftUI/05-Handoff/) · [UIKit](Examples/UIKit/05-Handoff/) |
 | **06 Full reference** | production resume + start-new flows | [SwiftUI](Examples/SwiftUI/06-FullReference/) · [UIKit](Examples/UIKit/06-FullReference/) |
 | **07 Playground** | diagnostics, runtime config, streaming toggle | [SwiftUI](Examples/SwiftUI/07-Playground/) · [UIKit](Examples/UIKit/07-Playground/) |
-
-The example apps under `Examples/` are provided as copy-paste starting points — lift any view straight into your app; every component takes only public SDK types (`ChatMessage`, `Attachment`, `ResponseSuggestion`, `ChatCallAction`, `ConnectionStatus`), no internals.
 
 ## Requirements
 

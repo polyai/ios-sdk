@@ -40,9 +40,10 @@ The agent joins and greets automatically. Full walkthrough: README **Step 1**.
 
 ## Public API you'll use (don't invent surface — check `Sources/PolyMessaging/Public/`)
 
-- **Facade:** `PolyMessaging.initialize(_:)`, `.chat(progressiveStreaming:)`,
-  `.start(...)`, `.configure(_:)` (lower-level), `.hasResumableSession()`,
-  `.clearResumableSession()`.
+- **Facade:** `PolyMessaging.initialize(_:)`, `.chat(streamingEnabled:)`,
+  `.start(streamingEnabled:)`, `.configure(_:)` (lower-level), `.hasResumableSession()`,
+  `.clearResumableSession()`. The `streamingEnabled:` parameter is an optional
+  per-session override of `Configuration.streamingEnabled`.
 - **`ChatSession`:** state `messages`/`isAgentTyping`/`connection`/`isReady`/`hasEnded`/
   `failureReason`/`agentAvatarUrl`; actions `send(_:)`/`sendTyping()`/`end()`/
   `clearSuggestions(for:)`/`clearChat()`; plus `client` (the lower-level `PolyMessagingClient`).
@@ -68,8 +69,9 @@ The agent joins and greets automatically. Full walkthrough: README **Step 1**.
 - **Agent text is Markdown, not HTML** — parse and render it (bold/italic/links); there's
   nothing to sanitize. See README "Rich text & links".
 - **Don't render `.agentMessageChunk` as a bubble.** Render the assembled `.agentMessage`;
-  chunks only keep the typing indicator alive. For live token-by-token text, pass
-  `progressiveStreaming: true` to `chat()`/`start()`.
+  chunks only keep the typing indicator alive (when `streamingEnabled: false`). With
+  `streamingEnabled: true` (default), `ChatSession` does the live token-by-token
+  rendering for you.
 - **Suggestion pills** render under the last agent message and clear when the user sends
   (see the example `ChatViewController` / `MessageBubbleView`).
 - **Never log the connector token.**

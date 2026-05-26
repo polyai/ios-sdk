@@ -145,7 +145,7 @@ if let attr = try? AttributedString(markdown: text, options: options) {
 
 *See [Build your own UI › Rich text & links](../../../README.md#rich-text--links).*
 
-> **Streaming:** these chunks render as a completed bubble by default. To show agent replies growing live as they stream in, enable `progressiveStreaming` — see [07-Playground](../07-Playground/) and the root README's [*Streaming*](../../../README.md#streaming) section.
+> **Streaming:** agent replies grow token-by-token by default (`Configuration.streamingEnabled: true` — ChatGPT-style). Set `streamingEnabled: false` to render completed bubbles only. See the root README's [*Streaming*](../../../README.md#streaming) section and [07-Playground](../07-Playground/) for a live toggle.
 
 ### Bubble layout — `MessageCell.swift`
 

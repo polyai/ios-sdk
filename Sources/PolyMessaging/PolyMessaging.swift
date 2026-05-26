@@ -81,9 +81,12 @@ public enum PolyMessaging {
     // MARK: - One-shot API
 
     /// Uses the config from `initialize(_:)`. Call `initialize` first.
+    ///
+    /// - Parameter streamingEnabled: optional per-session override. `nil` (the
+    ///   default) uses `Configuration.streamingEnabled` from `initialize(...)`.
     @MainActor
-    public static func chat(progressiveStreaming: Bool = false) -> ChatSession {
-        chat(currentConfig, progressiveStreaming: progressiveStreaming)
+    public static func chat(streamingEnabled: Bool? = nil) -> ChatSession {
+        chat(currentConfig, streamingEnabled: streamingEnabled)
     }
 
     /// The recommended entry point with full configuration. Resumes an
@@ -94,29 +97,35 @@ public enum PolyMessaging {
     ///         environment: .cluster("us-1"),
     ///         streamingEnabled: true
     ///     ))
+    ///
+    /// - Parameter streamingEnabled: optional per-session override of the
+    ///   `Configuration.streamingEnabled` default. `nil` keeps the default.
     @MainActor
-    public static func chat(_ config: Configuration, progressiveStreaming: Bool = false) -> ChatSession {
+    public static func chat(_ config: Configuration, streamingEnabled: Bool? = nil) -> ChatSession {
         let client = makeClient(config)
-        return ChatSession(client: client, progressiveStreaming: progressiveStreaming)
+        return ChatSession(client: client, streamingEnabled: streamingEnabled)
     }
 
+    /// - Parameter streamingEnabled: see ``chat(_:streamingEnabled:)``.
     @MainActor
-    public static func start(progressiveStreaming: Bool = false) -> ChatSession {
-        start(currentConfig, progressiveStreaming: progressiveStreaming)
+    public static func start(streamingEnabled: Bool? = nil) -> ChatSession {
+        start(currentConfig, streamingEnabled: streamingEnabled)
     }
 
     /// Create a fresh chat session with full configuration.
+    ///
+    /// - Parameter streamingEnabled: see ``chat(_:streamingEnabled:)``.
     @MainActor
-    public static func start(_ config: Configuration, progressiveStreaming: Bool = false) -> ChatSession {
+    public static func start(_ config: Configuration, streamingEnabled: Bool? = nil) -> ChatSession {
         clearResumableSession(connectorToken: config.connectorToken)
         let client = makeClient(config)
-        return ChatSession(client: client, progressiveStreaming: progressiveStreaming)
+        return ChatSession(client: client, streamingEnabled: streamingEnabled)
     }
 
     @available(*, deprecated, renamed: "chat")
     @MainActor
-    public static func resume(_ config: Configuration, progressiveStreaming: Bool = false) -> ChatSession {
-        chat(config, progressiveStreaming: progressiveStreaming)
+    public static func resume(_ config: Configuration, streamingEnabled: Bool? = nil) -> ChatSession {
+        chat(config, streamingEnabled: streamingEnabled)
     }
 
     // MARK: - Voice

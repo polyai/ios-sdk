@@ -69,36 +69,33 @@ Picker("Target", selection: Binding(
 ```swift
 // ContentView.swift — buildConfiguration() → applied on the next session
 let config = devSettings.buildConfiguration()
-let streaming = devSettings.progressiveStreaming
 let s = forceFresh
-    ? PolyMessaging.start(config, progressiveStreaming: streaming)
-    : PolyMessaging.chat(config, progressiveStreaming: streaming)
+    ? PolyMessaging.start(config)
+    : PolyMessaging.chat(config)
 diagnostics.attach(to: s.client)
 ```
 
 *See [Reference › Dev tools (QA)](../../../README.md#dev-tools-qa).*
 
-### 2. Progressive streaming toggle — `Views/SettingsSheet.swift`
+### 2. Streaming toggle — `Views/SettingsSheet.swift`
 
-**Under the hood:** the SDK always reassembles `*_CHUNK` frames into one
-`.agentMessage` at completion — that single message is what renders the bubble.
-`progressiveStreaming` (a `DevSettings` knob, **default on**) only decides whether
-`ChatSession` *also* grows that bubble token-by-token from each chunk as it
-arrives, or stays quiet and shows the finished message in one shot. It needs
-`streamingEnabled` on so the server actually sends chunks. Flip it live, start a
-fresh session, and send a message to watch the difference.
+**Under the hood:** `Configuration.streamingEnabled` is the single switch for streaming.
+When `true` (default) `ChatSession` grows the agent bubble token-by-token as chunks land;
+when `false`, the SDK shows the assembled message in one shot (and keeps the typing
+indicator alive while the agent thinks). Flip the toggle in the Settings sheet — it lives
+on the `DevSettings.streamingEnabled` knob, which flows into the next `buildConfiguration()`.
 
 ```swift
-// SettingsSheet.swift — Display section
-Toggle("Progressive streaming bubble", isOn: Binding(
-    get: { settings.progressiveStreaming },
-    set: { settings.progressiveStreaming = $0 }
+// SettingsSheet.swift — Connection section already has this toggle:
+Toggle("Streaming (server chunks)", isOn: Binding(
+    get: { settings.streamingEnabled },
+    set: { settings.streamingEnabled = $0 }
 ))
 ```
 
-The toggle flows into `chat()` / `start()` (snippet above) — `ChatView` already
-re-scrolls on the last agent message's text length, so the bubble tracks the
-stream without changing `messages.count`.
+A changed `streamingEnabled` applies on the next session — pause back to the
+connect screen and resume, or tap "New conversation". `lastAppliedStreamingEnabled`
+on `DevSettings` lets the UI flag that a restart is needed.
 
 *See [Build your own UI › Streaming](../../../README.md#streaming).*
 

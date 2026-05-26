@@ -197,10 +197,12 @@ final class RootViewController: UIViewController {
             return
         }
 
+        // Streaming behaviour is driven by `Configuration.streamingEnabled`
+        // (set in the Settings sheet). No per-session override needed here.
         let config = devSettings.buildConfiguration()
         let s = forceFresh
-            ? PolyMessaging.start(config, progressiveStreaming: devSettings.progressiveStreaming)
-            : PolyMessaging.chat(config, progressiveStreaming: devSettings.progressiveStreaming)
+            ? PolyMessaging.start(config)
+            : PolyMessaging.chat(config)
         diagnostics.attach(to: s.client)
         session = s
         wasResumed = false

@@ -61,6 +61,8 @@ private func bind() {
 }
 ```
 
+**Streaming is on by default** — `Configuration.streamingEnabled` defaults to `true`, so agent replies grow token-by-token (ChatGPT-style). The `render(_:)` snapshot above calls `reconfigureItems` on existing IDs, so each cell re-renders as the agent message's text grows. To switch to complete-message bubbles instead, set `streamingEnabled: false` in `AppDelegate.swift`'s `Configuration`. See the root README's [*Streaming*](../../../README.md#streaming) section.
+
 **Under the hood:** `chat()` returns a `ChatSession` and runs the whole REST + WebSocket handshake, agent-join, and resume-or-create for you; `isReady` flips true once it's connected. `messages` is the SDK-maintained transcript (`.user`/`.agent`/`.system`) that republishes on every change, so each `.sink` just hands you the full list to render.
 
 *See [Build your own UI › The core pattern](../../../README.md#the-core-pattern-render-messages-yourself).*
