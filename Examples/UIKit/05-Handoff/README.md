@@ -1,8 +1,9 @@
 # 05-Handoff (UIKit)
 
-The full live-agent handoff ladder on top of [`04-Resilience`](../04-Resilience/).
-Handoff progress renders as centered chat pills, matching L2, while live-agent
-bubbles get distinct styling.
+Live-agent handoff on top of [`04-Resilience`](../04-Resilience/). Queue / accept / fail / agent-joined events become centered system pills in the transcript; live-agent bubbles get distinct styling.
+
+- **Interface:** Storyboard (`Main.storyboard`) plus programmatic banners/overlays.
+- **Lifecycle:** `AppDelegate` (`@main`) + `SceneDelegate`.
 
 ## Run it
 
@@ -11,54 +12,42 @@ open HandoffUIKit.xcodeproj   # from this folder
 # Cmd+R on an iPhone simulator
 ```
 
-## New in this level
+Set your connector token in `AppDelegate.swift` (currently `"YOUR_CONNECTOR_TOKEN"`).
 
-**No new files.** Every file is inherited verbatim from [`04-Resilience`](../04-Resilience/) — handoff is entirely a matter of handling events the SDK already surfaces. The new logic lives in two files that gain code:
+## What this example demonstrates
 
-- `ChatViewController.swift` — subscribes to raw `MessagingEvent`s for app side effects (set title on `liveAgentJoined`, open the `clientHandoffRequired` route).
-- `MessageCell.swift` — renders handoff/queue progress as centered system pills and styles live-agent bubbles (`agentKind == .live`).
+- Render handoff progress (queue / accept / fail / timeout) as centered `.system` pill cells
+- Tint a live-agent `MessageCell` teal and tag the caption with `· live agent`
+- Subscribe to raw `client.events` via a `for await` task for app side effects
+- Reuse `session.$isAgentTyping` for live-agent typing — no new flag needed
+- Let `.liveAgentLeft` flip `session.hasEnded` naturally so the existing chat-ended footer takes over
 
-`ChatSession` already turns queue/accept/fail events into `SystemMessage` rows — that needs no app code.
+The SDK invariants behind each pattern are in the root README's [Integration guide](../../../README.md#integration-guide); this example shows them as one concrete view controller.
 
 ## How it works
 
-### Subscribe to raw events — `ChatViewController.swift`
+Each subsection leads with **the SDK call** (one or a few lines — the actual API), then shows **how it's wired into a view controller**.
 
-`ChatSession` already turns handoff progress into `SystemMessage` rows in
-`session.messages`. The raw event subscription only handles app side effects:
-setting the navigation title when a live agent joins and opening a client
-handoff route when the backend asks for one.
+### Handoff status pills — `Components/MessageCell.swift`
 
-**Under the hood:** the raw `client.events` stream is only needed for imperative side effects like deep-linking a `clientHandoffRequired` route or analytics — rendering reads `session.messages`, never this stream.
+Match what `02-Standard` already does for `.system` rows: render every handoff transition as a centered chat pill, not a header banner. `ChatSession` does the heavy lifting — you just switch on the system event:
+
+The SDK signal:
 
 ```swift
-private func handle(event: MessagingEvent) {
-    switch event {
-    case .liveAgentJoined(_, let p):
-        title = (p.agentName?.isEmpty == false) ? p.agentName : "Chat"
-    case .clientHandoffRequired(_, let p):
-        if let route = p.route, let url = URL(string: route),
-           let scheme = url.scheme, scheme.hasPrefix("http") {
-            UIApplication.shared.open(url)
-        }
-    case .liveAgentLeft:
-        title = "Chat"
-    case .sessionStart:
-        title = "Chat"
-    default:
-        break
-    }
-}
+session.messages                  // includes .system messages for every handoff transition
+
+// SystemEvent cases you'll typically handle:
+// .liveAgentJoined(name)         // a human agent picked up
+// .queueStatus(position, displayMessage)
+// .handoffStarted
+// .handoffAccepted
+// .handoffFailed(reason)
+// .handoffTimeout
+// .liveAgentLeft                 // terminal — hasEnded follows
 ```
 
-*See [Build your own UI › Side effects: `client.events`](../../../README.md#side-effects-clientevents).*
-
-### Handoff status pills — `MessageCell.swift`
-
-The pill style is the same pattern used in L2: centered, compact, and part of
-the chat transcript rather than a header banner.
-
-**Under the hood:** the SDK converts every handoff transition — agent-triggered handoff, queue status, accepted/failed/timeout, live-agent joined/left — into a `.system` message appended to `session.messages`, so they interleave in the timeline; you only render the `.system` cases.
+In a cell (system branch):
 
 ```swift
 private func systemText(for event: SystemEvent) -> String {
@@ -67,24 +56,41 @@ private func systemText(for event: SystemEvent) -> String {
     case .queueStatus(let position, let displayMessage):
         if let displayMessage, !displayMessage.isEmpty { return displayMessage }
         return position.map { "Position #\($0) in queue" } ?? "Queued..."
-    case .handoffStarted: return "Transferring to a live agent..."
+    case .handoffStarted:  return "Transferring to a live agent..."
     case .handoffAccepted: return "An agent will be with you shortly"
-    case .handoffFailed(let reason): return reason.map { "Transfer failed: \($0)" } ?? "Transfer failed"
-    case .handoffTimeout: return "No agents available"
-    default: return "This conversation has ended"
+    case .handoffFailed(let reason):
+        return reason.map { "Transfer failed: \($0)" } ?? "Transfer failed"
+    case .handoffTimeout:  return "No agents available"
+    default:               return "This conversation has ended"
     }
+}
+
+private func configureSystem(_ m: SystemMessage) {
+    pillLabel.text = systemText(for: m.event)
+    pillLabel.font = .systemFont(ofSize: 12)
+    pillLabel.textColor = .secondaryLabel
+    pillContainer.backgroundColor = .systemGray6
+    pillContainer.layer.cornerRadius = 12
+    // pillContainer is center-pinned in contentView; everything else hidden.
 }
 ```
 
-*See [Build your own UI › Live agent handoff](../../../README.md#live-agent-handoff).*
+**Under the hood:** the SDK converts every handoff transition — agent-triggered handoff, queue status, accepted / failed / timeout, live-agent joined / left — into a `.system` message appended to `session.messages`. They interleave with `.user` / `.agent` bubbles in the timeline, so you only render the `.system` branch and the order comes out right for free.
 
-### Live-agent bubble styling — `MessageCell.swift`
+*See [Integration guide › Agent handoff](../../../README.md#agent-handoff).*
 
-`configureAgent` switches on `AgentKind` for bubble color, border, and an
-agent-name caption. Live-agent messages flow through `session.messages` as
-`AgentMessage` with `agentKind == .live`.
+### Live-agent bubble styling — `Components/MessageCell.swift`
 
-**Under the hood:** live-agent replies arrive as ordinary `.agent` messages on the same rendering path as Poly replies — only `agentKind` (`.live` vs `.poly`) differs, so you tint by it; live-agent typing reuses the existing `isAgentTyping` flag.
+Live-agent replies are ordinary `.agent` messages — the same rendering path as Poly agent replies. Switch on `AgentMessage.agentKind` to tint them and tag the caption:
+
+The SDK signal:
+
+```swift
+AgentMessage.agentKind   // .poly (default) or .live — live = a human handled by handoff
+AgentMessage.agentName   // optional display name (used for the caption)
+```
+
+In a cell (agent branch):
 
 ```swift
 private func configureAgent(_ m: AgentMessage) {
@@ -117,53 +123,103 @@ private func configureAgent(_ m: AgentMessage) {
         }
     }
 
-    // ... text bubble (teal tint when isLive) + attachments + URL cards + call actions ...
+    bubbleView.backgroundColor = isLive
+        ? UIColor.systemTeal.withAlphaComponent(0.18)
+        : .systemGray5
+    // ...text (UITextView), attachments, URL cards, call actions...
 }
 ```
 
-*See [Build your own UI › Live agent handoff](../../../README.md#live-agent-handoff).*
+**Under the hood:** the SDK normalises live-agent replies into the same `AgentMessage` shape as Poly replies — only `agentKind` and (usually) `avatarUrl` / `agentName` differ. Live-agent typing reuses `session.$isAgentTyping`, so the typing indicator works during handoff with no extra wiring.
 
-### Typing pill placement — `ChatViewController.swift`
+> **Streaming:** agent replies grow token-by-token by default (`Configuration.streamingEnabled: true` — ChatGPT-style). Live-agent messages flow through the same path, so streaming works for them too. See the root README's [*Streaming*](../../../README.md#streaming) section and [`07-Playground`](../07-Playground/) for a live toggle.
 
-`ChatSession.isAgentTyping` already debounces (SDK invariant I19). The typing
-pill is installed as the table footer so it sits directly under the latest
-message, matching the SwiftUI `LazyVStack` flow.
+> Reminder from `03-RichContent`: render agent text in a non-editable **`UITextView`**, not a `UILabel` — a label styles Markdown links but ignores taps.
 
-**Under the hood:** live-agent typing reuses the same `isAgentTyping` flag as the Poly agent, so the indicator works during handoff with no extra wiring.
+*See [Integration guide › Agent handoff](../../../README.md#agent-handoff).*
+
+### Side effects via raw `client.events` — `Views/ChatViewController.swift`
+
+Rendering reads `session.messages`; raw events are only needed for app-side effects like updating the nav title or deep-linking a route the backend hands you:
+
+The SDK signal:
 
 ```swift
-session.$isAgentTyping
-    .receive(on: RunLoop.main)
-    .sink { [weak self] typing in
-        guard let self else { return }
-        self.setTypingIndicatorVisible(typing)
-    }
-    .store(in: &bag)
+session.client.events   // AsyncStream<MessagingEvent> — the raw, decoded stream
+
+// Events you'll typically act on in handoff:
+// .liveAgentJoined(_, payload)        // update title / show banner
+// .clientHandoffRequired(_, payload)  // deep-link payload.route (the agent told you to)
+// .liveAgentLeft                      // clear the title (hasEnded does the rest)
+// .sessionStart                       // fresh session → reset title
 ```
 
-*See [Build your own UI › Live agent handoff](../../../README.md#live-agent-handoff).*
+In a view controller:
 
-### Why `liveAgentLeft` resets the title
+```swift
+final class ChatViewController: UIViewController {
+    private var session: ChatSession!
+    /// Cancelled in `deinit` so the for-await loop exits when we go away.
+    private var eventTask: Task<Void, Never>?
 
-It's terminal — `session.hasEnded` flips true and the existing chat-ended
-footer takes over. The title returns to "Chat" so a stale agent name does not
-linger into the next conversation.
+    override func viewDidLoad() {
+        super.viewDidLoad()
+        session = PolyMessaging.chat()
+        // ...layoutUI(); configureDataSource(); bind()...
+        startEventTask()
+    }
 
-**Under the hood:** `.liveAgentLeft` is a terminal transition — the SDK is what flips `hasEnded`, so no app-side state tracking is needed to close out the conversation.
+    deinit { eventTask?.cancel() }
+
+    private func startEventTask() {
+        eventTask = Task { @MainActor [weak self] in
+            guard let self else { return }
+            for await event in self.session.client.events {
+                self.handle(event: event)
+            }
+        }
+    }
+
+    private func handle(event: MessagingEvent) {
+        switch event {
+        case .liveAgentJoined(_, let p):
+            title = (p.agentName?.isEmpty == false) ? p.agentName : "Chat"
+        case .clientHandoffRequired(_, let p):
+            // Optionally deep-link to the route URL if it parses as http(s).
+            if let route = p.route, let url = URL(string: route),
+               let scheme = url.scheme, scheme.hasPrefix("http") {
+                UIApplication.shared.open(url)
+            }
+        case .liveAgentLeft, .sessionStart:
+            title = "Chat"
+        default:
+            // Handoff progress flows through session.messages as SystemMessage
+            // pills (rendered above). $isAgentTyping covers live-agent typing.
+            // .liveAgentMessage flows into session.messages as an AgentMessage
+            // with agentKind == .live.
+            break
+        }
+    }
+}
+```
+
+**Under the hood:** `client.events` is the same typed, decoded stream the SDK uses internally — subscribing adds no transport overhead, and is the right place for imperative side effects (nav title, analytics, deep-linking) that aren't a function of `messages`. Anything renderable already comes through `session.$messages` / `session.$isAgentTyping`, so don't drive the table off this stream.
+
+*See [Integration guide › Agent handoff](../../../README.md#agent-handoff).*
+
+### Why `liveAgentLeft` needs no special handling
+
+It's terminal — `session.hasEnded` flips true and the existing chat-ended footer takes over. The title returns to "Chat" (handled in `.liveAgentLeft` above) so a stale agent name doesn't linger into the next conversation.
+
+**Under the hood:** `.liveAgentLeft` is a terminal transition — the SDK itself flips `hasEnded`, so no app-side bookkeeping is needed to close out the conversation.
 
 ## What this example skips
 
-- production-style Resume / Start-New UX → [`../06-FullReference/`](../06-FullReference/)
-- raw transport diagnostic tap, full Configuration knobs, and protocol simulations → [`../07-Playground/`](../07-Playground/)
-
-## Copy these into your app
-
-The views in this folder use only **public SDK types**, so they drop into any app
-that has the package. To wire them up: [Install the package](../../../README.md#install),
-then follow the full walkthrough in root [README → Build your own UI](../../../README.md#build-your-own-ui).
+- production-style resume / start-new flow with a dedicated connect screen → [`06-FullReference/`](../06-FullReference/)
+- runtime configuration, raw transport experiments, diagnostics → [`07-Playground/`](../07-Playground/)
 
 ---
 
-SwiftUI counterpart: [`Examples/SwiftUI/05-Handoff/`](../../SwiftUI/05-Handoff/).
-
-When you change this example, update the matching snippets in the project [`README.md`](../../../README.md) **and** the SwiftUI counterpart. See `SKILL.md §12`.
+- **SwiftUI counterpart:** [`Examples/SwiftUI/05-Handoff/`](../../SwiftUI/05-Handoff/)
+- **SDK reference:** root [README → Integration guide](../../../README.md#integration-guide)
+- **Install the package:** root [README → Install](../../../README.md#install)
