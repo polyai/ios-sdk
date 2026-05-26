@@ -49,6 +49,12 @@ struct ContentView: View {
                 }
             }
         }
+        // Force single-column stack style. The legacy NavigationView defaults
+        // to split-view in landscape on regular-width devices (iPad / Plus /
+        // Max in landscape), which collapses the chat into the detail pane
+        // and hides the sidebar. Use NavigationStack on iOS 16+ when we
+        // raise the deployment target. (Examples target iOS 15.)
+        .navigationViewStyle(.stack)
     }
 
     private var mainChat: some View {
