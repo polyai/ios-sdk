@@ -854,7 +854,8 @@ An agent message can carry images, link preview-cards, and `tel:` call buttons â
 // SwiftUI
 struct ChatView: View {
     @StateObject private var session = PolyMessaging.chat()
-    @Environment(\.openURL) private var openURL
+    // SwiftUI-qualified because the SDK also exports an `Environment` type.
+    @SwiftUI.Environment(\.openURL) private var openURL
 
     var body: some View {
         ForEach(session.messages) { message in
@@ -1208,7 +1209,7 @@ var body: some View {
             case .liveAgentJoined(_, let agent):
                 haptics.success(); analytics.track("handoff", agent.agentName)
             case .clientHandoffRequired(_, let payload):
-                if let route = payload.route, let url = URL(string: route) { UIApplication.shared.open(url) }
+                if let route = payload.route, let url = URL(string: route) { await UIApplication.shared.open(url) }
             case .sessionEnd:
                 analytics.track("chat_ended")
             default:
@@ -1233,7 +1234,7 @@ override func viewDidLoad() {
             case .liveAgentJoined(_, let agent):
                 haptics.success(); analytics.track("handoff", agent.agentName)
             case .clientHandoffRequired(_, let payload):
-                if let route = payload.route, let url = URL(string: route) { UIApplication.shared.open(url) }
+                if let route = payload.route, let url = URL(string: route) { await UIApplication.shared.open(url) }
             case .sessionEnd:
                 analytics.track("chat_ended")
             default:
