@@ -13,7 +13,7 @@ Contributions are welcome. Please ensure the SDK builds and the test suite passe
 ### Getting started
 
 ```bash
-git clone https://github.com/PolyAI-LDN/poly_messaging_ios.git
+git clone https://github.com/polyai/poly_messaging_ios.git
 cd poly_messaging_ios
 swift build
 swift test

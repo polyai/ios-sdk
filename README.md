@@ -35,7 +35,7 @@ Add the package by its Git URL, pinned to a version. Pick **one** of the three o
 1. **File → Add Package Dependencies…**
 2. Paste this URL into the **search field in the top-right** of the dialog:
    ```
-   https://github.com/PolyAI-LDN/poly_messaging_ios
+   https://github.com/polyai/poly_messaging_ios
    ```
 3. Set **Dependency Rule** → *Up to Next Major Version* → `0.2.2`
 4. Click **Add Package** → tick the **PolyMessaging** library for your app target → **Add Package** again.
@@ -44,7 +44,7 @@ Add the package by its Git URL, pinned to a version. Pick **one** of the three o
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/PolyAI-LDN/poly_messaging_ios", from: "0.2.2")
+    .package(url: "https://github.com/polyai/poly_messaging_ios", from: "0.2.2")
 ]
 // then add to your target:
 .product(name: "PolyMessaging", package: "poly_messaging_ios")
@@ -55,7 +55,7 @@ dependencies: [
 ```yaml
 packages:
   PolyMessaging:
-    url: https://github.com/PolyAI-LDN/poly_messaging_ios
+    url: https://github.com/polyai/poly_messaging_ios
     exactVersion: 0.2.2      # or: upToNextMajorVersion: 0.2.2
 targets:
   YourApp:
