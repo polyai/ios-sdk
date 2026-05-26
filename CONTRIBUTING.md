@@ -101,3 +101,15 @@ For UI/example changes, open the relevant `Examples/<platform>/<NN-Name>` projec
 - **No third-party dependencies.** This package is intentionally dependency-free.
 - **Don't edit `Sources/PolyMessaging/` to make integration "easier"** — the public API is the contract; integration changes belong in the consuming app.
 - **Keep credentials out of source.** API keys are set via `PolyMessaging.initialize(...)` at runtime, never committed.
+
+## On-call / maintainer notes
+
+Operational details for whoever owns this repo next.
+
+- **CI:** `.github/workflows/ci.yml` runs `swift build` + `swift test` on every PR and every push to `main` (macOS 14, `latest-stable` Xcode). Both workflows also expose `workflow_dispatch` — manually fire from the **Actions** tab when needed.
+- **Releases:** `.github/workflows/release-please.yml` opens a release PR on each push to `main` whose history contains a `feat:` or `fix:` commit. Merging the release PR cuts the `vX.Y.Z` tag + GitHub Release. The version literal is `Sources/PolyMessaging/Public/Version.swift` (single source of truth — never edited by hand).
+- **Org block on release-please:** if release-please fails to open the PR with *"GitHub Actions is not permitted to create or approve pull requests"*, an org admin must enable **Settings → Actions → General → Workflow permissions → "Allow GitHub Actions to create and approve pull requests"** at the `polyai` org level. Until then, the release PR has to be opened manually from the auto-generated branch.
+- **CODEOWNERS:** `.github/CODEOWNERS` requires `@polyai/messaging` review. The team must exist in the `polyai` org with write access or the rule silently no-ops.
+- **Branch protection:** `main` requires 1 approving review and `build-test` to be green before merge. Configured via `gh api -X PUT repos/polyai/poly_messaging_ios/branches/main/protection`.
+- **E2E verification:** `scripts/e2e-validation.sh` boots a simulator, builds + screenshots all 7 SwiftUI example apps, and runs the StandardSwiftUI XCUITest target. Requires `POLY_CONNECTOR_TOKEN` in env — the script refuses to run without it and never writes the token to disk.
+- **Examples ladder:** 14 example apps (`Examples/{SwiftUI,UIKit}/0N-Name/`), each with its own `project.yml` for `xcodegen`. `scripts/build-all.sh` builds every one — run after any change to `Sources/PolyMessaging/` public API or the example scaffolds.
