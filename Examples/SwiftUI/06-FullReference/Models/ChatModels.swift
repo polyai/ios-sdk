@@ -1,3 +1,5 @@
+// Copyright PolyAI Limited
+
 import Foundation
 
 struct LogEntry: Identifiable {

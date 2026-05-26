@@ -1,3 +1,5 @@
+// Copyright PolyAI Limited
+
 //  MessageBubbleView.swift
 //  Examples/SwiftUI/04-Resilience
 //

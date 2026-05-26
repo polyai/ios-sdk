@@ -1,3 +1,5 @@
+// Copyright PolyAI Limited
+
 import XCTest
 @testable import PolyMessaging
 

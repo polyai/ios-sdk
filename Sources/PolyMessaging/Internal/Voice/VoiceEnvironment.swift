@@ -1,3 +1,5 @@
+// Copyright PolyAI Limited
+
 import Foundation
 
 /// Resolves the WebRTC signaling gateway URL per environment, mirroring how

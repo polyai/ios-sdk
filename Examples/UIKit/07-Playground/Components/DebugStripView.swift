@@ -1,3 +1,5 @@
+// Copyright PolyAI Limited
+
 //  DebugStripView.swift
 //  Examples/UIKit/07-Playground
 //

@@ -1,3 +1,5 @@
+// Copyright PolyAI Limited
+
 //  URLCardView.swift
 // Examples/UIKit/05-Handoff
 //

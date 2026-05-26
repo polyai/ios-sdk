@@ -1,3 +1,5 @@
+// Copyright PolyAI Limited
+
 //  NetworkMonitor.swift
 // Examples/UIKit/04-Resilience
 //

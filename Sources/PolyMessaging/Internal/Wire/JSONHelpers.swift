@@ -1,3 +1,5 @@
+// Copyright PolyAI Limited
+
 import Foundation
 
 typealias WireJSON = [String: Any]

@@ -1,3 +1,5 @@
+// Copyright PolyAI Limited
+
 import SwiftUI
 
 struct RetryableAsyncImage<Content: View, Placeholder: View, Fallback: View>: View {

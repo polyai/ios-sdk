@@ -1,3 +1,5 @@
+// Copyright PolyAI Limited
+
 import Foundation
 
 /// Opens the messaging WebSocket for a voice call and links it to the WebRTC

@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Integration support
+    url: mailto:developers@poly-ai.com
+    about: For commercial integration support or questions specific to your Agent Studio project, please email us directly.

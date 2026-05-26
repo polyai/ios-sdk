@@ -1,3 +1,5 @@
+// Copyright PolyAI Limited
+
 //  AppDelegate.swift
 //  Examples/UIKit/06-FullReference
 //

@@ -1,3 +1,5 @@
+// Copyright PolyAI Limited
+
 //  SuggestionsView.swift
 // Examples/UIKit/05-Handoff
 //

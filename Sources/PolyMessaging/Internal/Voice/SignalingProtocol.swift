@@ -1,3 +1,5 @@
+// Copyright PolyAI Limited
+
 import Foundation
 
 /// An ICE candidate exchanged with the WebRTC signaling gateway.

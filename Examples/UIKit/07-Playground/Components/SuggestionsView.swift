@@ -1,3 +1,5 @@
+// Copyright PolyAI Limited
+
 //  SuggestionsView.swift
 // Examples/UIKit/07-Playground
 //

@@ -1,3 +1,5 @@
+// Copyright PolyAI Limited
+
 //  ErrorViewController.swift
 //  Examples/UIKit/07-Playground
 //

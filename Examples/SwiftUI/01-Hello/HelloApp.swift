@@ -1,3 +1,5 @@
+// Copyright PolyAI Limited
+
 //  HelloApp.swift
 //  Examples/SwiftUI/01-Hello
 //

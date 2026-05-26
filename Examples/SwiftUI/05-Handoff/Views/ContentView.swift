@@ -1,3 +1,5 @@
+// Copyright PolyAI Limited
+
 //  ContentView.swift
 //  Examples/SwiftUI/05-Handoff
 //

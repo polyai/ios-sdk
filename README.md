@@ -3,6 +3,7 @@
 ![Platform](https://img.shields.io/badge/platform-iOS%2015%2B-blue)
 ![Swift](https://img.shields.io/badge/Swift-5.9%2B-orange)
 ![Dependencies](https://img.shields.io/badge/dependencies-none-green)
+![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)
 
 Add AI-powered chat to your iOS app. The SDK is **headless** — it handles token auth, the WebSocket, streaming, reconnection, delivery tracking, and live-agent handoff. You bring the UI.
 
@@ -1429,4 +1430,6 @@ Working apps mirrored across SwiftUI and UIKit — open any `.xcodeproj`, set yo
 
 ## License
 
-Copyright © PolyAI. All rights reserved.
+Licensed under the Apache License, Version 2.0. See [LICENSE](LICENSE) for the full text.
+
+Copyright 2026 PolyAI Limited.

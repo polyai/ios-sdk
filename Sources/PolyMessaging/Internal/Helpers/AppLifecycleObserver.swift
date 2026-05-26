@@ -1,3 +1,5 @@
+// Copyright PolyAI Limited
+
 import Foundation
 #if canImport(UIKit)
 import UIKit

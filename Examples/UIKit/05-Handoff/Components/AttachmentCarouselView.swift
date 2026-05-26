@@ -1,3 +1,5 @@
+// Copyright PolyAI Limited
+
 //  AttachmentCarouselView.swift
 // Examples/UIKit/05-Handoff
 //

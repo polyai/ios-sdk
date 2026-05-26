@@ -1,3 +1,5 @@
+// Copyright PolyAI Limited
+
 //  ChatViewController.swift
 //  Examples/UIKit/04-Resilience
 //

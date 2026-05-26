@@ -1,3 +1,5 @@
+// Copyright PolyAI Limited
+
 import Foundation
 
 /// State of the underlying media (WebRTC peer) connection.

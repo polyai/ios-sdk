@@ -1,3 +1,5 @@
+// Copyright PolyAI Limited
+
 //  OfflineBanner.swift
 //  Examples/SwiftUI/04-Resilience
 //

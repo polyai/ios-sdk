@@ -1,3 +1,5 @@
+// Copyright PolyAI Limited
+
 import Foundation
 
 /// Orchestrates the full voice-call lifecycle, composing the REST auth/session

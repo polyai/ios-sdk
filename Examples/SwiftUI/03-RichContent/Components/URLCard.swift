@@ -1,3 +1,5 @@
+// Copyright PolyAI Limited
+
 //  URLCard.swift
 //  Examples/SwiftUI/03-RichContent
 //

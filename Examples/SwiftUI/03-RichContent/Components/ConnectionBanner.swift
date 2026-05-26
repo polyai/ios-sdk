@@ -1,3 +1,5 @@
+// Copyright PolyAI Limited
+
 //  ConnectionBanner.swift
 //  Examples/SwiftUI/03-RichContent
 //

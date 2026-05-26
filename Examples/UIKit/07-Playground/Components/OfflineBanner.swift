@@ -1,3 +1,5 @@
+// Copyright PolyAI Limited
+
 //  OfflineBanner.swift
 // Examples/UIKit/07-Playground
 //

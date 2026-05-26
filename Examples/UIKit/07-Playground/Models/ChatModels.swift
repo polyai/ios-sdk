@@ -1,3 +1,5 @@
+// Copyright PolyAI Limited
+
 //  ChatModels.swift
 //  Examples/UIKit/07-Playground
 //

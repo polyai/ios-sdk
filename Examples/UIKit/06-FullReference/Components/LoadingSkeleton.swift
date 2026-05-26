@@ -1,3 +1,5 @@
+// Copyright PolyAI Limited
+
 //  LoadingSkeleton.swift
 //  Examples/UIKit/06-FullReference
 //

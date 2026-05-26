@@ -1,0 +1,24 @@
+name: Question
+description: Ask a question about integrating or using the SDK
+title: "[Question]: "
+labels: ["question"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Before opening an issue, please skim the [README](../../README.md) integration guide and the relevant example app under `Examples/`. If your question isn't covered there, ask away.
+
+  - type: textarea
+    id: question
+    attributes:
+      label: Your question
+    validations:
+      required: true
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Context
+      description: What are you trying to build, and what have you tried so far?
+    validations:
+      required: false
