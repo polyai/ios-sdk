@@ -4,6 +4,18 @@ All notable changes to the PolyMessaging iOS SDK are documented here.
 This project adheres to [Semantic Versioning](https://semver.org). While the SDK
 is pre-1.0, breaking changes bump the **minor** version.
 
+## [0.5.1](https://github.com/polyai/poly_messaging_ios/compare/v0.5.0...v0.5.1) (2026-05-26)
+
+
+### Bug Fixes
+
+* **examples:** constrain long user-message bubbles to ~75% width ([b7c3f8d](https://github.com/polyai/poly_messaging_ios/commit/b7c3f8de03eef5173106d305a0fb4ab68a49b90f))
+* **examples:** force NavigationView stack style for landscape layout ([f3f1e1a](https://github.com/polyai/poly_messaging_ios/commit/f3f1e1ad4656601a97c36ea7e42a2c8e7d0f271e))
+* **examples:** wrap message-bubble switch in HStack so landscape fills width ([17327a5](https://github.com/polyai/poly_messaging_ios/commit/17327a5a91fc233a9b92633dceb8182fe65d3f4c))
+* long-message bubble overflow, landscape layout, and post-reconnect send hang ([f221d42](https://github.com/polyai/poly_messaging_ios/commit/f221d42aa279220bfb362f566666c3f28ca71bdb))
+* long-message bubble overflow, landscape layout, and post-reconnect send hang ([f221d42](https://github.com/polyai/poly_messaging_ios/commit/f221d42aa279220bfb362f566666c3f28ca71bdb))
+* **sdk:** wait for transport `.open` before retrying user-message sends ([2d3850a](https://github.com/polyai/poly_messaging_ios/commit/2d3850a174392cf588f866bea039174568bdfa81))
+
 ## [0.5.0](https://github.com/PolyAI-LDN/poly_messaging_ios/compare/v0.4.0...v0.5.0) (2026-05-26)
 
 
