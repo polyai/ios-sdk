@@ -57,7 +57,7 @@ final class SessionServiceTests: XCTestCase {
 
         let state = await service.state
         XCTAssertNotNil(state.error)
-        XCTAssertTrue(state.hasInvalidConnectorToken)
+        XCTAssertTrue(state.hasInvalidApiKey)
     }
 
     func testCreateSessionClearsTokenBeforeRetry() async throws {

@@ -231,7 +231,7 @@ private func presentFailureAlert(reason: PolyError) {
 
 `String(describing:)` is intentional — `PolyError` doesn't conform to `LocalizedError`, so `.localizedDescription` is the generic "The operation couldn't be completed". `String(describing:)` gives the case name (`auth(unauthorized)`) which is far more useful.
 
-**Under the hood:** `failureReason` is fed by both `client.connectionStatus.failed` (reconnect budget exhausted, session expired) **and** the initial-connect path that catches an unauthorized REST response and flags `sessionState.hasInvalidConnectorToken`. Either way you get a single source of truth for "the chat can't recover from this".
+**Under the hood:** `failureReason` is fed by both `client.connectionStatus.failed` (reconnect budget exhausted, session expired) **and** the initial-connect path that catches an unauthorized REST response and flags `sessionState.hasInvalidApiKey`. Either way you get a single source of truth for "the chat can't recover from this".
 
 *See [Integration guide › Terminal errors](../../../README.md#terminal-errors).*
 

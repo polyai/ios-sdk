@@ -8,26 +8,26 @@ public struct SessionState: Sendable, Equatable {
     public let isReady: Bool
     public let isLoading: Bool
     public let error: SessionErrorCode?
-    public let hasInvalidConnectorToken: Bool
+    public let hasInvalidApiKey: Bool
 
     public init(
         sessionId: String?, status: SessionStatus,
         isReady: Bool, isLoading: Bool,
         error: SessionErrorCode?,
-        hasInvalidConnectorToken: Bool = false
+        hasInvalidApiKey: Bool = false
     ) {
         self.sessionId = sessionId
         self.status = status
         self.isReady = isReady
         self.isLoading = isLoading
         self.error = error
-        self.hasInvalidConnectorToken = hasInvalidConnectorToken
+        self.hasInvalidApiKey = hasInvalidApiKey
     }
 }
 
 public extension SessionState {
-    var isError: Bool { hasInvalidConnectorToken || error != nil }
-    var errorMessage: String? { hasInvalidConnectorToken ? "Invalid API key" : error?.rawValue }
+    var isError: Bool { hasInvalidApiKey || error != nil }
+    var errorMessage: String? { hasInvalidApiKey ? "Invalid API key" : error?.rawValue }
     var canSendMessages: Bool { isReady && !isError }
     var isTerminal: Bool { status == .ended || status == .expired }
 }

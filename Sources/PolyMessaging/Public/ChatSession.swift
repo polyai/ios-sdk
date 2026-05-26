@@ -124,7 +124,7 @@ public final class ChatSession: ObservableObject {
                 // connect throws inside Coordinator.start() and never reaches
                 // connectionStatus.failed. Surface it here so failureReason
                 // remains the single source of truth for terminal failures.
-                if state.hasInvalidConnectorToken {
+                if state.hasInvalidApiKey {
                     self.failureReason = .auth(.unauthorized)
                     self.clearTypingIndicator()
                 }

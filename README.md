@@ -427,7 +427,7 @@ The agent's reply arrives as a sequence of chunks. `ChatSession` reassembles the
 
 ```swift
 PolyMessaging.initialize(.init(
-    apiKey: "your_token",
+    apiKey: "YOUR_API_KEY",
     environment: .cluster("us-1"),
     streamingEnabled: true       // default — set to false for complete messages only
 ))
@@ -1260,7 +1260,7 @@ deinit { eventsTask?.cancel() }
 
 ```swift
 PolyMessaging.initialize(.init(
-    apiKey: "your_token",
+    apiKey: "YOUR_API_KEY",
     environment: .cluster("us-1")
 ))
 ```
@@ -1269,7 +1269,7 @@ PolyMessaging.initialize(.init(
 
 | Field | Default | Description |
 |---|---|---|
-| `apiKey` | — (required) | Auth token from Agent Studio. Treat as a credential — never log it. |
+| `apiKey` | — (required) | API key from Agent Studio. Treat as a credential — never log it. |
 | `environment` | — (required) | API + WebSocket endpoints (see below) |
 | `hostIdentifier` | Bundle ID | `X-Host` for connector validation; auto-derived from `Bundle.main.bundleIdentifier` |
 | `streamingEnabled` | `true` | `true`: agent replies grow token-by-token (ChatGPT-style). `false`: complete-message bubbles only. See [Streaming](#streaming) |
@@ -1284,7 +1284,7 @@ A fully-specified configuration (every value here has a working default — set 
 
 ```swift
 PolyMessaging.initialize(.init(
-    apiKey: "your_token",
+    apiKey: "YOUR_API_KEY",
     environment: .cluster("us-1"),
     hostIdentifier: "com.yourapp.ios",       // X-Host for connector validation; defaults to your bundle id
     streamingEnabled: true,                  // server streams agent replies as chunks
