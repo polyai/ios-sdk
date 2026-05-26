@@ -599,28 +599,8 @@ ForEach(session.messages) { message in
 }
 ```
 ```swift
-// UIKit — register on your tableView with `tableView.register(MessageCell.self, forCellReuseIdentifier: "cell")`.
-final class MessageCell: UITableViewCell {
-    let messageLabel = UILabel()
-    let statusLabel = UILabel()
-
-    override init(style: UITableViewCell.CellStyle, reuseIdentifier: String?) {
-        super.init(style: style, reuseIdentifier: reuseIdentifier)
-        messageLabel.numberOfLines = 0
-        let stack = UIStackView(arrangedSubviews: [messageLabel, statusLabel])
-        stack.axis = .vertical
-        stack.translatesAutoresizingMaskIntoConstraints = false
-        contentView.addSubview(stack)
-        NSLayoutConstraint.activate([
-            stack.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 8),
-            stack.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 12),
-            stack.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -12),
-            stack.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -8),
-        ])
-    }
-    required init?(coder: NSCoder) { fatalError() }
-}
-
+// UIKit — `cell` is your MessageCell (with messageLabel + statusLabel).
+// Cell class shown in the collapsible below.
 func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
     let cell = tableView.dequeueReusableCell(withIdentifier: "cell", for: indexPath) as! MessageCell
     let message = session.messages[indexPath.row]
@@ -642,6 +622,34 @@ func retry(_ m: UserMessage) {
     Task { try? await session.send(m.text) }
 }
 ```
+
+<details><summary>Show <code>MessageCell</code> (subviews + constraints)</summary>
+
+```swift
+// Register with `tableView.register(MessageCell.self, forCellReuseIdentifier: "cell")`.
+final class MessageCell: UITableViewCell {
+    let messageLabel = UILabel()
+    let statusLabel = UILabel()
+
+    override init(style: UITableViewCell.CellStyle, reuseIdentifier: String?) {
+        super.init(style: style, reuseIdentifier: reuseIdentifier)
+        messageLabel.numberOfLines = 0
+        let stack = UIStackView(arrangedSubviews: [messageLabel, statusLabel])
+        stack.axis = .vertical
+        stack.translatesAutoresizingMaskIntoConstraints = false
+        contentView.addSubview(stack)
+        NSLayoutConstraint.activate([
+            stack.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 8),
+            stack.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 12),
+            stack.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -12),
+            stack.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -8),
+        ])
+    }
+    required init?(coder: NSCoder) { fatalError() }
+}
+```
+
+</details>
 *Example app:* [02-Standard (SwiftUI)](Examples/SwiftUI/02-Standard/) · [02-Standard (UIKit)](Examples/UIKit/02-Standard/)
 
 ### Typing
@@ -710,7 +718,34 @@ ForEach(session.messages) { message in
 }
 ```
 ```swift
-// UIKit
+// UIKit — `cell` is your MessageCell (with messageLabel + suggestionsStack).
+// Cell class shown in the collapsible below.
+func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
+    let cell = tableView.dequeueReusableCell(withIdentifier: "cell", for: indexPath) as! MessageCell
+    let message = session.messages[indexPath.row]
+    cell.messageLabel.text = message.text ?? ""
+    cell.suggestionsStack.arrangedSubviews.forEach { $0.removeFromSuperview() }
+
+    if case .agent(let agent) = message,
+       message.id == session.messages.last?.id,
+       !agent.suggestions.isEmpty {
+        for suggestion in agent.suggestions {
+            let button = UIButton(type: .system)
+            button.setTitle(suggestion.messageText, for: .normal)
+            button.addAction(UIAction { [weak self] _ in
+                self?.session.clearSuggestions(for: message.id)
+                Task { try? await self?.session.send(suggestion.messageText) }
+            }, for: .touchUpInside)
+            cell.suggestionsStack.addArrangedSubview(button)
+        }
+    }
+    return cell
+}
+```
+
+<details><summary>Show <code>MessageCell</code> (subviews + constraints)</summary>
+
+```swift
 final class MessageCell: UITableViewCell {
     let messageLabel = UILabel()
     let suggestionsStack = UIStackView()
@@ -735,29 +770,9 @@ final class MessageCell: UITableViewCell {
     }
     required init?(coder: NSCoder) { fatalError() }
 }
-
-func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
-    let cell = tableView.dequeueReusableCell(withIdentifier: "cell", for: indexPath) as! MessageCell
-    let message = session.messages[indexPath.row]
-    cell.messageLabel.text = message.text ?? ""
-    cell.suggestionsStack.arrangedSubviews.forEach { $0.removeFromSuperview() }
-
-    if case .agent(let agent) = message,
-       message.id == session.messages.last?.id,
-       !agent.suggestions.isEmpty {
-        for suggestion in agent.suggestions {
-            let button = UIButton(type: .system)
-            button.setTitle(suggestion.messageText, for: .normal)
-            button.addAction(UIAction { [weak self] _ in
-                self?.session.clearSuggestions(for: message.id)
-                Task { try? await self?.session.send(suggestion.messageText) }
-            }, for: .touchUpInside)
-            cell.suggestionsStack.addArrangedSubview(button)
-        }
-    }
-    return cell
-}
 ```
+
+</details>
 *Example app:* [02-Standard (SwiftUI)](Examples/SwiftUI/02-Standard/) · [02-Standard (UIKit)](Examples/UIKit/02-Standard/)
 
 ### Rich text & links
@@ -781,7 +796,22 @@ ForEach(session.messages) { message in
 }
 ```
 ```swift
-// UIKit — UITextView (NOT UILabel) so Markdown links are tappable.
+// UIKit — `cell.textView` is a UITextView on your MessageCell (NOT a
+// UILabel — labels render Markdown links visually but don't make them
+// tappable). Cell class shown in the collapsible below.
+func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
+    let cell = tableView.dequeueReusableCell(withIdentifier: "cell", for: indexPath) as! MessageCell
+    if case .agent(let m) = session.messages[indexPath.row] {
+        let opts = AttributedString.MarkdownParsingOptions(interpretedSyntax: .inlineOnlyPreservingWhitespace)
+        cell.textView.attributedText = (try? AttributedString(markdown: m.text, options: opts)).map(NSAttributedString.init)
+    }
+    return cell
+}
+```
+
+<details><summary>Show <code>MessageCell</code> (subviews + constraints)</summary>
+
+```swift
 final class MessageCell: UITableViewCell {
     let textView = UITextView()
 
@@ -800,16 +830,9 @@ final class MessageCell: UITableViewCell {
     }
     required init?(coder: NSCoder) { fatalError() }
 }
-
-func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
-    let cell = tableView.dequeueReusableCell(withIdentifier: "cell", for: indexPath) as! MessageCell
-    if case .agent(let m) = session.messages[indexPath.row] {
-        let opts = AttributedString.MarkdownParsingOptions(interpretedSyntax: .inlineOnlyPreservingWhitespace)
-        cell.textView.attributedText = (try? AttributedString(markdown: m.text, options: opts)).map(NSAttributedString.init)
-    }
-    return cell
-}
 ```
+
+</details>
 > `AttributedString(markdown:)` doesn't linkify *bare* URLs — add a regex pass if your agent sends them, and be tolerant of half-open Markdown during progressive streaming.
 
 *Example app:* [03-RichContent (SwiftUI)](Examples/SwiftUI/03-RichContent/) · [03-RichContent (UIKit)](Examples/UIKit/03-RichContent/)
@@ -863,30 +886,8 @@ struct ChatView: View {
 }
 ```
 ```swift
-// UIKit
-final class MessageCell: UITableViewCell {
-    let imageStack = UIStackView()
-    let callsStack = UIStackView()
-
-    override init(style: UITableViewCell.CellStyle, reuseIdentifier: String?) {
-        super.init(style: style, reuseIdentifier: reuseIdentifier)
-        imageStack.axis = .horizontal; imageStack.spacing = 8
-        callsStack.axis = .vertical;   callsStack.spacing = 6
-
-        let outer = UIStackView(arrangedSubviews: [imageStack, callsStack])
-        outer.axis = .vertical; outer.spacing = 8
-        outer.translatesAutoresizingMaskIntoConstraints = false
-        contentView.addSubview(outer)
-        NSLayoutConstraint.activate([
-            outer.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 8),
-            outer.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 12),
-            outer.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -12),
-            outer.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -8),
-        ])
-    }
-    required init?(coder: NSCoder) { fatalError() }
-}
-
+// UIKit — `cell` is your MessageCell (with imageStack + callsStack).
+// Cell class shown in the collapsible below.
 func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
     let cell = tableView.dequeueReusableCell(withIdentifier: "cell", for: indexPath) as! MessageCell
     cell.imageStack.arrangedSubviews.forEach { $0.removeFromSuperview() }
@@ -920,6 +921,35 @@ func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> U
 }
 ```
 
+<details><summary>Show <code>MessageCell</code> (subviews + constraints)</summary>
+
+```swift
+final class MessageCell: UITableViewCell {
+    let imageStack = UIStackView()
+    let callsStack = UIStackView()
+
+    override init(style: UITableViewCell.CellStyle, reuseIdentifier: String?) {
+        super.init(style: style, reuseIdentifier: reuseIdentifier)
+        imageStack.axis = .horizontal; imageStack.spacing = 8
+        callsStack.axis = .vertical;   callsStack.spacing = 6
+
+        let outer = UIStackView(arrangedSubviews: [imageStack, callsStack])
+        outer.axis = .vertical; outer.spacing = 8
+        outer.translatesAutoresizingMaskIntoConstraints = false
+        contentView.addSubview(outer)
+        NSLayoutConstraint.activate([
+            outer.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 8),
+            outer.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 12),
+            outer.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -12),
+            outer.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -8),
+        ])
+    }
+    required init?(coder: NSCoder) { fatalError() }
+}
+```
+
+</details>
+
 Each link card opens `contentUrl` on tap; call buttons dial a sanitized `tel:` (digits + leading `+`).
 
 *Example app:* [03-RichContent (SwiftUI)](Examples/SwiftUI/03-RichContent/) · [03-RichContent (UIKit)](Examples/UIKit/03-RichContent/)
@@ -945,7 +975,23 @@ ForEach(session.messages) { message in
 }
 ```
 ```swift
-// UIKit
+// UIKit — `cell` is your MessageCell (with bubble + nameLabel + messageLabel).
+// Cell class shown in the collapsible below.
+func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
+    let cell = tableView.dequeueReusableCell(withIdentifier: "cell", for: indexPath) as! MessageCell
+    if case .agent(let m) = session.messages[indexPath.row] {
+        let isLive = (m.agentKind == .live)
+        cell.bubble.backgroundColor = isLive ? UIColor.systemTeal.withAlphaComponent(0.18) : .systemGray5
+        cell.nameLabel.text = isLive ? "\(m.agentName ?? "Agent") · live agent" : m.agentName
+        cell.messageLabel.text = m.text
+    }
+    return cell
+}
+```
+
+<details><summary>Show <code>MessageCell</code> (subviews + constraints)</summary>
+
+```swift
 final class MessageCell: UITableViewCell {
     let bubble = UIView()
     let nameLabel = UILabel()
@@ -976,18 +1022,9 @@ final class MessageCell: UITableViewCell {
     }
     required init?(coder: NSCoder) { fatalError() }
 }
-
-func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
-    let cell = tableView.dequeueReusableCell(withIdentifier: "cell", for: indexPath) as! MessageCell
-    if case .agent(let m) = session.messages[indexPath.row] {
-        let isLive = (m.agentKind == .live)
-        cell.bubble.backgroundColor = isLive ? UIColor.systemTeal.withAlphaComponent(0.18) : .systemGray5
-        cell.nameLabel.text = isLive ? "\(m.agentName ?? "Agent") · live agent" : m.agentName
-        cell.messageLabel.text = m.text
-    }
-    return cell
-}
 ```
+
+</details>
 `.liveAgentLeft` is terminal (the SDK flips `hasEnded`). To deep-link a handoff route, observe [`client.events`](#side-effects-clientevents).
 
 *Example app:* [05-Handoff (SwiftUI)](Examples/SwiftUI/05-Handoff/) · [05-Handoff (UIKit)](Examples/UIKit/05-Handoff/)
@@ -1007,7 +1044,21 @@ ForEach(session.messages) { message in
 }
 ```
 ```swift
-// UIKit
+// UIKit — `cell` is your MessageCell (with messageLabel + timeLabel).
+// Cell class shown in the collapsible below.
+func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
+    let cell = tableView.dequeueReusableCell(withIdentifier: "cell", for: indexPath) as! MessageCell
+    let message = session.messages[indexPath.row]
+    cell.messageLabel.text = message.text ?? ""
+    let f = DateFormatter(); f.timeStyle = .short
+    cell.timeLabel.text = f.string(from: message.timestamp)
+    return cell
+}
+```
+
+<details><summary>Show <code>MessageCell</code> (subviews + constraints)</summary>
+
+```swift
 final class MessageCell: UITableViewCell {
     let messageLabel = UILabel()
     let timeLabel = UILabel()
@@ -1032,16 +1083,9 @@ final class MessageCell: UITableViewCell {
     }
     required init?(coder: NSCoder) { fatalError() }
 }
-
-func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
-    let cell = tableView.dequeueReusableCell(withIdentifier: "cell", for: indexPath) as! MessageCell
-    let message = session.messages[indexPath.row]
-    cell.messageLabel.text = message.text ?? ""
-    let f = DateFormatter(); f.timeStyle = .short
-    cell.timeLabel.text = f.string(from: message.timestamp)
-    return cell
-}
 ```
+
+</details>
 For a date-grouped separator row (when the gap between consecutive messages crosses a date boundary, insert a row with the date), see the playground.
 
 *Example app:* [07-Playground (SwiftUI)](Examples/SwiftUI/07-Playground/) · [07-Playground (UIKit)](Examples/UIKit/07-Playground/)
@@ -1076,7 +1120,31 @@ var body: some View {
 }
 ```
 ```swift
-// UIKit
+// UIKit — `cell` is your MessageCell (with avatarView + messageLabel).
+// Cell class shown in the collapsible below.
+func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
+    let cell = tableView.dequeueReusableCell(withIdentifier: "cell", for: indexPath) as! MessageCell
+    if case .agent(let m) = session.messages[indexPath.row] {
+        cell.messageLabel.text = m.text
+        if let url = m.avatarUrl {
+            URLSession.shared.dataTask(with: url) { data, _, _ in
+                guard let data, let image = UIImage(data: data) else { return }
+                DispatchQueue.main.async { cell.avatarView.image = image }
+            }.resume()
+        }
+    }
+    return cell
+}
+
+// Keyboard pin lives on the view controller — pin your input bar to
+// keyboardLayoutGuide.topAnchor (instead of the safe-area bottom) so it
+// rides the keyboard with no notification observers.
+inputBar.bottomAnchor.constraint(equalTo: view.keyboardLayoutGuide.topAnchor).isActive = true
+```
+
+<details><summary>Show <code>MessageCell</code> (subviews + constraints)</summary>
+
+```swift
 final class MessageCell: UITableViewCell {
     let avatarView = UIImageView()
     let messageLabel = UILabel()
@@ -1105,32 +1173,9 @@ final class MessageCell: UITableViewCell {
     }
     required init?(coder: NSCoder) { fatalError() }
 }
-
-func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
-    let cell = tableView.dequeueReusableCell(withIdentifier: "cell", for: indexPath) as! MessageCell
-    if case .agent(let m) = session.messages[indexPath.row] {
-        cell.messageLabel.text = m.text
-        if let url = m.avatarUrl {
-            URLSession.shared.dataTask(with: url) { data, _, _ in
-                guard let data, let image = UIImage(data: data) else { return }
-                DispatchQueue.main.async { cell.avatarView.image = image }
-            }.resume()
-        }
-    }
-    return cell
-}
-
-// Keyboard pin lives on the view controller — pin your input bar to
-// keyboardLayoutGuide.topAnchor (instead of the safe-area bottom) so it
-// rides the keyboard with no notification observers.
-private let inputBar = UIView()                     // your composer container
-
-override func viewDidLoad() {
-    super.viewDidLoad()
-    // ...your existing layout (add inputBar to view, etc.)...
-    inputBar.bottomAnchor.constraint(equalTo: view.keyboardLayoutGuide.topAnchor).isActive = true
-}
 ```
+
+</details>
 *Example app:* [05-Handoff (SwiftUI)](Examples/SwiftUI/05-Handoff/) · [05-Handoff (UIKit)](Examples/UIKit/05-Handoff/)
 
 ## Side effects: `client.events`
