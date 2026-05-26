@@ -1,6 +1,8 @@
 # 03-RichContent (UIKit)
 
-UIKit equivalent of [`../../SwiftUI/03-RichContent/`](../../SwiftUI/03-RichContent/). Adds image attachments, URL cards, `tel:` call actions, retryable image loading, and Markdown rendering on top of [`02-Standard`](../02-Standard/).
+Adds image attachments, URL link cards, `tel:` call actions, and Markdown rendering on top of [`02-Standard`](../02-Standard/). The UIKit twin of [`Examples/SwiftUI/03-RichContent/`](../../SwiftUI/03-RichContent/).
+
+Setup, scaffolding, and everything inherited from 02 (typing, suggestions, delivery, reconnect, end + start-new) are unchanged — read [`02-Standard`](../02-Standard/) first. This README covers only what 03 adds.
 
 ## Run it
 
@@ -9,161 +11,249 @@ open RichContentUIKit.xcodeproj   # from this folder
 # Cmd+R on an iPhone simulator
 ```
 
-## New in this level
+Set your connector token in `App/AppDelegate.swift` (currently `"YOUR_CONNECTOR_TOKEN"`).
 
-- `AttachmentCarouselView.swift` — horizontal `UIScrollView` strip of cards. `MessageCell` uses two: one for `.image` attachments, one for `.url` link-cards.
-- `URLCardView.swift` — a compact preview + title + CTA card (the copy-from variant for a vertical URL list; this level renders URL attachments through the carousel above).
-- `CallActionsRow.swift` — row of `tel:` call-action buttons.
-- `RetryableImageView.swift` — `UIImageView` wrapper with tap-to-retry.
+## What this example demonstrates
 
-`MessageCell.swift` gains the rich-content stack (markdown text + the views above). Everything else — the chat scaffold, suggestions, typing, reconnect banner — is inherited from [`02-Standard`](../02-Standard/); see its README.
+- Image attachments — `AgentMessage.attachments` filtered by `contentType == .image`
+- URL link cards — same `attachments` array filtered by `.url`
+- `tel:` call buttons — `AgentMessage.callActions`
+- Markdown rendering in a **`UITextView`** (not a `UILabel`) so links are tappable
+- Forward-compat: drop `.unknown` content types silently
+
+**The SDK decodes the data; it never fetches bytes or dials phones.** You own image loading, caching, retry, link-opening, and the `tel:` `URL`. This example shows one way to do all of that with stock UIKit.
+
+The SDK invariants behind each pattern are in the root README's [Integration guide](../../../README.md#integration-guide).
 
 ## How it works
 
-Everything that 02-Standard does, plus the rich content below — laid out programmatically inside `MessageCell`'s vertical `outerStack`:
+Each subsection leads with **the SDK data** (the actual API), then shows **how it's wired into the message cell**.
+
+### Render image attachments — inside the cell's image stack
+
+What the SDK gives you:
 
 ```swift
-outerStack.addArrangedSubview(bubbleRow)    // markdown-rendered text (in a UITextView)
-outerStack.addArrangedSubview(carousel)     // image attachments
-outerStack.addArrangedSubview(urlCarousel)  // URL link-cards (same card, also horizontal)
-outerStack.addArrangedSubview(callActions)  // tel: buttons
+m.attachments   // [Attachment] — agent messages only. Each carries:
+                //   contentType   — .image / .url / .unknown (drop .unknown for forward-compat)
+                //   contentUrl    — URL? — where the asset lives
+                //   previewImageUrl — URL? — smaller preview (often nil for raw images)
+                //   title         — String? / callToActionText — String?
+                // The SDK never fetches bytes — you load the URL with URLSession.
 ```
 
-Each subview hides itself when the message has nothing to put in it.
-
-### Image attachments — `AttachmentCarouselView.swift`
-
-A horizontal `UIScrollView` holding a `UIStackView` of 220pt-wide cards (140pt `RetryableImageView` preview on top, optional title/CTA below). `MessageCell` passes only `.image` attachments here; tapping a card opens its `contentUrl`.
-
-**Under the hood:** the SDK decodes `attachments` from the agent message and tags each `contentType` as `.image`/`.url`/`.unknown` — but it never fetches the bytes; you load `previewImageUrl`/`contentUrl` yourself (the caching + tap-to-retry below is app code, not the SDK).
+In a view controller — call from `cellForRowAt`; the cell hosts a horizontal stack of `UIImageView`s:
 
 ```swift
-func configure(with attachments: [Attachment]) {
-    stack.arrangedSubviews.forEach { $0.removeFromSuperview() }
-    isHidden = attachments.isEmpty
-    for attachment in attachments { stack.addArrangedSubview(makeCard(for: attachment)) }
-}
-```
+func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
+    let cell = tableView.dequeueReusableCell(withIdentifier: "cell", for: indexPath) as! MessageCell
+    cell.imageStack.arrangedSubviews.forEach { $0.removeFromSuperview() }   // clear on reuse
+    guard case .agent(let m) = session.messages[indexPath.row] else { return cell }
 
-*See [Build your own UI › Attachments, link cards & call buttons](../../../README.md#attachments-link-cards--call-buttons).*
+    cell.messageLabel.text = m.text
 
-### URL cards — second `AttachmentCarouselView`
-
-`MessageCell` filters the agent message into two attachment groups and feeds each to its own carousel — `.image` to `carousel`, `.url` to `urlCarousel`. URL link-cards reuse the same card as images (preview on top, title + CTA below; the preview falls back to `previewImageUrl ?? contentUrl`). Tap opens `contentUrl`.
-
-**Under the hood:** same decoded `Attachment` data — the SDK hands you the `.url`'s `previewImageUrl`, `contentUrl`, and title, and leaves the card layout and link-opening entirely to your code.
-
-```swift
-carousel.configure(with: m.attachments.filter { $0.contentType == .image })
-urlCarousel.configure(with: m.attachments.filter { $0.contentType == .url })
-```
-
-(`URLCardView.swift` is also in this folder as a more compact, single-row card — copy it instead if you prefer a vertical list of link cards over a horizontal carousel.)
-
-*See [Build your own UI › Attachments, link cards & call buttons](../../../README.md#attachments-link-cards--call-buttons).*
-
-### Call actions — `CallActionsRow.swift`
-
-Each `ChatCallAction` becomes a filled green button. Tap opens `tel:` with non-digit characters stripped from the contact number.
-
-**Under the hood:** each `ChatCallAction` is just decoded data — a `title` and a `contactNumber`. The SDK never dials; building the `tel:` URL and opening it is your code.
-
-```swift
-let digits = action.contactNumber.filter { $0.isNumber || $0 == "+" }
-guard let url = URL(string: "tel:\(digits)") else { return }
-UIApplication.shared.open(url)
-```
-
-*See [Build your own UI › Attachments, link cards & call buttons](../../../README.md#attachments-link-cards--call-buttons).*
-
-### Retryable images — `RetryableImageView.swift`
-
-A `UIImageView` subclass that loads via `URLSession` with a small `NSCache`, a centered activity indicator, tap-to-retry on failure, and a one-shot auto-retry after 5s. On failure it shows the supplied `fallback` image.
-
-**Under the hood:** the SDK plays no part here — it only gave you the image URLs. All loading, caching, and retry behaviour lives in this app-side view, so you can swap in whatever image stack you prefer.
-
-```swift
-func load(url: URL?, fallback: UIImage? = nil) {
-    task?.cancel(); image = nil; fallbackImage = fallback; currentURL = url
-    guard let url else { image = fallback; return }
-    if let cached = Self.cache.object(forKey: url as NSURL) { image = cached; return }
-    activity.startAnimating()
-    task = URLSession.shared.dataTask(with: URLRequest(url: url, cachePolicy: .returnCacheDataElseLoad)) { [weak self] data, _, _ in
-        DispatchQueue.main.async {
-            self?.activity.stopAnimating()
-            guard self?.currentURL == url else { return }
-            if let data, let img = UIImage(data: data) { Self.cache.setObject(img, forKey: url as NSURL); self?.image = img }
-            else { self?.image = self?.fallbackImage; self?.scheduleAutoRetry(for: url) }
+    for att in m.attachments where att.contentType == .image {
+        let iv = UIImageView()
+        iv.contentMode = .scaleAspectFill
+        iv.clipsToBounds = true
+        iv.translatesAutoresizingMaskIntoConstraints = false
+        iv.widthAnchor.constraint(equalToConstant: 220).isActive = true
+        iv.heightAnchor.constraint(equalToConstant: 140).isActive = true
+        if let url = att.contentUrl {
+            URLSession.shared.dataTask(with: url) { data, _, _ in
+                guard let data, let image = UIImage(data: data) else { return }
+                DispatchQueue.main.async { iv.image = image }
+            }.resume()
         }
+        cell.imageStack.addArrangedSubview(iv)
     }
-    task?.resume()
+    return cell
 }
 ```
 
-### Markdown + tappable links — `MessageCell`
-
-The most important detail here is the **bubble's text view, not its text**. The agent
-bubble renders into a **non-editable `UITextView`** (named `label` in the cell, but it
-is a `UITextView`) — *not* a `UILabel`. That's deliberate: a `UILabel` shows `.link`
-styling but ignores taps, so Markdown links would look right and do nothing. A
-`UITextView` makes them tappable and opens `http`/`https` links in Safari for free. It's
-configured once in `init` — `isEditable = false`, `isScrollEnabled = false` (so it
-self-sizes in the cell, with zeroed insets), and `linkTextAttributes` for the
-blue/underline style:
+<details>
+<summary>Show <code>MessageCell</code> (subviews + constraints)</summary>
 
 ```swift
-label.isEditable = false
-label.isScrollEnabled = false
-label.linkTextAttributes = [.foregroundColor: UIColor.systemBlue,
-                            .underlineStyle: NSUnderlineStyle.single.rawValue]
-```
+final class MessageCell: UITableViewCell {
+    let messageLabel = UILabel()
+    let imageStack = UIStackView()
 
-`applyMarkdown(_:)` then parses the text with iOS 15+ `AttributedString(markdown:)` for
-bold/italic/`code`/`[links](url)`, falling back to plain text on parse failure —
-streaming chunks can carry half-open markdown (e.g. a trailing `**`), and we keep them
-readable until the next chunk lands:
+    override init(style: UITableViewCell.CellStyle, reuseIdentifier: String?) {
+        super.init(style: style, reuseIdentifier: reuseIdentifier)
+        messageLabel.numberOfLines = 0
+        imageStack.axis = .horizontal
+        imageStack.spacing = 10
 
-```swift
-let options = AttributedString.MarkdownParsingOptions(
-    interpretedSyntax: .inlineOnlyPreservingWhitespace
-)
-if let attr = try? AttributedString(markdown: text, options: options) {
-    let ns = NSMutableAttributedString(attributedString: NSAttributedString(attr))
-    ns.addAttribute(.font, value: UIFont.systemFont(ofSize: 15), range: NSRange(location: 0, length: ns.length))
-    ns.addAttribute(.foregroundColor, value: UIColor.label, range: NSRange(location: 0, length: ns.length))
-    label.attributedText = ns          // links are now tappable (UITextView, not UILabel)
-} else {
-    label.text = text
+        let outer = UIStackView(arrangedSubviews: [messageLabel, imageStack])
+        outer.axis = .vertical
+        outer.spacing = 8
+        outer.translatesAutoresizingMaskIntoConstraints = false
+        contentView.addSubview(outer)
+        NSLayoutConstraint.activate([
+            outer.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 8),
+            outer.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 12),
+            outer.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -12),
+            outer.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -8),
+        ])
+    }
+    required init?(coder: NSCoder) { fatalError() }
 }
 ```
 
-**Under the hood:** `AgentMessage.text` is the agent's raw Markdown, passed through untouched (there's no HTML to sanitize) — rendering it is your job. While a reply streams, that text grows and can briefly hold half-open Markdown, which is why the parse-failure fallback to plain text matters.
+</details>
 
-> `AttributedString(markdown:)` links `[text](url)` but **not** bare `https://…` URLs. The
-> SwiftUI counterpart's [`RichText`](../../SwiftUI/03-RichContent/Components/RichText.swift)
-> adds a small regex pass for bare URLs — port it if your agent emits them.
+**Under the hood:** the SDK decodes the agent's `attachments` array from the protocol payload and groups them onto the same `AgentMessage` as the text. No background fetch happens — you load `contentUrl` / `previewImageUrl` yourself. `URLSession + DispatchQueue.main.async { iv.image = ... }` is the minimum; the example's `RetryableImageView` adds caching + tap-to-retry on failure.
 
-*See [Build your own UI › Rich text & links](../../../README.md#rich-text--links).*
+*See [Integration guide › Attachments, link cards & call buttons](../../../README.md#attachments-link-cards--call-buttons).*
 
-> **Streaming:** agent replies grow token-by-token by default (`Configuration.streamingEnabled: true` — ChatGPT-style). Set `streamingEnabled: false` to render completed bubbles only. See the root README's [*Streaming*](../../../README.md#streaming) section and [07-Playground](../07-Playground/) for a live toggle.
+### Render URL link cards — same `attachments`, filtered by `.url`
 
-### Bubble layout — `MessageCell.swift`
+What the SDK gives you:
 
-The cell's `outerStack` lays out text → image carousel → URL link-cards → call actions in that order. `.unknown` attachment types are dropped silently for forward-compat.
+```swift
+att.contentUrl         // URL? — destination link
+att.previewImageUrl    // URL? — preview image (often present; falls back to contentUrl)
+att.title              // String? — card headline
+att.callToActionText   // String? — button label, e.g. "Learn more"
+```
 
-**Under the hood:** the SDK groups everything onto one assembled agent message — text, attachments, and call actions all arrive together; `.unknown` is the SDK's forward-compat slot for content types it doesn't model yet, so dropping it is the safe default.
+In a view controller — render in a second horizontal stack on the cell. Tap opens `contentUrl`:
+
+```swift
+for att in m.attachments where att.contentType == .url {
+    let button = UIButton(configuration: .plain())
+    if let title = att.title { button.setTitle(title, for: .normal) }
+    button.addAction(UIAction { _ in
+        if let url = att.contentUrl { UIApplication.shared.open(url) }
+    }, for: .touchUpInside)
+    cell.urlStack.addArrangedSubview(button)
+}
+```
+
+**Under the hood:** same decoded `Attachment` data — the SDK hands you the URL + preview + title, and leaves the card layout and link-opening entirely to your code. The example's full card view (`URLCardView` / `AttachmentCarouselView`) layers the preview image on top of the title + CTA; the snippet above shows the minimum tappable element.
+
+*See [Integration guide › Attachments, link cards & call buttons](../../../README.md#attachments-link-cards--call-buttons).*
+
+### Render `tel:` call buttons — `AgentMessage.callActions`
+
+What the SDK gives you:
+
+```swift
+m.callActions   // [ChatCallAction] — agent messages only. Each:
+                //   title          — String — button label, e.g. "Call now"
+                //   contactNumber  — String — may be display-formatted ("+1 (555) 123-4567")
+                // The SDK never dials — you build the tel: URL and open it.
+```
+
+In a view controller — render each `callAction` as a button on the cell:
+
+```swift
+for action in m.callActions {
+    let button = UIButton(type: .system)
+    button.setTitle("\(action.title) · \(action.contactNumber)", for: .normal)
+    button.addAction(UIAction { _ in
+        // Strip non-digits (keep leading +) so display-formatted numbers still produce a valid URL.
+        let digits = action.contactNumber.filter { $0.isNumber || $0 == "+" }
+        if let url = URL(string: "tel:\(digits)") { UIApplication.shared.open(url) }
+    }, for: .touchUpInside)
+    cell.callsStack.addArrangedSubview(button)
+}
+```
+
+**Under the hood:** the SDK delivers `ChatCallAction` as decoded data — `title` + `contactNumber`. Dialling is your code: sanitise the number (digits + leading `+`), build `tel:<digits>`, hand to `UIApplication.shared.open`.
+
+*See [Integration guide › Attachments, link cards & call buttons](../../../README.md#attachments-link-cards--call-buttons).*
+
+### Render Markdown (tappable links) — `AgentMessage.text`
+
+What the SDK gives you:
+
+```swift
+m.text   // String — the agent's raw Markdown (no HTML; nothing to sanitize).
+         // Grows in place during streaming and can briefly hold half-open Markdown
+         // (e.g. a trailing `**` waiting for its closer) — your parser should tolerate that.
+```
+
+**The most important detail: use a `UITextView`, not a `UILabel`.** A `UILabel` *renders* `.link` styling but ignores taps. A `UITextView` makes them tappable and opens `http`/`https` links in Safari for free.
+
+In a view controller — configure once in the cell's `init`, then call from `cellForRowAt`:
+
+```swift
+func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
+    let cell = tableView.dequeueReusableCell(withIdentifier: "cell", for: indexPath) as! MessageCell
+    guard case .agent(let m) = session.messages[indexPath.row] else { return cell }
+
+    let opts = AttributedString.MarkdownParsingOptions(interpretedSyntax: .inlineOnlyPreservingWhitespace)
+    if let attr = try? AttributedString(markdown: m.text, options: opts) {
+        cell.textView.attributedText = NSAttributedString(attr)
+    } else {
+        cell.textView.text = m.text       // fall back to plain text during half-open Markdown
+    }
+    return cell
+}
+```
+
+<details>
+<summary>Show <code>MessageCell</code> with tappable-link <code>UITextView</code></summary>
+
+```swift
+final class MessageCell: UITableViewCell {
+    let textView = UITextView()
+
+    override init(style: UITableViewCell.CellStyle, reuseIdentifier: String?) {
+        super.init(style: style, reuseIdentifier: reuseIdentifier)
+        textView.isEditable = false
+        textView.isScrollEnabled = false          // self-sizes in the cell
+        textView.textContainerInset = .zero
+        textView.textContainer.lineFragmentPadding = 0
+        textView.linkTextAttributes = [
+            .foregroundColor: UIColor.systemBlue,
+            .underlineStyle: NSUnderlineStyle.single.rawValue,
+        ]
+        textView.translatesAutoresizingMaskIntoConstraints = false
+        contentView.addSubview(textView)
+        NSLayoutConstraint.activate([
+            textView.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 8),
+            textView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 12),
+            textView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -12),
+            textView.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -8),
+        ])
+    }
+    required init?(coder: NSCoder) { fatalError() }
+}
+```
+
+</details>
+
+> `AttributedString(markdown:)` links `[text](url)` but **not** bare `https://…` URLs. The SwiftUI counterpart's `RichText` adds a small regex pass for bare URLs — port it if your agent emits them.
+
+**Under the hood:** the SDK passes the agent's Markdown through untouched. Streaming chunks update `m.text` in place; the parse-failure fallback to plain text keeps the bubble readable mid-stream until the next chunk lands.
+
+*See [Integration guide › Rich text & links](../../../README.md#rich-text--links).*
+
+### Bubble layout — compose everything
+
+The cell's outer stack lays out text → image carousel → URL link-cards → call actions in that order. `.unknown` attachment types are dropped silently for forward-compat.
+
+```swift
+// MessageCell init:
+let outer = UIStackView(arrangedSubviews: [textView, imageStack, urlStack, callsStack])
+outer.axis = .vertical
+outer.spacing = 8
+```
+
+Each subview hides itself when the message has nothing to put in it (you can either toggle `isHidden` based on counts, or use `UIStackView`'s `arrangedSubviews.isEmpty` semantics).
+
+**Under the hood:** the SDK delivers text, attachments, and call actions on one assembled `AgentMessage` — no separate events to coordinate. `.unknown` is the SDK's forward-compat slot for content types it doesn't model yet; dropping it (instead of falling through to a placeholder) is the safe default.
 
 ## What this example skips
 
-- offline detection, loading skeleton, terminal error → [`../04-Resilience/`](../04-Resilience/)
-- live agent handoff → [`../05-Handoff/`](../05-Handoff/)
-
-## Copy these into your app
-
-The views in this folder use only **public SDK types** (`ChatMessage`, `Attachment`, `ChatCallAction`, …), so they drop into any app that has the package. Add the package (root [README → Install](../../../README.md#install)) and drive these views from `ChatSession` — full walkthrough in root [README → "Build your own UI"](../../../README.md#build-your-own-ui).
+- offline detection, loading skeleton, full-screen terminal error → [`04-Resilience/`](../04-Resilience/)
+- live agent handoff → [`05-Handoff/`](../05-Handoff/)
 
 ---
 
-SwiftUI counterpart: [`Examples/SwiftUI/03-RichContent/`](../../SwiftUI/03-RichContent/).
-
-When you change this example, update the matching snippets in the project [`README.md`](../../../README.md) **and** the SwiftUI counterpart. See `SKILL.md §12`.
+- **SwiftUI counterpart:** [`Examples/SwiftUI/03-RichContent/`](../../SwiftUI/03-RichContent/)
+- **SDK reference:** root [README → Integration guide](../../../README.md#integration-guide)
+- **Install the package:** root [README → Install](../../../README.md#install)
