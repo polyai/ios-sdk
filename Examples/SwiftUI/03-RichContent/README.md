@@ -1,6 +1,8 @@
-# 03-RichContent
+# 03-RichContent (SwiftUI)
 
-Adds image attachments, URL cards, `tel:` call actions, and rich text rendering on top of [`02-Standard`](../02-Standard/).
+Adds image attachments, URL link cards, `tel:` call actions, and Markdown rendering on top of [`02-Standard`](../02-Standard/).
+
+Setup, scaffolding, and everything inherited from 02 (typing, suggestions, delivery, reconnect, end + start-new) are unchanged — read [`02-Standard`](../02-Standard/) first. This README covers only what 03 adds.
 
 ## Run it
 
@@ -9,192 +11,202 @@ open RichContentSwiftUI.xcodeproj   # from this folder
 # Cmd+R on an iPhone simulator
 ```
 
-## New in this level
+Set your connector token in `App/RichContentApp.swift` (currently `"YOUR_CONNECTOR_TOKEN"`).
 
-- `Components/AttachmentCarousel.swift` — horizontal thumbnail strip for `.image` attachments.
-- `Components/URLCard.swift` — preview-image + title + CTA card for `.url` attachments.
-- `Components/CallActionButton.swift` — green `tel:` button for `ChatCallAction`.
-- `Components/RetryableAsyncImage.swift` — `AsyncImage` wrapper with tap-to-retry.
-- `Components/RichText.swift` — Markdown → `AttributedString` with plain-text fallback.
+## What this example demonstrates
 
-`Components/MessageBubbleView.swift` gains the rich-content layout below. Everything else — `ConnectionBanner`, `SuggestionRow`, `TypingIndicator`, the chat scaffold — is inherited from [`02-Standard`](../02-Standard/); see its README.
+- Image attachments — `AgentMessage.attachments` filtered by `contentType == .image`
+- URL link cards — same `attachments` array filtered by `.url`
+- `tel:` call buttons — `AgentMessage.callActions`
+- Markdown rendering — `AgentMessage.text` (raw Markdown, you parse)
+- Forward-compat: drop `.unknown` content types silently
+
+**The SDK decodes the data; it never fetches bytes or dials phones.** You own image loading, caching, retry, link-opening, and the `tel:` `URL`. This example shows one way to do all of that with stock SwiftUI.
+
+The SDK invariants behind each pattern are in the root README's [Integration guide](../../../README.md#integration-guide).
 
 ## How it works
 
-### Image attachments — `Components/AttachmentCarousel.swift`
+Each subsection leads with **the SDK data** (the actual API), then shows **how it's wired into the agent bubble**.
 
-A horizontal carousel of attachment thumbnails. Tap opens the attachment's `contentUrl` in the system browser. The carousel itself does not filter — the caller (`MessageBubbleView`) passes only `.image` attachments; `.url` attachments are rendered separately by `URLCard`.
+### Render image attachments — inside the `.agent` branch
 
-**Under the hood:** the SDK decodes `attachments` from the agent message and exposes `contentType` as `.image`/`.url`/`.unknown` — but it never fetches the bytes; you load `previewImageUrl`/`contentUrl` yourself (the caching + tap-to-retry below is app code, not the SDK).
+What the SDK gives you:
 
 ```swift
-struct AttachmentCarousel: View {
-    let attachments: [Attachment]
+m.attachments   // [Attachment] — agent messages only. Each carries:
+                //   contentType   — .image / .url / .unknown (drop .unknown for forward-compat)
+                //   contentUrl    — URL? — where the asset lives
+                //   previewImageUrl — URL? — smaller preview (often nil for raw images)
+                //   title         — String? / callToActionText — String?
+                // The SDK never fetches bytes — you load the URL with AsyncImage / URLSession.
+```
 
-    var body: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 10) {
-                ForEach(Array(attachments.enumerated()), id: \.offset) { _, attachment in
-                    AttachmentCard(attachment: attachment)
+In a view — render only `.image` attachments inside the `.agent` branch of your bubble switch:
+
+```swift
+ForEach(session.messages) { message in
+    switch message {
+    case .agent(let m):
+        VStack(alignment: .leading, spacing: 8) {
+            Text(m.text)              // ...your existing agent text bubble...
+
+            let images = m.attachments.filter { $0.contentType == .image }
+            if !images.isEmpty {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 10) {
+                        ForEach(images, id: \.contentUrl) { att in
+                            AsyncImage(url: att.contentUrl) { $0.resizable().scaledToFill() }
+                                placeholder: { Color(.systemGray5) }
+                                .frame(width: 220, height: 140)
+                                .clipShape(RoundedRectangle(cornerRadius: 12))
+                        }
+                    }
                 }
             }
-            .padding(.horizontal, 4).padding(.vertical, 4)
         }
+
+    // ...other cases (.user, .system) — see the core pattern...
+    default: EmptyView()
     }
 }
 ```
 
-*See [Build your own UI › Attachments, link cards & call buttons](../../../README.md#attachments-link-cards--call-buttons).*
+**Under the hood:** the SDK decodes the agent's `attachments` array from the protocol payload and groups them onto the same `AgentMessage` as the text. No background fetch happens — you load `contentUrl` / `previewImageUrl` yourself. Stock `AsyncImage` is enough for most apps; this example uses a small wrapper (`RetryableAsyncImage`) that adds tap-to-retry on failure.
 
-### URL cards — `Components/URLCard.swift`
+*See [Integration guide › Attachments, link cards & call buttons](../../../README.md#attachments-link-cards--call-buttons).*
 
-`.url` attachments become a card with preview image + title + CTA. Tap opens `contentUrl`.
+### Render URL link cards — same `attachments`, filtered by `.url`
 
-**Under the hood:** same decoded `Attachment` data — the SDK hands you the `.url`'s `previewImageUrl`, `contentUrl`, and title, and leaves the card layout and link-opening entirely to your code.
+What the SDK gives you:
 
 ```swift
-struct URLCard: View {
-    let attachment: Attachment
-    var body: some View {
-        Button {
-            if let url = attachment.contentUrl {
-                UIApplication.shared.open(url)
-            }
-        } label: {
+att.contentUrl         // URL? — destination link
+att.previewImageUrl    // URL? — preview image (often present; falls back to contentUrl)
+att.title              // String? — card headline
+att.callToActionText   // String? — button label, e.g. "Learn more"
+```
+
+In a view:
+
+```swift
+let urls = m.attachments.filter { $0.contentType == .url }
+ForEach(urls, id: \.contentUrl) { att in
+    if let url = att.contentUrl {
+        Link(destination: url) {
             VStack(alignment: .leading, spacing: 0) {
-                if let preview = attachment.previewImageUrl {
-                    RetryableAsyncImage(url: preview) { $0.resizable().scaledToFill() }
-                        placeholder: { ProgressView() }
-                        fallback: { Image(systemName: "photo") }
-                        .frame(width: 260, height: 140).clipped()
+                if let preview = att.previewImageUrl {
+                    AsyncImage(url: preview) { $0.resizable().scaledToFill() }
+                        placeholder: { Color(.systemGray5) }
+                        .frame(width: 260, height: 140)
+                        .clipShape(RoundedRectangle(cornerRadius: 12))
                 }
-                // title + CTA labels …
+                if let title = att.title {
+                    Text(title).font(.subheadline.bold()).padding(.top, 6)
+                }
+                if let cta = att.callToActionText {
+                    Text(cta).font(.caption).foregroundStyle(.blue)
+                }
             }
         }
+        .buttonStyle(.plain)
     }
 }
 ```
 
-*See [Build your own UI › Attachments, link cards & call buttons](../../../README.md#attachments-link-cards--call-buttons).*
+**Under the hood:** same decoded `Attachment` data — the SDK hands you the URL + preview + title, and leaves the card layout and link-opening entirely to your code. `Link(destination:)` opens via the user's default browser; swap for `Button` + `openURL` if you want to intercept (e.g. open in-app).
 
-### Call actions — `Components/CallActionButton.swift`
+*See [Integration guide › Attachments, link cards & call buttons](../../../README.md#attachments-link-cards--call-buttons).*
 
-`ChatCallAction` becomes a green `tel:` `Link`. Non-digit characters are stripped from the number (keeping a leading `+`) so display-formatted numbers like `"+1 (555) 123-4567"` still produce a valid URL.
+### Render `tel:` call buttons — `AgentMessage.callActions`
 
-**Under the hood:** each `ChatCallAction` is just decoded data — a `title` and a `contactNumber`. The SDK never dials; building the `tel:` URL and opening it is your code.
+What the SDK gives you:
 
 ```swift
-if let url = URL(string: "tel:\(action.contactNumber.filter { $0.isNumber || $0 == "+" })") {
-    Link(destination: url) {
+m.callActions   // [ChatCallAction] — agent messages only. Each:
+                //   title          — String — button label, e.g. "Call now"
+                //   contactNumber  — String — may be display-formatted ("+1 (555) 123-4567")
+                // The SDK never dials — you build the tel: URL and open it.
+```
+
+In a view:
+
+```swift
+@Environment(\.openURL) private var openURL
+
+ForEach(m.callActions) { action in
+    Button {
+        // Strip non-digits (keep leading +) so display-formatted numbers still produce a valid URL.
+        let digits = action.contactNumber.filter { $0.isNumber || $0 == "+" }
+        if let url = URL(string: "tel:\(digits)") { openURL(url) }
+    } label: {
         HStack(spacing: 6) {
             Image(systemName: "phone.fill")
             Text(action.title.isEmpty ? action.contactNumber : action.title)
         }
-        // .foregroundColor(.white).background(Color.green) …
     }
+    .buttonStyle(.borderedProminent)
+    .tint(.green)
 }
 ```
 
-*See [Build your own UI › Attachments, link cards & call buttons](../../../README.md#attachments-link-cards--call-buttons).*
+**Under the hood:** the SDK delivers `ChatCallAction` as decoded data — `title` + `contactNumber`. Dialling is your code: sanitise the number (digits + leading `+`), build `tel:<digits>`, hand to `openURL` / `UIApplication.shared.open`.
 
-### Retryable images — `Components/RetryableAsyncImage.swift`
+*See [Integration guide › Attachments, link cards & call buttons](../../../README.md#attachments-link-cards--call-buttons).*
 
-A generic wrapper over `AsyncImage` with caller-supplied `content` / `placeholder` /
-`fallback` builders. Tap the failure state to retry (it also auto-retries after 5s);
-re-keying via a `@State` UUID forces `AsyncImage` to re-fetch.
+### Render Markdown — `AgentMessage.text`
 
-**Under the hood:** the SDK plays no part here — it only gave you the image URLs. All loading, caching, and retry behaviour lives in this app-side view, so you can swap in whatever image stack you prefer.
+What the SDK gives you:
 
 ```swift
-struct RetryableAsyncImage<Content: View, Placeholder: View, Fallback: View>: View {
-    let url: URL
-    @ViewBuilder let content: (Image) -> Content
-    @ViewBuilder let placeholder: () -> Placeholder
-    @ViewBuilder let fallback: () -> Fallback
-    @State private var loadId = UUID()
-
-    var body: some View {
-        AsyncImage(url: url) { phase in
-            switch phase {
-            case .success(let image): content(image)
-            case .failure:           fallback().onTapGesture { loadId = UUID() }
-            case .empty:             placeholder()
-            @unknown default:        fallback()
-            }
-        }
-        .id(loadId)   // re-key forces a fresh fetch
-    }
-}
+m.text   // String — the agent's raw Markdown (no HTML; nothing to sanitize).
+         // Grows in place during streaming and can briefly hold half-open Markdown
+         // (e.g. a trailing `**` waiting for its closer) — your parser should tolerate that.
 ```
 
-### Rich text — `Components/RichText.swift`
-
-Renders agent text with inline formatting using a hand-rolled `NSRegularExpression`
-pass over the raw string (not `AttributedString(markdown:)`, which chokes on the
-partial markdown a stream can emit mid-chunk). Markdown links `[text](url)` and
-bare `https://…` URLs become tappable blue links (opened via `OpenURLAction`);
-`**bold**`, `*italic*`, and `` `code` `` are styled via `inlinePresentationIntent`.
-Anything unmatched falls through as plain text.
-
-**Under the hood:** `AgentMessage.text` is the agent's raw Markdown, passed through untouched (there's no HTML to sanitize) — rendering it is your job. While a reply streams, that text grows and can briefly hold half-open Markdown, which is why this parser tolerates partial input.
-
-*See [Build your own UI › Rich text & links](../../../README.md#rich-text--links).*
-
-> **Streaming:** agent replies grow token-by-token by default (`Configuration.streamingEnabled: true` — ChatGPT-style). Set `streamingEnabled: false` to render completed bubbles only. See the root README's [*Streaming*](../../../README.md#streaming) section and [07-Playground](../07-Playground/) for a live toggle.
+In a view — Apple's `AttributedString(markdown:)` handles bold/italic/`code`/`[links](url)`. It does **not** linkify bare `https://…` URLs; add a regex pass if your agent emits them.
 
 ```swift
-struct RichText: View {
-    let raw: String
-    init(_ text: String) { self.raw = text }
-
-    var body: some View {
-        Text(parse(raw))                       // builds an AttributedString
-            .tint(.blue)
-            .environment(\.openURL, OpenURLAction { url in
-                UIApplication.shared.open(url); return .handled
-            })
-    }
-    // parse(_:) regex-matches [text](url) + bare URLs -> .link;
-    // parsePlain(_:) handles **bold** / *italic* / `code`.
+let opts = AttributedString.MarkdownParsingOptions(interpretedSyntax: .inlineOnlyPreservingWhitespace)
+if let attributed = try? AttributedString(markdown: m.text, options: opts) {
+    Text(attributed)
+} else {
+    Text(m.text)              // fall back to plain text during half-open Markdown
 }
 ```
 
-### Bubble layout — `Components/MessageBubbleView.swift`
+**Under the hood:** the SDK passes the agent's Markdown through untouched. Streaming chunks update `m.text` in place; the parse-failure fallback to plain text keeps the bubble readable mid-stream until the next chunk lands.
 
-The agent bubble stacks: rich text → image carousel → URL cards → call actions. `.unknown` content types are dropped silently for forward compat.
+*See [Integration guide › Rich text & links](../../../README.md#rich-text--links).*
 
-**Under the hood:** the SDK groups everything onto one assembled agent message — text, attachments, and call actions all arrive together; `.unknown` is the SDK's forward-compat slot for content types it doesn't model yet, so dropping it is the safe default.
+### Bubble layout — compose everything
+
+The agent bubble stacks: text → image carousel → URL cards → call actions. `.unknown` content types are dropped silently for forward-compat.
 
 ```swift
 case .agent(let m):
     VStack(alignment: .leading, spacing: 8) {
-        if !m.text.isEmpty { RichText(m.text) /* … */ }
+        if !m.text.isEmpty { /* RichText / AttributedString render */ }
 
         let images = m.attachments.filter { $0.contentType == .image }
-        if !images.isEmpty { AttachmentCarousel(attachments: images) }
+        if !images.isEmpty { /* ScrollView + AsyncImage row */ }
 
         let urls = m.attachments.filter { $0.contentType == .url }
-        if !urls.isEmpty {
-            ForEach(Array(urls.enumerated()), id: \.offset) { _, att in
-                URLCard(attachment: att)
-            }
-        }
+        ForEach(urls, id: \.contentUrl) { /* URL card */ }
 
-        ForEach(m.callActions) { CallActionButton(action: $0) }
+        ForEach(m.callActions) { /* tel: button */ }
     }
 ```
 
+**Under the hood:** the SDK delivers text, attachments, and call actions on one assembled `AgentMessage` — no separate events to coordinate. `.unknown` is the SDK's forward-compat slot for content types it doesn't model yet; dropping it (instead of falling through to a placeholder) is the safe default.
+
 ## What this example skips
 
-- offline detection, loading skeleton, terminal error → [`04-Resilience/`](../04-Resilience/)
+- offline detection, loading skeleton, full-screen terminal error → [`04-Resilience/`](../04-Resilience/)
 - live agent handoff → [`05-Handoff/`](../05-Handoff/)
-
-## Copy these into your app
-
-The views in this folder use only **public SDK types** (`ChatMessage`, `Attachment`, `ChatCallAction`, …), so they drop into any app that has the package. Add the package (root [README → Install](../../../README.md#install)) and drive these views from `ChatSession` — full walkthrough in root [README → "Build your own UI"](../../../README.md#build-your-own-ui).
 
 ---
 
-UIKit counterpart: [`Examples/UIKit/03-RichContent/`](../../UIKit/03-RichContent/).
-
-When you change this example, update the matching snippets in the project [`README.md`](../../../README.md) **and** the UIKit counterpart. See `SKILL.md §12`.
+- **UIKit counterpart:** [`Examples/UIKit/03-RichContent/`](../../UIKit/03-RichContent/)
+- **SDK reference:** root [README → Integration guide](../../../README.md#integration-guide)
+- **Install the package:** root [README → Install](../../../README.md#install)
