@@ -650,6 +650,7 @@ final class MessageCell: UITableViewCell {
 ```
 
 </details>
+
 *Example app:* [02-Standard (SwiftUI)](Examples/SwiftUI/02-Standard/) · [02-Standard (UIKit)](Examples/UIKit/02-Standard/)
 
 ### Typing
@@ -773,6 +774,7 @@ final class MessageCell: UITableViewCell {
 ```
 
 </details>
+
 *Example app:* [02-Standard (SwiftUI)](Examples/SwiftUI/02-Standard/) · [02-Standard (UIKit)](Examples/UIKit/02-Standard/)
 
 ### Rich text & links
@@ -833,6 +835,7 @@ final class MessageCell: UITableViewCell {
 ```
 
 </details>
+
 > `AttributedString(markdown:)` doesn't linkify *bare* URLs — add a regex pass if your agent sends them, and be tolerant of half-open Markdown during progressive streaming.
 
 *Example app:* [03-RichContent (SwiftUI)](Examples/SwiftUI/03-RichContent/) · [03-RichContent (UIKit)](Examples/UIKit/03-RichContent/)
@@ -1025,6 +1028,7 @@ final class MessageCell: UITableViewCell {
 ```
 
 </details>
+
 `.liveAgentLeft` is terminal (the SDK flips `hasEnded`). To deep-link a handoff route, observe [`client.events`](#side-effects-clientevents).
 
 *Example app:* [05-Handoff (SwiftUI)](Examples/SwiftUI/05-Handoff/) · [05-Handoff (UIKit)](Examples/UIKit/05-Handoff/)
@@ -1086,6 +1090,7 @@ final class MessageCell: UITableViewCell {
 ```
 
 </details>
+
 For a date-grouped separator row (when the gap between consecutive messages crosses a date boundary, insert a row with the date), see the playground.
 
 *Example app:* [07-Playground (SwiftUI)](Examples/SwiftUI/07-Playground/) · [07-Playground (UIKit)](Examples/UIKit/07-Playground/)
@@ -1176,6 +1181,7 @@ final class MessageCell: UITableViewCell {
 ```
 
 </details>
+
 *Example app:* [05-Handoff (SwiftUI)](Examples/SwiftUI/05-Handoff/) · [05-Handoff (UIKit)](Examples/UIKit/05-Handoff/)
 
 ## Side effects: `client.events`
