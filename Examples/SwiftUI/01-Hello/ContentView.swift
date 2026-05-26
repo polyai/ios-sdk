@@ -18,6 +18,17 @@ struct ContentView: View {
         input.trimmingCharacters(in: .whitespaces).isEmpty || session.hasEnded
     }
 
+    /// `failureReason` is non-nil once the SDK hits a terminal failure it
+    /// can't auto-recover from — most notably an invalid `connectorToken`. We
+    /// bind it to `.alert` so an obvious "Couldn't connect" dialog appears
+    /// instead of letting the app sit silently with an empty message list.
+    private var failureAlertBinding: Binding<Bool> {
+        Binding(
+            get: { session.failureReason != nil },
+            set: { _ in }
+        )
+    }
+
     var body: some View {
         VStack(spacing: 0) {
             List(session.messages) { message in
@@ -43,6 +54,16 @@ struct ContentView: View {
                 .accessibilityIdentifier("sendButton")
             }
             .padding(.horizontal).padding(.vertical, 8).background(.bar)
+        }
+        .alert("Couldn't connect", isPresented: failureAlertBinding) {
+            Button("Try Again") {
+                Task { try? await session.client.resume() }
+            }
+        } message: {
+            // PolyError doesn't conform to LocalizedError, so String(describing:)
+            // gives a useful "auth(unauthorized)" instead of the generic
+            // "The operation couldn't be completed" .localizedDescription.
+            Text(session.failureReason.map { String(describing: $0) } ?? "")
         }
     }
 
