@@ -79,7 +79,7 @@ diagnostics.attach(to: s.client)
 session = s
 ```
 
-**Under the hood:** session-creation knobs (environment, streaming, greeting) take effect only on a fresh session — that's why the sheet shows "Apply & Start New Session". `lastAppliedStreamingEnabled` on `DevSettings` lets the UI flag when the running session is out of sync with the current knobs.
+**Under the hood:** session-creation knobs (environment, streaming — and the server-side greeting they trigger) take effect only on a fresh session, which is why the sheet shows "Apply & Start New Session" whenever a session is live or resumable. `lastAppliedStreamingEnabled` on `DevSettings` lets the UI flag when the running session is out of sync with the current knobs.
 
 *See [Integration guide › Configuration](../../../README.md#configuration).*
 

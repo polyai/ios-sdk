@@ -104,7 +104,7 @@ The SDK signals:
 ```swift
 client.events            // AsyncStream<MessagingEvent> — .sessionStart, .disconnected, etc.
 
-client.connectionStatus  // AsyncStream<ConnectionStatus> — .connecting / .connected / .reconnecting / .failed
+client.connectionStatus  // AsyncStream<ConnectionStatus> — .idle / .connecting / .open / .closing / .closed / .reconnecting / .failed
 
 client.sessionState      // AsyncStream<SessionState> — .isReady flips true when the session can send
 ```
@@ -194,12 +194,13 @@ final class ErrorViewController: UIViewController {
 
         // ...icon + title + multiline `message` label...
 
-        var conf = UIButton.Configuration.borderedProminent()
+        var conf = UIButton.Configuration.filled()
         conf.title = "Go Back"
+        conf.cornerStyle = .medium
         let back = UIButton(configuration: conf, primaryAction: UIAction { [weak self] _ in
             self?.onBack()
         })
-        // ...pin in a stack...
+        // ...pin to the bottom safe area...
     }
 }
 ```
@@ -235,10 +236,25 @@ private func showConnect() {
     transition(to: vc)
 }
 
-// ConnectViewController picks the label from what's resumable:
+// ConnectViewController picks the label off `hasActiveSession || canResume` and only
+// appends the secondary "Start New Chat" button when resume is offered:
 let primaryShowsResume = hasActiveSession || canResume
-primaryButton.setTitle(primaryShowsResume ? "Resume Chat" : "Start Chat", for: .normal)
-startNewButton.isHidden = !primaryShowsResume   // only show the secondary when resume is offered
+var primaryConfig = UIButton.Configuration.filled()
+primaryConfig.title = primaryShowsResume ? "Resume Chat" : "Start Chat"
+primaryConfig.image = UIImage(systemName: primaryShowsResume ? "arrow.uturn.forward.circle.fill" : "bolt.fill")
+let primary = UIButton(configuration: primaryConfig, primaryAction: UIAction { [weak self] _ in
+    self?.onResume()      // resume goes through the same code path; RootViewController calls .chat()
+})
+stack.addArrangedSubview(primary)
+
+if primaryShowsResume {
+    var secondaryConfig = UIButton.Configuration.gray()
+    secondaryConfig.title = "Start New Chat"
+    let secondary = UIButton(configuration: secondaryConfig, primaryAction: UIAction { [weak self] _ in
+        self?.onStartNew()
+    })
+    stack.addArrangedSubview(secondary)
+}
 ```
 
 **Under the hood:** `hasResumableSession()` is a side-effect-free on-disk check (no network), so it's safe to call every time the connect screen is shown — keeping the buttons honest as the user moves between connect / chat / connect.

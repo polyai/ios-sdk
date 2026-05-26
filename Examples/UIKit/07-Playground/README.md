@@ -74,7 +74,7 @@ final class RootViewController: UIViewController {
 
 `SettingsViewController` edits the `@Published` knobs (UIKit reads them via Combine + `objectWillChange` + a 1s refresh timer for the live counters); `ConnectViewController` surfaces `devSettings.environmentDisplayName()` and a "Custom dev settings active" badge when `devSettings.hasCustomization` is true.
 
-**Under the hood:** session-creation knobs (environment, streaming, greeting) take effect only on a fresh session — that's why the sheet shows "Apply & Start New Session". `lastAppliedStreamingEnabled` on `DevSettings` lets the UI flag when the running session is out of sync with the current knobs.
+**Under the hood:** session-creation knobs (environment, streaming — and the server-side greeting they trigger) take effect only on a fresh session, which is why the sheet shows a "Live session active" / "Resumable session exists" mismatch banner with an **"Apply & Start New Session"** button whenever a session is live or resumable. `lastAppliedStreamingEnabled` on `DevSettings` lets the SwiftUI sheet flag *which* knob is out of sync; the UIKit sheet shows the banner unconditionally whenever `hasAnySession` is true.
 
 *See [Integration guide › Configuration](../../../README.md#configuration).*
 
@@ -86,23 +86,37 @@ The SDK signal:
 
 ```swift
 Configuration.streamingEnabled   // the single switch for token-by-token vs complete-message
-settings.streamingEnabled        // the live DevSettings knob
+settings.streamingEnabled        // the live DevSettings knob (written from the toggle row)
 settings.lastAppliedStreamingEnabled   // the value the running session was started with
 ```
 
-In a view controller (a `UISwitch` inside a settings cell):
+In the sheet — the streaming row is just a generic `toggleRow(...)` helper writing back to `DevSettings`:
 
 ```swift
-let toggle = UISwitch()
-toggle.isOn = settings.streamingEnabled
-toggle.addAction(UIAction { [weak settings] _ in
-    settings?.streamingEnabled = toggle.isOn
-}, for: .valueChanged)
+// Views/SettingsViewController.swift — Connection section:
+stack.addArrangedSubview(toggleRow("Streaming enabled", value: settings.streamingEnabled) { [weak self] on in
+    self?.settings.streamingEnabled = on
+})
 
-// In the section footer, show a "Restart to apply" hint when the running
-// session was started with a different value:
-if hasAnySession && settings.streamingEnabled != settings.lastAppliedStreamingEnabled {
-    footerLabel.text = "Restart the session to apply"
+// toggleRow(_:value:onChange:) — a UISwitch dropped into a labelled row:
+private func toggleRow(_ label: String, value: Bool, onChange: @escaping (Bool) -> Void) -> UIView {
+    let toggle = UISwitch()
+    toggle.isOn = value
+    toggle.addAction(UIAction { _ in onChange(toggle.isOn) }, for: .valueChanged)
+    return fieldRow(label, control: toggle)
+}
+```
+
+The "Restart to apply" affordance lives in the `mismatchBanner` card at the top of the sheet (shown whenever `hasAnySession` is true), not in this row's footer:
+
+```swift
+if hasAnySession { contentStack.addArrangedSubview(mismatchBanner()) }
+
+private func mismatchBanner() -> UIView {
+    // title: "Live session active" / "Resumable session exists"
+    // body:  "Streaming, greeting and environment changes only apply to NEW sessions."
+    // CTA:   UIButton.Configuration.borderedProminent() titled "Apply & Start New Session"
+    //        → onApplyAndRestart?() then dismiss the sheet
 }
 ```
 
