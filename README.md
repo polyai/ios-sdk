@@ -357,6 +357,8 @@ ScrollView {
 
 ```swift
 // UIKit — re-render whenever the SDK updates the transcript.
+import Combine
+
 override func viewDidLoad() {
     super.viewDidLoad()
     // ...your existing setup (register cell, set dataSource, layout)...
@@ -418,8 +420,6 @@ That's the foundation. The rest of this section is just *which field or case* ea
 
 ## Adding each feature
 
-> **UIKit snippets below** assume `import Combine` at the top of the file (the per-section snippets omit it for brevity — only the Quick Start shows it). SwiftUI doesn't need it.
-
 ### Streaming
 The agent's reply arrives as a sequence of chunks. `ChatSession` reassembles them for you and updates `messages` — you never touch chunks directly. You only choose **how a reply appears**, with **one** switch.
 
@@ -470,6 +470,8 @@ var body: some View {
 ```
 ```swift
 // UIKit
+import Combine
+
 private let reconnectBanner = UILabel()             // your own banner UIView
 private var bag = Set<AnyCancellable>()             // for Combine subscriptions
 
@@ -517,6 +519,8 @@ var body: some View {
 ```
 ```swift
 // UIKit
+import Combine
+
 private let errorView = UIView()                    // your own full-screen overlay
 private let errorLabel = UILabel()                  // inside errorView
 private let retryButton = UIButton(type: .system)   // inside errorView; wire below
@@ -556,6 +560,8 @@ var body: some View {
 ```
 ```swift
 // UIKit
+import Combine
+
 private let spinner = UIActivityIndicatorView(style: .large)
 private let tableView = UITableView()               // from Quick start
 private var bag = Set<AnyCancellable>()
