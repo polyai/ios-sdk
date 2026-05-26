@@ -131,14 +131,19 @@ struct ContentView: View {
 ### UIKit
 
 ```swift
-// AppDelegate.swift
+//
+//  AppDelegate.swift
+//
+
 import UIKit
 import PolyMessaging
 
 @main
-final class AppDelegate: UIResponder, UIApplicationDelegate {
-    func application(_ application: UIApplication,
-                     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
+class AppDelegate: UIResponder, UIApplicationDelegate {
+
+    func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
+        // Initialize the SDK once at launch. No network happens here —
+        // chat() / start() does the work later.
         PolyMessaging.initialize(.init(
             connectorToken: "YOUR_CONNECTOR_TOKEN",   // Agent Studio → Connector Settings
             environment: .cluster("us-1")
@@ -146,27 +151,23 @@ final class AppDelegate: UIResponder, UIApplicationDelegate {
         return true
     }
 
-    func application(_ application: UIApplication,
-                     configurationForConnecting connectingSceneSession: UISceneSession,
-                     options: UIScene.ConnectionOptions) -> UISceneConfiguration {
-        let config = UISceneConfiguration(name: nil, sessionRole: connectingSceneSession.role)
-        config.delegateClass = SceneDelegate.self
-        return config
-    }
-}
+    // MARK: UISceneSession Lifecycle
 
-final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
-    var window: UIWindow?
-    func scene(_ scene: UIScene,
-               willConnectTo session: UISceneSession,
-               options connectionOptions: UIScene.ConnectionOptions) {
-        guard let windowScene = scene as? UIWindowScene else { return }
-        window = UIWindow(windowScene: windowScene)
-        window?.rootViewController = ViewController()
-        window?.makeKeyAndVisible()
+    func application(_ application: UIApplication, configurationForConnecting connectingSceneSession: UISceneSession, options: UIScene.ConnectionOptions) -> UISceneConfiguration {
+        // Called when a new scene session is being created.
+        // Use this method to select a configuration to create the new scene with.
+        return UISceneConfiguration(name: "Default Configuration", sessionRole: connectingSceneSession.role)
+    }
+
+    func application(_ application: UIApplication, didDiscardSceneSessions sceneSessions: Set<UISceneSession>) {
+        // Called when the user discards a scene session.
+        // If any sessions were discarded while the application was not running, this will be called shortly after application:didFinishLaunchingWithOptions.
+        // Use this method to release any resources that were specific to the discarded scenes, as they will not return.
     }
 }
 ```
+
+> A fresh Xcode iOS App template already wires a `SceneDelegate` and a storyboard for you. Either set `ViewController` as the storyboard's initial view controller, or set `window.rootViewController = ViewController()` in your `SceneDelegate.scene(_:willConnectTo:options:)`.
 
 ```swift
 // ViewController.swift
@@ -240,7 +241,18 @@ final class ViewController: UIViewController, UITableViewDataSource {
 }
 ```
 
-> **Streaming is on by default** — agent replies grow token-by-token (ChatGPT-style). To switch to complete-message bubbles instead, set `streamingEnabled: false` in your `Configuration`. Full details in [Streaming](#streaming).
+**Streaming is on by default** — agent replies grow token-by-token (ChatGPT-style). To switch to complete-message bubbles instead, set `streamingEnabled: false` on the `Configuration` you pass to `initialize`:
+
+```swift
+PolyMessaging.initialize(.init(
+    connectorToken: "YOUR_CONNECTOR_TOKEN",
+    environment: .cluster("us-1"),
+    streamingEnabled: false      // off → completed bubbles only
+))
+```
+
+Full details in [Streaming](#streaming).
+
 > **`chat()` vs `start()`** — `chat()` resumes the previous conversation if one exists (within ~10 minutes — the server's WebSocket idle timeout), else starts fresh; `start()` always starts fresh. `PolyMessaging.hasResumableSession()` tells you which to offer.
 > **Lifecycle:** initialize once; keep one `ChatSession` per chat surface (`@StateObject` / a stored property); call `await session.client.shutdown()` when the surface goes away for good.
 
