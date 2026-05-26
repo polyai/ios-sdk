@@ -400,7 +400,9 @@ final class ChatViewController: UIViewController {
             .receive(on: RunLoop.main)
             .sink { [weak self] reason in
                 self?.failureOverlay.isHidden = (reason == nil)
-                self?.failureLabel.text = reason?.localizedDescription
+                // PolyError isn't LocalizedError, so .localizedDescription
+                // falls back to Error's generic default. Use String(describing:).
+                self?.failureLabel.text = reason.map { String(describing: $0) }
             }
             .store(in: &bag)
 

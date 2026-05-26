@@ -412,12 +412,15 @@ final class ChatViewController: UIViewController {
                     self.terminalScreen.hide()
                     return
                 }
+                // PolyError isn't LocalizedError, so .localizedDescription
+                // falls back to Error's generic default. Use String(describing:).
+                let message = String(describing: reason)
                 if Self.isTerminal(reason) {
-                    self.terminalScreen.show(message: reason.localizedDescription)
+                    self.terminalScreen.show(message: message)
                     self.failureOverlay.isHidden = true
                 } else {
                     self.failureOverlay.isHidden = false
-                    self.failureLabel.text = reason.localizedDescription
+                    self.failureLabel.text = message
                 }
             }
             .store(in: &bag)

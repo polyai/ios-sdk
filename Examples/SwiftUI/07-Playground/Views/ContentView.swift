@@ -155,7 +155,9 @@ struct ContentView: View {
                         try await existing.client.startNewSession()
                     } catch {
                         log("Start new failed: \(error)")
-                        screen = .error(message: "Couldn't start a new session.\n\(error.localizedDescription)")
+                        // The SDK throws PolyError, which isn't LocalizedError —
+                        // use String(describing:) for the actual case text.
+                        screen = .error(message: "Couldn't start a new session.\n\(String(describing: error))")
                     }
                 }
             } else {

@@ -150,7 +150,9 @@ Once the SDK gives up reconnecting, `session.failureReason` is set. Offer a manu
 if let reason = session.failureReason {
     VStack(spacing: 12) {
         Text("Connection lost").font(.headline)
-        Text(reason.localizedDescription).font(.caption).foregroundColor(.secondary)
+        // PolyError isn't LocalizedError — use String(describing:) so the
+        // text reflects the actual case instead of Error's generic default.
+        Text(String(describing: reason)).font(.caption).foregroundColor(.secondary)
         Button("Reconnect") {
             Task { try? await session.client.resume() }
         }
