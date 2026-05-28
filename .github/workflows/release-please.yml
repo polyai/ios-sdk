@@ -1,0 +1,36 @@
+name: release-please
+
+# On every push to main, release-please inspects the conventional-commit history
+# and maintains an open "Release PR" that bumps the version (the single source of
+# truth in Sources/PolyMessaging/Public/Version.swift) and updates CHANGELOG.md.
+# Merging that Release PR creates the git tag + GitHub Release.
+#
+#   feat:            -> minor (0.X.0)   |  fix:        -> patch (0.0.X)
+#   feat!/BREAKING:  -> minor while < 1.0 (bump-minor-pre-major)
+#   docs:/chore:/... -> no release
+#
+# Tags are what SPM consumers resolve (`from: "x.y.z"`), so this is the only path
+# that ships SDK source changes. Doc-only PRs never cut a release.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  release-please:
+    runs-on: ubuntu-latest
+    # `googleapis/release-please-action@v4` still ships with Node.js 20, which the
+    # runner deprecates June 2 2026 and removes Sept 16 2026. Opt into Node 24
+    # now so the warning clears today and the workflow keeps running past Sept;
+    # drop this once the action publishes a Node-24 release we can pin to.
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+    steps:
+      - uses: googleapis/release-please-action@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}

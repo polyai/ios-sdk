@@ -1,0 +1,55 @@
+name: StandardSwiftUI
+options:
+  bundleIdPrefix: ai.poly.examples
+  deploymentTarget:
+    iOS: "15.0"
+packages:
+  PolyMessaging:
+    path: ../../..
+targets:
+  StandardSwiftUI:
+    type: application
+    platform: iOS
+    sources:
+      - path: .
+        name: StandardSwiftUI
+        excludes:
+          - project.yml
+          - SETUP.md
+          - "*.xcodeproj"
+          - Generated
+          - UITests
+          - .DS_Store
+    dependencies:
+      - package: PolyMessaging
+    info:
+      path: Generated/Info.plist
+      properties:
+        UILaunchScreen: {}
+    settings:
+      base:
+        TARGETED_DEVICE_FAMILY: "1,2"
+        GENERATE_INFOPLIST_FILE: NO
+        SWIFT_VERSION: "5.9"
+  StandardSwiftUIUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources:
+      - UITests
+    dependencies:
+      - target: StandardSwiftUI
+    settings:
+      base:
+        SWIFT_VERSION: "5.9"
+        TEST_TARGET_NAME: StandardSwiftUI
+        GENERATE_INFOPLIST_FILE: YES
+        PRODUCT_BUNDLE_IDENTIFIER: ai.poly.examples.StandardSwiftUIUITests
+schemes:
+  StandardSwiftUI:
+    build:
+      targets:
+        StandardSwiftUI: all
+        StandardSwiftUIUITests: [test]
+    test:
+      targets:
+        - StandardSwiftUIUITests

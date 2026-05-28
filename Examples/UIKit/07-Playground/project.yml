@@ -1,0 +1,60 @@
+name: PlaygroundUIKit
+options:
+  bundleIdPrefix: ai.poly.examples
+  deploymentTarget:
+    iOS: "15.0"
+packages:
+  PolyMessaging:
+    path: ../../..
+targets:
+  PlaygroundUIKit:
+    type: application
+    platform: iOS
+    sources:
+      - path: .
+        name: PlaygroundUIKit
+        excludes:
+          - project.yml
+          - "*.xcodeproj"
+          - Generated
+          - UITests
+          - .DS_Store
+    dependencies:
+      - package: PolyMessaging
+    info:
+      path: Generated/Info.plist
+      properties:
+        UILaunchScreen: {}
+        UIApplicationSceneManifest:
+          UIApplicationSupportsMultipleScenes: false
+          UISceneConfigurations:
+            UIWindowSceneSessionRoleApplication:
+              - UISceneConfigurationName: "Default Configuration"
+                UISceneDelegateClassName: "$(PRODUCT_MODULE_NAME).SceneDelegate"
+    settings:
+      base:
+        TARGETED_DEVICE_FAMILY: "1,2"
+        GENERATE_INFOPLIST_FILE: NO
+        SWIFT_VERSION: "5.9"
+  PlaygroundUIKitUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources:
+      - UITests
+    dependencies:
+      - target: PlaygroundUIKit
+    settings:
+      base:
+        SWIFT_VERSION: "5.9"
+        TEST_TARGET_NAME: PlaygroundUIKit
+        GENERATE_INFOPLIST_FILE: YES
+        PRODUCT_BUNDLE_IDENTIFIER: ai.poly.examples.PlaygroundUIKitUITests
+schemes:
+  PlaygroundUIKit:
+    build:
+      targets:
+        PlaygroundUIKit: all
+        PlaygroundUIKitUITests: [test]
+    test:
+      targets:
+        - PlaygroundUIKitUITests

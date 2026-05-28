@@ -1,0 +1,36 @@
+// Copyright PolyAI Limited
+
+//  SceneDelegate.swift
+//  Examples/UIKit/07-Playground
+//
+//  Programmatic root: a UINavigationController wrapping RootViewController,
+//  the container that swaps connect / loading / chat / error and owns the
+//  ChatSession + DevSettings + DevDiagnostics across them. No storyboard.
+//
+
+import UIKit
+
+class SceneDelegate: UIResponder, UIWindowSceneDelegate {
+
+    var window: UIWindow?
+
+    func scene(
+        _ scene: UIScene,
+        willConnectTo session: UISceneSession,
+        options connectionOptions: UIScene.ConnectionOptions
+    ) {
+        guard let windowScene = scene as? UIWindowScene else { return }
+        let window = UIWindow(windowScene: windowScene)
+        let nav = UINavigationController(rootViewController: RootViewController())
+        nav.navigationBar.prefersLargeTitles = false
+        window.rootViewController = nav
+        self.window = window
+        window.makeKeyAndVisible()
+    }
+
+    func sceneDidDisconnect(_ scene: UIScene) {}
+    func sceneDidBecomeActive(_ scene: UIScene) {}
+    func sceneWillResignActive(_ scene: UIScene) {}
+    func sceneWillEnterForeground(_ scene: UIScene) {}
+    func sceneDidEnterBackground(_ scene: UIScene) {}
+}

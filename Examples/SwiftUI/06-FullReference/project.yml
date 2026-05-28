@@ -1,0 +1,57 @@
+name: FullReferenceSwiftUI
+options:
+  bundleIdPrefix: ai.poly.examples
+  deploymentTarget:
+    iOS: "15.0"
+packages:
+  PolyMessaging:
+    path: ../../..
+targets:
+  FullReferenceSwiftUI:
+    type: application
+    platform: iOS
+    sources:
+      - path: .
+        name: FullReferenceSwiftUI
+        excludes:
+          - project.yml
+          - SETUP.md
+          - "*.xcodeproj"
+          - Generated
+          - UITests
+          - .DS_Store
+    dependencies:
+      - package: PolyMessaging
+    info:
+      path: Generated/Info.plist
+      properties:
+        NSAppTransportSecurity:
+          NSAllowsArbitraryLoads: true
+        UILaunchScreen: {}
+    settings:
+      base:
+        TARGETED_DEVICE_FAMILY: "1,2"
+        GENERATE_INFOPLIST_FILE: NO
+        SWIFT_VERSION: "5.9"
+  FullReferenceSwiftUIUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources:
+      - UITests
+    dependencies:
+      - target: FullReferenceSwiftUI
+    settings:
+      base:
+        SWIFT_VERSION: "5.9"
+        TEST_TARGET_NAME: FullReferenceSwiftUI
+        GENERATE_INFOPLIST_FILE: YES
+        PRODUCT_BUNDLE_IDENTIFIER: ai.poly.examples.FullReferenceSwiftUIUITests
+schemes:
+  FullReferenceSwiftUI:
+    build:
+      targets:
+        FullReferenceSwiftUI: all
+        FullReferenceSwiftUIUITests: [test]
+    test:
+      targets:
+        - FullReferenceSwiftUIUITests

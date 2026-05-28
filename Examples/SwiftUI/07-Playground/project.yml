@@ -1,0 +1,57 @@
+name: PlaygroundSwiftUI
+options:
+  bundleIdPrefix: ai.poly.examples
+  deploymentTarget:
+    iOS: "15.0"
+packages:
+  PolyMessaging:
+    path: ../../..
+targets:
+  PlaygroundSwiftUI:
+    type: application
+    platform: iOS
+    sources:
+      - path: .
+        name: PlaygroundSwiftUI
+        excludes:
+          - project.yml
+          - SETUP.md
+          - "*.xcodeproj"
+          - Generated
+          - UITests
+          - .DS_Store
+    dependencies:
+      - package: PolyMessaging
+    info:
+      path: Generated/Info.plist
+      properties:
+        NSAppTransportSecurity:
+          NSAllowsArbitraryLoads: true
+        UILaunchScreen: {}
+    settings:
+      base:
+        TARGETED_DEVICE_FAMILY: "1,2"
+        GENERATE_INFOPLIST_FILE: NO
+        SWIFT_VERSION: "5.9"
+  PlaygroundSwiftUIUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources:
+      - UITests
+    dependencies:
+      - target: PlaygroundSwiftUI
+    settings:
+      base:
+        SWIFT_VERSION: "5.9"
+        TEST_TARGET_NAME: PlaygroundSwiftUI
+        GENERATE_INFOPLIST_FILE: YES
+        PRODUCT_BUNDLE_IDENTIFIER: ai.poly.examples.PlaygroundSwiftUIUITests
+schemes:
+  PlaygroundSwiftUI:
+    build:
+      targets:
+        PlaygroundSwiftUI: all
+        PlaygroundSwiftUIUITests: [test]
+    test:
+      targets:
+        - PlaygroundSwiftUIUITests

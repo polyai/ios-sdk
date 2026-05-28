@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<document type="com.apple.InterfaceBuilder3.CocoaTouch.Storyboard.XIB" version="3.0" toolsVersion="22504" targetRuntime="iOS.CocoaTouch" propertyAccessControl="none" useAutolayout="YES" useTraitCollections="YES" useSafeAreas="YES" colorMatched="YES" initialViewController="chat-vc">
+    <device id="retina6_12" orientation="portrait" appearance="light"/>
+    <dependencies>
+        <plugIn identifier="com.apple.InterfaceBuilder.IBCocoaTouchPlugin" version="22689"/>
+        <capability name="Safe area layout guides" minToolsVersion="9.0"/>
+        <capability name="System colors in document resources" minToolsVersion="11.0"/>
+        <capability name="documents saved in the Xcode 8 format" minToolsVersion="8.0"/>
+    </dependencies>
+    <scenes>
+        <!--Chat View Controller-->
+        <scene sceneID="chat-scene">
+            <objects>
+                <viewController id="chat-vc" customClass="ChatViewController" customModule="HelloUIKit" customModuleProvider="target" sceneMemberID="viewController">
+                    <view key="view" contentMode="scaleToFill" id="root-view">
+                        <rect key="frame" x="0.0" y="0.0" width="393" height="852"/>
+                        <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
+                        <subviews>
+                            <tableView clipsSubviews="YES" contentMode="scaleToFill" alwaysBounceVertical="YES" dataMode="none" style="plain" separatorStyle="default" rowHeight="-1" estimatedRowHeight="-1" sectionHeaderHeight="28" sectionFooterHeight="28" translatesAutoresizingMaskIntoConstraints="NO" id="table-view">
+                                <rect key="frame" x="0.0" y="59" width="393" height="700"/>
+                            </tableView>
+                            <textField opaque="NO" clipsSubviews="YES" contentMode="scaleToFill" contentHorizontalAlignment="left" contentVerticalAlignment="center" borderStyle="roundedRect" placeholder="Message" textAlignment="natural" minimumFontSize="17" translatesAutoresizingMaskIntoConstraints="NO" id="input-field">
+                                <rect key="frame" x="16" y="767" width="285" height="34"/>
+                                <fontDescription key="fontDescription" type="system" pointSize="14"/>
+                                <textInputTraits key="textInputTraits" autocapitalizationType="sentences"/>
+                            </textField>
+                            <button opaque="NO" contentMode="scaleToFill" contentHorizontalAlignment="center" contentVerticalAlignment="center" buttonType="system" lineBreakMode="middleTruncation" translatesAutoresizingMaskIntoConstraints="NO" id="send-button">
+                                <rect key="frame" x="317" y="772" width="60" height="24"/>
+                                <constraints>
+                                    <constraint firstAttribute="width" constant="60" id="send-width"/>
+                                </constraints>
+                                <state key="normal" title="Send"/>
+                                <connections>
+                                    <action selector="sendTapped:" destination="chat-vc" eventType="touchUpInside" id="send-action"/>
+                                </connections>
+                            </button>
+                        </subviews>
+                        <viewLayoutGuide key="safeArea" id="safe-area"/>
+                        <color key="backgroundColor" systemColor="systemBackgroundColor"/>
+                        <constraints>
+                            <constraint firstItem="table-view" firstAttribute="top" secondItem="safe-area" secondAttribute="top" id="table-top"/>
+                            <constraint firstItem="table-view" firstAttribute="leading" secondItem="safe-area" secondAttribute="leading" id="table-leading"/>
+                            <constraint firstItem="safe-area" firstAttribute="trailing" secondItem="table-view" secondAttribute="trailing" id="table-trailing"/>
+                            <constraint firstItem="input-field" firstAttribute="top" secondItem="table-view" secondAttribute="bottom" constant="8" id="input-top"/>
+                            <constraint firstItem="input-field" firstAttribute="leading" secondItem="safe-area" secondAttribute="leading" constant="16" id="input-leading"/>
+                            <constraint firstItem="send-button" firstAttribute="leading" secondItem="input-field" secondAttribute="trailing" constant="16" id="send-leading"/>
+                            <constraint firstItem="safe-area" firstAttribute="trailing" secondItem="send-button" secondAttribute="trailing" constant="16" id="send-trailing"/>
+                            <constraint firstItem="send-button" firstAttribute="centerY" secondItem="input-field" secondAttribute="centerY" id="send-centery"/>
+                            <constraint firstItem="safe-area" firstAttribute="bottom" secondItem="input-field" secondAttribute="bottom" constant="8" id="input-bottom"/>
+                        </constraints>
+                    </view>
+                    <connections>
+                        <outlet property="inputField" destination="input-field" id="outlet-input"/>
+                        <outlet property="sendButton" destination="send-button" id="outlet-send"/>
+                        <outlet property="tableView" destination="table-view" id="outlet-table"/>
+                    </connections>
+                </viewController>
+                <placeholder placeholderIdentifier="IBFirstResponder" id="chat-first-responder" userLabel="First Responder" sceneMemberID="firstResponder"/>
+            </objects>
+        </scene>
+    </scenes>
+    <resources>
+        <systemColor name="systemBackgroundColor">
+            <color white="1" alpha="1" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
+        </systemColor>
+    </resources>
+</document>

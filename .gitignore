@@ -1,0 +1,14 @@
+.DS_Store
+.build/
+/Packages
+xcuserdata/
+DerivedData/
+.swiftpm/xcode/package.xcworkspace/contents.xcworkspacedata
+.swiftpm/xcode/xcuserdata
+*.xcodeproj/project.xcworkspace/xcuserdata/
+*.xcodeproj/xcuserdata/
+*.playground/timeline.xctimeline
+*.playground/playground.xcworkspace
+
+# Dev verification artifacts
+/build-logs

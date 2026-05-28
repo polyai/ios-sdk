@@ -1,0 +1,55 @@
+name: RichContentSwiftUI
+options:
+  bundleIdPrefix: ai.poly.examples
+  deploymentTarget:
+    iOS: "15.0"
+packages:
+  PolyMessaging:
+    path: ../../..
+targets:
+  RichContentSwiftUI:
+    type: application
+    platform: iOS
+    sources:
+      - path: .
+        name: RichContentSwiftUI
+        excludes:
+          - project.yml
+          - SETUP.md
+          - "*.xcodeproj"
+          - Generated
+          - UITests
+          - .DS_Store
+    dependencies:
+      - package: PolyMessaging
+    info:
+      path: Generated/Info.plist
+      properties:
+        UILaunchScreen: {}
+    settings:
+      base:
+        TARGETED_DEVICE_FAMILY: "1,2"
+        GENERATE_INFOPLIST_FILE: NO
+        SWIFT_VERSION: "5.9"
+  RichContentSwiftUIUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources:
+      - UITests
+    dependencies:
+      - target: RichContentSwiftUI
+    settings:
+      base:
+        SWIFT_VERSION: "5.9"
+        TEST_TARGET_NAME: RichContentSwiftUI
+        GENERATE_INFOPLIST_FILE: YES
+        PRODUCT_BUNDLE_IDENTIFIER: ai.poly.examples.RichContentSwiftUIUITests
+schemes:
+  RichContentSwiftUI:
+    build:
+      targets:
+        RichContentSwiftUI: all
+        RichContentSwiftUIUITests: [test]
+    test:
+      targets:
+        - RichContentSwiftUIUITests
