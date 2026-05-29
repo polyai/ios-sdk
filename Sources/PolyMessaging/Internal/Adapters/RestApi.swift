@@ -217,7 +217,7 @@ actor RestApi: RestApiPort {
         let attemptLabel = attempt == 0 ? "" : " attempt=\(attempt + 1)/\(Self.maxRetries + 1)"
         logger.debug("→ \(method) \(urlString)\(attemptLabel)", metadata: ["endpoint": endpoint])
         for (name, value) in (request.allHTTPHeaderFields ?? [:]).sorted(by: { $0.key < $1.key }) {
-            logger.debug("    \(name): \(Self.redactHeader(name: name, value: value))", metadata: nil)
+            logger.debug("    \(name): \(value)", metadata: nil)
         }
         if let body = request.httpBody, !body.isEmpty {
             logger.debug("    body: \(Self.previewBody(body))", metadata: nil)
@@ -233,17 +233,6 @@ actor RestApi: RestApiPort {
             logger.warn("HTTP \(http.statusCode) body: \(Self.previewBody(data))", metadata: ["endpoint": endpoint])
         } else if !data.isEmpty {
             logger.debug("    body: \(Self.previewBody(data))", metadata: nil)
-        }
-    }
-
-    private static func redactHeader(name: String, value: String) -> String {
-        switch name.lowercased() {
-        case "x-token", "authorization":
-            let trimmed = value.hasPrefix("Bearer ") ? String(value.dropFirst("Bearer ".count)) : value
-            let last4 = trimmed.suffix(4)
-            return "…\(last4) (redacted)"
-        default:
-            return value
         }
     }
 

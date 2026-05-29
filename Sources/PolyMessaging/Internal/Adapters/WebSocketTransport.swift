@@ -100,7 +100,7 @@ final class WebSocketTransport: @unchecked Sendable, Connection {
         resetCloseEmit()
 
         setStatus(.connecting)
-        logger.debug("Connecting to \(Self.redactedURL(url))", metadata: nil)
+        logger.debug("Connecting to \(url.absoluteString)", metadata: nil)
 
         let del = WebSocketSessionDelegate(
             onOpen: { [weak self] in self?.handleOpen() },
@@ -379,21 +379,6 @@ final class WebSocketTransport: @unchecked Sendable, Connection {
         delegate = nil
     }
 
-    private static let redactedQueryKeys: Set<String> = ["auth_token", "access_token", "token"]
-
-    static func redactedURL(_ url: URL) -> String {
-        guard var components = URLComponents(url: url, resolvingAgainstBaseURL: false),
-              let items = components.queryItems else {
-            return url.absoluteString
-        }
-        components.queryItems = items.map { item in
-            guard redactedQueryKeys.contains(item.name.lowercased()) else { return item }
-            let value = item.value ?? ""
-            let last4 = value.suffix(4)
-            return URLQueryItem(name: item.name, value: "…\(last4)(redacted)")
-        }
-        return components.url?.absoluteString ?? url.absoluteString
-    }
 }
 
 // MARK: - URLSession WebSocket Delegate
