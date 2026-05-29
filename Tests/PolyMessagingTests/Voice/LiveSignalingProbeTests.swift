@@ -29,7 +29,7 @@ final class LiveSignalingProbeTests: XCTestCase {
 
         let token = ProcessInfo.processInfo.environment["POLY_LIVE_VOICE_TOKEN"] ?? devToken
         let logger = OSLogLogger(level: .error)
-        let urls = EnvironmentURLs(environment: .production)
+        let urls = EnvironmentURLs(environment: .us)
 
         let api = RestApi(
             baseURL: urls.restBaseURL,
@@ -43,7 +43,7 @@ final class LiveSignalingProbeTests: XCTestCase {
             logger: logger
         )
         let channel = GatewaySignalingChannel(
-            url: VoiceEnvironment(environment: .production).signalingURL,
+            url: VoiceEnvironment(environment: .us).signalingURL,
             logger: logger
         )
         let media = StubMediaEngine()  // supplies a valid Opus offer SDP

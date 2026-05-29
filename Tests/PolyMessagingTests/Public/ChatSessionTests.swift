@@ -33,7 +33,7 @@ final class ChatSessionTests: XCTestCase {
 
         let api = MockRestApi()
         let connection = MockConnection()
-        let config = Configuration(apiKey: "test_token", environment: .production)
+        let config = Configuration(apiKey: "test_token", environment: .us)
         let logger = NoopLogger()
 
         let session = SessionService(api: api, config: config, logger: logger)

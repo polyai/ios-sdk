@@ -100,7 +100,7 @@ final class WebSocketTransport: @unchecked Sendable, Connection {
         resetCloseEmit()
 
         setStatus(.connecting)
-        logger.debug("Connecting to \(url.host ?? "unknown")", metadata: nil)
+        logger.debug("Connecting to \(url.absoluteString)", metadata: nil)
 
         let del = WebSocketSessionDelegate(
             onOpen: { [weak self] in self?.handleOpen() },
@@ -378,6 +378,7 @@ final class WebSocketTransport: @unchecked Sendable, Connection {
         urlSession = nil
         delegate = nil
     }
+
 }
 
 // MARK: - URLSession WebSocket Delegate

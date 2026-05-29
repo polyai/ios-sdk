@@ -59,7 +59,7 @@ struct ConnectView: View {
                                     .font(.caption2)
                                     .foregroundColor(.secondary)
                                     .textCase(.uppercase)
-                                Text("messaging.poly.ai")
+                                Text("messaging.us-1.poly.ai")
                                     .font(.subheadline.weight(.medium))
                                     .lineLimit(1)
                                     .truncationMode(.middle)

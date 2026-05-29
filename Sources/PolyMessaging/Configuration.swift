@@ -22,7 +22,7 @@ public struct Configuration: Sendable {
     public let maxReconnectAttempts: Int?
     public init(
         apiKey: String,
-        environment: Environment,
+        environment: Environment = .us,
         hostIdentifier: String? = nil,
         streamingEnabled: Bool = true,
         logLevel: LogLevel = .error,
@@ -50,9 +50,16 @@ public enum CertificatePinning: Sendable, Equatable {
 #endif
 
 public enum Environment: Sendable {
-    case production
+    /// Production US region (`messaging.us-1.poly.ai`). The default — most apps want this.
+    case us
+    /// Production UK region (`messaging.uk-1.poly.ai`).
+    case uk
+    /// Production EU West region (`messaging.euw-1.poly.ai`).
+    case euw
+    /// Override both base URLs entirely — for local mocks, proxies, or one-off deployments.
     case custom(restBaseURL: URL, wsBaseURL: URL)
-    /// Named cluster, e.g. `.cluster("us-1")`, `.cluster("uk-1")`, `.cluster("euw-1")`.
+    /// Escape hatch for any named cluster not covered above, e.g. `.cluster("dev")`
+    /// (resolves to `messaging.dev.poly.ai`) or a staging cluster.
     case cluster(String)
 }
 

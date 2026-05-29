@@ -20,10 +20,8 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         // Initialize once at app launch. After this, PolyMessaging.chat()
         // works anywhere in the app with no arguments.
         // Replace YOUR_API_KEY with your connector token from Agent Studio.
-        // API key + a cluster (or .production) before shipping.
         PolyMessaging.initialize(.init(
-            apiKey: "YOUR_API_KEY",
-            environment: .production
+            apiKey: "YOUR_API_KEY"
         ))
         // UITests pass -uiTestFreshStart to force a brand-new greeting +
         // suggestions instead of resuming a prior conversation.

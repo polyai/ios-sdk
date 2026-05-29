@@ -10,22 +10,28 @@ struct EnvironmentURLs: Sendable {
 
     init(environment: Environment) {
         switch environment {
-        case .production:
-            restBaseURL = URL(string: "https://messaging.poly.ai/api/v1")!
-            wsBaseURL = URL(string: "wss://messaging.poly.ai/ws")!
+        case .us:
+            (restBaseURL, wsBaseURL) = Self.clusterURLs(for: "us-1")
+        case .uk:
+            (restBaseURL, wsBaseURL) = Self.clusterURLs(for: "uk-1")
+        case .euw:
+            (restBaseURL, wsBaseURL) = Self.clusterURLs(for: "euw-1")
         case .custom(let rest, let ws):
             Self.validateSchemes(rest: rest, ws: ws)
             restBaseURL = rest
             wsBaseURL = ws
         case .cluster(let name):
             Self.validateClusterName(name)
-            guard let rest = URL(string: "https://messaging.\(name).poly.ai/api/v1"),
-                  let ws = URL(string: "wss://messaging.\(name).poly.ai/ws") else {
-                fatalError("PolyMessaging: invalid cluster name '\(name)' — use lowercase alphanumeric with hyphens (e.g. \"us-1\")")
-            }
-            restBaseURL = rest
-            wsBaseURL = ws
+            (restBaseURL, wsBaseURL) = Self.clusterURLs(for: name)
         }
+    }
+
+    private static func clusterURLs(for name: String) -> (URL, URL) {
+        guard let rest = URL(string: "https://messaging.\(name).poly.ai/api/v1"),
+              let ws = URL(string: "wss://messaging.\(name).poly.ai/ws") else {
+            fatalError("PolyMessaging: invalid cluster name '\(name)' — use lowercase alphanumeric with hyphens (e.g. \"us-1\")")
+        }
+        return (rest, ws)
     }
 
     private static func validateSchemes(rest: URL, ws: URL) {

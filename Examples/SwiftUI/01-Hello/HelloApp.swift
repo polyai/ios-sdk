@@ -15,11 +15,9 @@ struct HelloApp: App {
     init() {
         // Initialize once at app launch. After this, PolyMessaging.chat()
         // works anywhere in the app with no arguments.
-        // Replace with your production
-        // API key + a cluster (or .production) before shipping.
+        // Replace with your connector token from Agent Studio before shipping.
         PolyMessaging.initialize(.init(
-            apiKey: "YOUR_API_KEY",
-            environment: .production
+            apiKey: "YOUR_API_KEY"
         ))
         if CommandLine.arguments.contains("-uiTestFreshStart") { PolyMessaging.clearResumableSession() }
     }

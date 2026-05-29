@@ -37,7 +37,7 @@ The SDK calls:
 
 ```swift
 DevSettings()                       // a UserDefaults-backed bag of @Published runtime knobs
-settings.environmentKind            // .production / .cluster / .custom
+settings.environmentKind            // .us / .uk / .euw / .cluster / .custom
 settings.streamingEnabled           // session-creation knob — flip resets text-by-token rendering
 settings.heartbeatIntervalSeconds   // 0 = "use the SDK default"
 settings.sessionTimeoutSeconds      // 0 = "use the SDK default"

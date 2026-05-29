@@ -18,7 +18,7 @@ Set your API key in `App/AppDelegate.swift` (currently `"YOUR_API_KEY"`).
 - Image attachments — `AgentMessage.attachments` filtered by `contentType == .image`
 - URL link cards — same `attachments` array filtered by `.url`
 - `tel:` call buttons — `AgentMessage.callActions`
-- Markdown rendering in a **`UITextView`** (not a `UILabel`) so links are tappable
+- Markdown **+ a small HTML subset** (e.g. `<br>`) rendered in a **`UITextView`** (not a `UILabel`) so links are tappable
 - Forward-compat: drop `.unknown` content types silently
 
 **The SDK decodes the data; it never fetches bytes or dials phones.** You own image loading, caching, retry, link-opening, and the `tel:` `URL`. This example shows one way to do all of that with stock UIKit.
@@ -163,7 +163,11 @@ private func makeButton(for action: ChatCallAction) -> UIButton {
 What the SDK gives you:
 
 ```swift
-m.text   // String — the agent's raw Markdown (no HTML; nothing to sanitize).
+m.text   // String — the agent's text, delivered raw. Usually Markdown (**bold**,
+         // *italic*, `code`, [links](url)) — but it can also carry a small subset of
+         // HTML, most often `<br>` line breaks, because the backend serves the SAME
+         // message to the web chat widget, which renders it as HTML. The SDK does not
+         // strip or convert it, so this example normalizes that subset before parsing.
          // Grows in place during streaming and can briefly hold half-open Markdown
          // (e.g. a trailing `**` waiting for its closer) — your parser should tolerate that.
 ```
@@ -198,8 +202,10 @@ case .agent(let m):
     label.textColor = .label
     applyMarkdown(m.text)
 
-// applyMarkdown(_:) — NSAttributedString(markdown:) with plain-text fallback for half-open markdown
-private func applyMarkdown(_ text: String) {
+// applyMarkdown(_:) — first normalize the agent's HTML subset → newlines + Markdown,
+// then NSAttributedString(markdown:) with a plain-text fallback for half-open markdown.
+private func applyMarkdown(_ rawText: String) {
+    let text = Self.normalizeAgentHTML(rawText)   // <br>→newline, <b>→**, <a href>→[text](url), …
     let opts = AttributedString.MarkdownParsingOptions(interpretedSyntax: .inlineOnlyPreservingWhitespace)
     if let attr = try? AttributedString(markdown: text, options: opts) {
         label.attributedText = NSAttributedString(attr)
@@ -209,9 +215,11 @@ private func applyMarkdown(_ text: String) {
 }
 ```
 
-> `AttributedString(markdown:)` links `[text](url)` but **not** bare `https://…` URLs. The SwiftUI counterpart's `RichText` adds a small regex pass for bare URLs — port it if your agent emits them.
+> `AttributedString(markdown:)` links `[text](url)` but **not** bare `https://…` URLs, and does **not** convert HTML. The SwiftUI counterpart's `RichText` adds a small regex pass for bare URLs — port it if your agent emits them.
 
-**Under the hood:** the SDK passes the agent's Markdown through untouched. Streaming chunks update `m.text` in place; the parse-failure fallback to plain text keeps the bubble readable mid-stream until the next chunk lands.
+**Under the hood:** the SDK passes the agent's text through untouched. Streaming chunks update `m.text` in place; the parse-failure fallback to plain text keeps the bubble readable mid-stream until the next chunk lands.
+
+> **Why normalize HTML?** Agent content is authored once and rendered on both web and mobile. The web widget pipes it through `marked` + DOMPurify, so a reply like `…Customer Care. 👋<br><br>How can I help?` reaches every client with **literal `<br>` tags** — which `AttributedString(markdown:)` would show raw. `normalizeAgentHTML` mirrors the web's DOMPurify allow-list (`a, br, b, i, em, strong, p, ul, ol, li, code`): `<br>`→line break, `<b>`→`**`, `<a href>`→`[text](url)`, lists→bullets, entities decoded, any other tag dropped. The minimal [`01-Hello`](../01-Hello/) / [`02-Standard`](../02-Standard/) examples skip this on purpose (plain `label.text` / `Text` to stay minimal) so they show `<br>` raw — copy `normalizeAgentHTML` over if your agent emits HTML.
 
 *See [Integration guide › Rich text & links](../../../README.md#rich-text--links).*
 

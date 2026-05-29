@@ -11,7 +11,7 @@ struct PlaygroundApp: App {
         // sane default.
         PolyMessaging.initialize(.init(
             apiKey: "YOUR_API_KEY",
-            environment: .production
+            environment: .us
         ))
         if CommandLine.arguments.contains("-uiTestFreshStart") { PolyMessaging.clearResumableSession() }
     }
