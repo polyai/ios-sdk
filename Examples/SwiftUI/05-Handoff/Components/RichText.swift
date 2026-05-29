@@ -6,7 +6,41 @@ struct RichText: View {
     let raw: String
 
     init(_ text: String) {
-        self.raw = text
+        // Agent replies can contain literal HTML (the backend serves the same
+        // content to the web widget, which renders it as HTML). Most commonly
+        // that's `<br>` line breaks, but also `<b>`/`<strong>`, `<i>`/`<em>`,
+        // `<a href>`, `<p>`, and `<ul>/<ol>/<li>`. We normalise that subset —
+        // the exact tags the web widget's DOMPurify allow-list permits — into
+        // plain text + Markdown that the parser below already renders, so the
+        // bubble matches the web instead of showing raw `<br>` tags.
+        self.raw = Self.normalizeAgentHTML(text)
+    }
+
+    /// Maps the small HTML subset the agent may emit (mirrors the web widget's
+    /// DOMPurify allow-list: `a, br, b, i, em, strong, p, ul, ol, li, code`)
+    /// onto newlines + Markdown that `parse` understands. Anything outside the
+    /// allow-list is dropped, mirroring DOMPurify sanitising disallowed tags.
+    static func normalizeAgentHTML(_ html: String) -> String {
+        guard html.contains("<") || html.contains("&") else { return html }
+        var s = html
+        func sub(_ pattern: String, _ replacement: String) {
+            s = s.replacingOccurrences(of: pattern, with: replacement,
+                                       options: [.regularExpression, .caseInsensitive])
+        }
+        sub(#"<a\b[^>]*\bhref=["']([^"']*)["'][^>]*>(.*?)</a>"#, "[$2]($1)") // → [text](url)
+        sub(#"<br\s*/?>"#, "\n")                       // line break
+        sub(#"</p\s*>"#, "\n\n"); sub(#"<p\b[^>]*>"#, "") // paragraph
+        sub(#"</?(?:strong|b)\b[^>]*>"#, "**")          // bold
+        sub(#"</?(?:em|i)\b[^>]*>"#, "*")               // italic
+        sub(#"</?code\b[^>]*>"#, "`")                   // inline code
+        sub(#"<li\b[^>]*>"#, "\n• "); sub(#"</li\s*>"#, "") // list item
+        sub(#"</?(?:ul|ol)\b[^>]*>"#, "\n")             // list container
+        sub(#"<[^>]+>"#, "")                            // drop any other tag
+        let entities = ["&nbsp;": " ", "&amp;": "&", "&lt;": "<", "&gt;": ">",
+                        "&quot;": "\"", "&#39;": "'", "&#x27;": "'", "&apos;": "'"]
+        for (k, v) in entities { s = s.replacingOccurrences(of: k, with: v) }
+        s = s.replacingOccurrences(of: #"\n{3,}"#, with: "\n\n", options: .regularExpression)
+        return s.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     var body: some View {

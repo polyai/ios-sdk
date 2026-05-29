@@ -784,7 +784,7 @@ final class MessageCell: UITableViewCell {
 *Example app:* [02-Standard (SwiftUI)](Examples/SwiftUI/02-Standard/) · [02-Standard (UIKit)](Examples/UIKit/02-Standard/)
 
 ### Rich text & links
-**Data:** `AgentMessage.text` is Markdown — `**bold**`, `*italic*`, `` `code` ``, `[links](https://…)`.
+**Data:** `AgentMessage.text` is the agent's text, delivered **raw**. It's usually Markdown — `**bold**`, `*italic*`, `` `code` ``, `[links](https://…)` — but it can also contain a small subset of **HTML** (most commonly `<br>` line breaks), because the backend serves the same message to the web chat widget, which renders it as HTML. The SDK never strips or converts it — you render it (see the HTML note below).
 
 ```swift
 // SwiftUI
@@ -844,6 +844,8 @@ final class MessageCell: UITableViewCell {
 </details>
 
 > `AttributedString(markdown:)` doesn't linkify *bare* URLs — add a regex pass if your agent sends them, and be tolerant of half-open Markdown during progressive streaming.
+
+> **Handling HTML (`<br>` & friends).** Because the same agent text is rendered by the web chat widget as HTML, a reply can arrive with literal tags — e.g. `…how can I help?<br><br>Pick an option:`. `AttributedString(markdown:)` does **not** convert HTML, so those tags would render raw. The advanced examples ([`03-RichContent`](Examples/SwiftUI/03-RichContent/), [`06-FullReference`](Examples/SwiftUI/06-FullReference/), and the rest of `03`–`07`, in **both** SwiftUI and UIKit) run a small `normalizeAgentHTML` pass first that mirrors the web widget's DOMPurify allow-list — `a, br, b, i, em, strong, p, ul, ol, li, code` — mapping `<br>`→newline, `<b>`/`<strong>`→`**`, `<i>`/`<em>`→`*`, `<a href>`→`[text](url)`, lists→bullets, decoding HTML entities, and dropping any other tag. The minimal [`01-Hello`](Examples/SwiftUI/01-Hello/) / [`02-Standard`](Examples/SwiftUI/02-Standard/) examples deliberately skip it (they render `m.text` plainly to stay minimal), so they show `<br>` raw — copy `normalizeAgentHTML` from `RichText.swift` / `MessageCell.swift` if your agent emits HTML.
 
 *Example app:* [03-RichContent (SwiftUI)](Examples/SwiftUI/03-RichContent/) · [03-RichContent (UIKit)](Examples/UIKit/03-RichContent/)
 

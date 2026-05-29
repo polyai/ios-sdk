@@ -252,7 +252,35 @@ final class MessageCell: UITableViewCell {
     /// Render `text` as Markdown via NSAttributedString(markdown:). Falls back
     /// to plain text on parse failure — streaming chunks may contain partial
     /// markdown that the parser rejects, and we want to keep showing them.
-    private func applyMarkdown(_ text: String) {
+    /// Maps the small HTML subset the agent may emit (mirrors the web widget's
+    /// DOMPurify allow-list: `a, br, b, i, em, strong, p, ul, ol, li, code`)
+    /// onto newlines + Markdown. Without this, agent replies that contain
+    /// literal HTML (most commonly `<br>` line breaks) render the tags raw.
+    private static func normalizeAgentHTML(_ html: String) -> String {
+        guard html.contains("<") || html.contains("&") else { return html }
+        var s = html
+        func sub(_ pattern: String, _ replacement: String) {
+            s = s.replacingOccurrences(of: pattern, with: replacement,
+                                       options: [.regularExpression, .caseInsensitive])
+        }
+        sub(#"<a\b[^>]*\bhref=["']([^"']*)["'][^>]*>(.*?)</a>"#, "[$2]($1)")
+        sub(#"<br\s*/?>"#, "\n")
+        sub(#"</p\s*>"#, "\n\n"); sub(#"<p\b[^>]*>"#, "")
+        sub(#"</?(?:strong|b)\b[^>]*>"#, "**")
+        sub(#"</?(?:em|i)\b[^>]*>"#, "*")
+        sub(#"</?code\b[^>]*>"#, "`")
+        sub(#"<li\b[^>]*>"#, "\n• "); sub(#"</li\s*>"#, "")
+        sub(#"</?(?:ul|ol)\b[^>]*>"#, "\n")
+        sub(#"<[^>]+>"#, "")
+        let entities = ["&nbsp;": " ", "&amp;": "&", "&lt;": "<", "&gt;": ">",
+                        "&quot;": "\"", "&#39;": "'", "&#x27;": "'", "&apos;": "'"]
+        for (k, v) in entities { s = s.replacingOccurrences(of: k, with: v) }
+        s = s.replacingOccurrences(of: #"\n{3,}"#, with: "\n\n", options: .regularExpression)
+        return s.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private func applyMarkdown(_ rawText: String) {
+        let text = Self.normalizeAgentHTML(rawText)
         let options = AttributedString.MarkdownParsingOptions(
             interpretedSyntax: .inlineOnlyPreservingWhitespace
         )

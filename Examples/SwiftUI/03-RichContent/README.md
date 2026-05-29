@@ -18,7 +18,7 @@ Set your API key in `App/RichContentApp.swift` (currently `"YOUR_API_KEY"`).
 - Image attachments — `AgentMessage.attachments` filtered by `contentType == .image`
 - URL link cards — same `attachments` array filtered by `.url`
 - `tel:` call buttons — `AgentMessage.callActions`
-- Markdown rendering — `AgentMessage.text` (raw Markdown, you parse)
+- Markdown **and** a small HTML subset — `AgentMessage.text` (Markdown, plus tags like `<br>` normalized to match the web chat widget)
 - Forward-compat: drop `.unknown` content types silently
 
 **The SDK decodes the data; it never fetches bytes or dials phones.** You own image loading, caching, retry, link-opening, and the `tel:` `URL`. This example shows one way to do all of that with stock SwiftUI.
@@ -180,18 +180,24 @@ ForEach(m.callActions) { action in
 What the SDK gives you:
 
 ```swift
-m.text   // String — the agent's raw Markdown (no HTML; nothing to sanitize).
+m.text   // String — the agent's text, delivered raw. Usually Markdown (**bold**,
+         // *italic*, `code`, [links](url)) — but it can also carry a small subset of
+         // HTML, most often `<br>` line breaks, because the backend serves the SAME
+         // message to the web chat widget, which renders it as HTML. The SDK does not
+         // strip or convert it, so the rich examples normalize that subset themselves.
          // Grows in place during streaming and can briefly hold half-open Markdown
          // (e.g. a trailing `**` waiting for its closer) — your parser should tolerate that.
 ```
 
-In a view — Apple's `AttributedString(markdown:)` handles `[links](url)` + `**bold**`/`*italic*`/`` `code` `` inline, but it does **not** linkify bare `https://…` URLs. The example ships a small `RichText` view in `Components/` that runs a regex pass for both Markdown `[text](url)` and bare URLs, then folds bold/italic/code on top — drop it in and pass `m.text`:
+In a view — Apple's `AttributedString(markdown:)` handles `[links](url)` + `**bold**`/`*italic*`/`` `code` `` inline, but it does **not** linkify bare `https://…` URLs, **nor convert HTML** (a literal `<br>` would show as text). So the example's `RichText` view (in `Components/`) first runs `normalizeAgentHTML` — mapping the same HTML allow-list the web widget permits (`a, br, b, i, em, strong, p, ul, ol, li, code`) to newlines + Markdown — then runs a regex pass for both Markdown `[text](url)` and bare URLs, then folds bold/italic/code on top. Drop it in and pass `m.text`:
 
 ```swift
 // Components/RichText.swift — the example's renderer (see the file for the full body).
 struct RichText: View {
     let raw: String
-    init(_ text: String) { self.raw = text }
+    init(_ text: String) { self.raw = Self.normalizeAgentHTML(text) }   // HTML → newlines + Markdown first
+    // normalizeAgentHTML(_:) — `<br>`→newline, `<b>/<strong>`→**, `<i>/<em>`→*, `<a href>`→[text](url),
+    //                          lists→bullets, decode entities, drop any other tag (mirrors DOMPurify).
 
     var body: some View {
         Text(parse(raw))              // Markdown links + bare URLs + bold/italic/code → AttributedString
@@ -207,7 +213,9 @@ struct RichText: View {
 RichText(m.text)
 ```
 
-**Under the hood:** the SDK passes the agent's Markdown through untouched. Streaming chunks update `m.text` in place; the regex parser tolerates half-open Markdown (e.g. an unclosed `**`) by leaving it as literal text until the next chunk closes it. If your agent never emits bare URLs, swap `RichText` for `Text(try AttributedString(markdown: m.text))` — Apple's parser handles `[text](url)` + bold/italic/code on its own.
+**Under the hood:** the SDK passes the agent's text through untouched. Streaming chunks update `m.text` in place; the regex parser tolerates half-open Markdown (e.g. an unclosed `**`) by leaving it as literal text until the next chunk closes it. If your agent never emits bare URLs, swap `RichText` for `Text(try AttributedString(markdown: m.text))` — Apple's parser handles `[text](url)` + bold/italic/code on its own.
+
+> **Why normalize HTML?** Agent content is authored once and rendered on both web and mobile. The web widget pipes it through `marked` + DOMPurify, so a reply like `…Customer Care. 👋<br><br>How can I help?` reaches every client with **literal `<br>` tags**. SwiftUI's `Text` would show them raw. `normalizeAgentHTML` mirrors the web's DOMPurify allow-list (`a, br, b, i, em, strong, p, ul, ol, li, code`) — converting `<br>` to a line break, `<b>`→`**`, `<a href>`→`[text](url)`, etc., and dropping anything else — so the bubble matches the web. The minimal [`01-Hello`](../01-Hello/) / [`02-Standard`](../02-Standard/) examples intentionally skip this (they render `m.text` with a plain `Text` to stay minimal), so they show `<br>` raw — add `normalizeAgentHTML` there too if your agent emits HTML.
 
 *See [Integration guide › Rich text & links](../../../README.md#rich-text--links).*
 
