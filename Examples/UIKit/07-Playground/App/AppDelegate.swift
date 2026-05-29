@@ -23,7 +23,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     ) -> Bool {
         PolyMessaging.initialize(.init(
             apiKey: "YOUR_API_KEY",
-            environment: .production,
+            environment: .us,
             streamingEnabled: true,
             logLevel: .debug
         ))

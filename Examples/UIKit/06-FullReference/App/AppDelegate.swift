@@ -22,7 +22,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         // facade (chat(), start(), hasResumableSession()), which reuse this config.
         PolyMessaging.initialize(.init(
             apiKey: "YOUR_API_KEY",
-            environment: .production,
+            environment: .us,
             streamingEnabled: true,
             logLevel: .error
         ))

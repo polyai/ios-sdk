@@ -31,7 +31,7 @@ final class LiveMessagingProbeTests: XCTestCase {
         )
 
         let token = ProcessInfo.processInfo.environment["POLY_LIVE_TOKEN"] ?? devToken
-        let session = PolyMessaging.start(.init(apiKey: token, environment: .production))
+        let session = PolyMessaging.start(.init(apiKey: token, environment: .us))
 
         // 1) Agent greets on join.
         let greeted = await waitUntil(session, timeout: 45) { $0.agentMessages.isEmpty == false }

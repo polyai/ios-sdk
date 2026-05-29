@@ -18,7 +18,7 @@ import Combine
 /// Subclass and override `buildConfiguration()` (or any `open` member) to
 /// customise behaviour.
 ///
-///     PolyMessaging.initialize(.init(apiKey: "...", environment: .production))
+///     PolyMessaging.initialize(.init(apiKey: "..."))   // defaults to .us
 ///     let settings = DevSettings()
 ///     let session = PolyMessaging.chat(settings.buildConfiguration())
 @MainActor
@@ -27,7 +27,9 @@ open class DevSettings: ObservableObject {
     /// The set of environments the settings UI can switch between. Maps onto
     /// the SDK's ``Environment`` in `resolvedEnvironment()`.
     public enum EnvironmentKind: Int, CaseIterable, Identifiable, Sendable {
-        case production = 0
+        case us = 0
+        case uk = 1
+        case euw = 2
         case cluster = 3
         case custom = 4
 
@@ -35,7 +37,9 @@ open class DevSettings: ObservableObject {
 
         public var displayName: String {
             switch self {
-            case .production: return "Production"
+            case .us: return "Production US"
+            case .uk: return "Production UK"
+            case .euw: return "Production EU West"
             case .cluster: return "Cluster"
             case .custom: return "Custom URLs"
             }
@@ -128,7 +132,9 @@ open class DevSettings: ObservableObject {
 
     private static func kind(for environment: Environment) -> EnvironmentKind {
         switch environment {
-        case .production: return .production
+        case .us: return .us
+        case .uk: return .uk
+        case .euw: return .euw
         case .cluster: return .cluster
         case .custom: return .custom
         }
@@ -139,22 +145,26 @@ open class DevSettings: ObservableObject {
     /// Maps `environmentKind` (+ cluster name / custom URLs) onto the SDK ``Environment``.
     open func resolvedEnvironment() -> Environment {
         switch environmentKind {
-        case .production: return .production
+        case .us: return .us
+        case .uk: return .uk
+        case .euw: return .euw
         case .cluster:
             let name = clusterName.trimmingCharacters(in: .whitespaces)
-            return name.isEmpty ? .production : .cluster(name)
+            return name.isEmpty ? .us : .cluster(name)
         case .custom:
             if let r = URL(string: customRestURL), let w = URL(string: customWsURL) {
                 return .custom(restBaseURL: r, wsBaseURL: w)
             }
-            return .production
+            return .us
         }
     }
 
     /// A short, human-readable label for the resolved environment host.
     open func environmentDisplayName() -> String {
         switch environmentKind {
-        case .production: return "messaging.poly.ai"
+        case .us: return "messaging.us-1.poly.ai"
+        case .uk: return "messaging.uk-1.poly.ai"
+        case .euw: return "messaging.euw-1.poly.ai"
         case .cluster:
             let name = clusterName.trimmingCharacters(in: .whitespaces)
             return name.isEmpty ? "(missing cluster)" : "messaging.\(name).poly.ai"

@@ -35,8 +35,8 @@ Configure the SDK once at launch:
 
 ```swift
 PolyMessaging.initialize(.init(
-    apiKey: "YOUR_API_KEY",  // from Agent Studio → Connector Settings
-    environment: .production                        //  .production / .cluster("us-1") / .custom(...)
+    apiKey: "YOUR_API_KEY"  // from Agent Studio → Connector Settings
+    // environment defaults to .us — add .uk / .euw / .cluster("dev") / .custom(...) only if needed
 ))
 ```
 
@@ -50,8 +50,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
     ) -> Bool {
         PolyMessaging.initialize(.init(
-            apiKey: "YOUR_API_KEY",
-            environment: .production
+            apiKey: "YOUR_API_KEY"
         ))
         return true
     }

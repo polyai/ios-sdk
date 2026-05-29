@@ -13,7 +13,9 @@ Humans should start with [`README.md`](../README.md) (a step-by-step guide).
 ## Recommended integration path (use this unless the user asks otherwise)
 
 1. **Initialize once at app launch** (SwiftUI `App.init` / UIKit `AppDelegate`):
-   `PolyMessaging.initialize(.init(apiKey: "…", environment: .cluster("us-1")))`
+   `PolyMessaging.initialize(.init(apiKey: "…"))` — `environment` defaults to `.us`.
+   Override only for non-US regions or non-production clusters
+   (e.g. `environment: .cluster("dev")`).
 2. **Create one `ChatSession` per chat surface** — `let session = PolyMessaging.chat()`.
    It's a `@MainActor ObservableObject`. Don't recreate it per view render.
 3. **Bind its published state:** `messages`, `isAgentTyping`, `connection`, `isReady`,
@@ -49,11 +51,11 @@ The agent joins and greets automatically. Full walkthrough: README **Step 1**.
   `clearSuggestions(for:)`/`clearChat()`; plus `client` (the lower-level `PolyMessagingClient`).
 - **`ChatMessage`** enum (`.user/.agent/.system`, `Identifiable`) with `text`,
   `delivery`, `suggestions`, `attachments`.
-- **`Configuration`:** `apiKey` (required), `environment` (required),
+- **`Configuration`:** `apiKey` (required), `environment` (defaults to `.us`),
   `streamingEnabled`, `logLevel`, `sessionTimeoutSeconds`,
   `heartbeatIntervalSeconds`, `maxReconnectAttempts`.
-- **`Environment`:** `.production`, `.cluster("us-1")`,
-  `.custom(restBaseURL:wsBaseURL:)`.
+- **`Environment`:** `.us` (default — production US, `messaging.us-1.poly.ai`), `.uk`,
+  `.euw`, `.cluster("dev")` (any named cluster), `.custom(restBaseURL:wsBaseURL:)`.
 
 ## Hard rules (real gotchas — follow these)
 

@@ -86,8 +86,7 @@ import PolyMessaging
 struct MyApp: App {
     init() {
         PolyMessaging.initialize(.init(
-            apiKey: "YOUR_API_KEY",   // Agent Studio → Connector Settings
-            environment: .cluster("us-1")
+            apiKey: "YOUR_API_KEY"   // Agent Studio → Connector Settings
         ))
     }
     var body: some Scene { WindowGroup { ContentView() } }
@@ -148,8 +147,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         // Initialize the SDK once at launch. No network happens here —
         // chat() / start() does the work later.
         PolyMessaging.initialize(.init(
-            apiKey: "YOUR_API_KEY",   // Agent Studio → Connector Settings
-            environment: .cluster("us-1")
+            apiKey: "YOUR_API_KEY"   // Agent Studio → Connector Settings
         ))
         return true
     }
@@ -249,7 +247,6 @@ final class ViewController: UIViewController, UITableViewDataSource {
 ```swift
 PolyMessaging.initialize(.init(
     apiKey: "YOUR_API_KEY",
-    environment: .cluster("us-1"),
     streamingEnabled: false      // off → completed bubbles only
 ))
 ```
@@ -433,7 +430,6 @@ The agent's reply arrives as a sequence of chunks. `ChatSession` reassembles the
 ```swift
 PolyMessaging.initialize(.init(
     apiKey: "YOUR_API_KEY",
-    environment: .cluster("us-1"),
     streamingEnabled: true       // default — set to false for complete messages only
 ))
 
@@ -1265,17 +1261,16 @@ deinit { eventsTask?.cancel() }
 
 ```swift
 PolyMessaging.initialize(.init(
-    apiKey: "YOUR_API_KEY",
-    environment: .cluster("us-1")
+    apiKey: "YOUR_API_KEY"
 ))
 ```
 
-`environment` is required; everything else has a working default.
+`apiKey` is the only required field; everything else has a working default.
 
 | Field | Default | Description |
 |---|---|---|
 | `apiKey` | — (required) | API key from Agent Studio. Treat as a credential — never log it. |
-| `environment` | — (required) | API + WebSocket endpoints (see below) |
+| `environment` | `.us` | Production region (`.us` / `.uk` / `.euw`) or escape hatch (see below) |
 | `hostIdentifier` | Bundle ID | `X-Host` for connector validation; auto-derived from `Bundle.main.bundleIdentifier` |
 | `streamingEnabled` | `true` | `true`: agent replies grow token-by-token (ChatGPT-style). `false`: complete-message bubbles only. See [Streaming](#streaming) |
 | `logLevel` | `.error` | `.none` \| `.error` \| `.warn` \| `.info` \| `.debug` |
@@ -1283,14 +1278,30 @@ PolyMessaging.initialize(.init(
 | `sessionTimeoutSeconds` | `nil` (600) | Override the idle-timeout (matches the backend's WebSocket idle timeout of 10 min) |
 | `maxReconnectAttempts` | `nil` (10) | Override the reconnect cap |
 
-**Environments:** `.production` (`messaging.poly.ai`) · `.cluster("us-1")` (`messaging.us-1.poly.ai`, also `uk-1`, `euw-1`, …) · `.custom(restBaseURL:, wsBaseURL:)`.
+**Environments:**
+
+- `.us` (default) — `messaging.us-1.poly.ai`
+- `.uk` — `messaging.uk-1.poly.ai`
+- `.euw` — `messaging.euw-1.poly.ai`
+- `.cluster("name")` — any other named cluster, e.g. `.cluster("dev")` resolves to `messaging.dev.poly.ai`
+- `.custom(restBaseURL:, wsBaseURL:)` — override both URLs entirely (proxies, local mocks)
+
+Most apps don't need to set `environment` at all. Pass it only when targeting a non-US region or a non-production cluster:
+
+```swift
+// Run against the dev cluster instead of production US:
+PolyMessaging.initialize(.init(
+    apiKey: "YOUR_API_KEY",
+    environment: .cluster("dev")
+))
+```
 
 A fully-specified configuration (every value here has a working default — set only what you need to override):
 
 ```swift
 PolyMessaging.initialize(.init(
     apiKey: "YOUR_API_KEY",
-    environment: .cluster("us-1"),
+    environment: .us,                        // .us (default) | .uk | .euw | .cluster("dev") | .custom(...)
     hostIdentifier: "com.yourapp.ios",       // X-Host for connector validation; defaults to your bundle id
     streamingEnabled: true,                  // server streams agent replies as chunks
     logLevel: .error,                        // .none | .error | .warn | .info | .debug

@@ -139,7 +139,7 @@ final class ConnectViewController: UIViewController {
         let envRow = makeRow(
             icon: "server.rack",
             caption: "ENVIRONMENT",
-            value: "messaging.poly.ai",
+            value: "messaging.us-1.poly.ai",
             valueMonospaced: false
         )
         let dot = UIView()
