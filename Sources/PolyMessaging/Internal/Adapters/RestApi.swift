@@ -16,6 +16,7 @@ actor RestApi: RestApiPort {
     private static let retryDelay: UInt64 = 1_000_000_000
     private static let maxRetryAfter: TimeInterval = 30
     private static let defaultRetryAfter: TimeInterval = 5
+    private static let logBodyMaxBytes = 1024
 
     init(baseURL: URL, apiKey: String, hostIdentifier: String, logger: PolyLogger, urlSession: URLSession = .shared) {
         self.baseURL = baseURL
@@ -111,12 +112,16 @@ actor RestApi: RestApiPort {
 
         // maxRetries=3 means 4 total attempts (initial + 3 retries).
         for attempt in 0...Self.maxRetries {
+            logRequest(request, endpoint: endpoint, attempt: attempt)
+            let started = Date()
             do {
                 let (data, response) = try await urlSession.data(for: request)
 
                 guard let http = response as? HTTPURLResponse else {
                     throw PolyError.transport(.networkError("Non-HTTP response"))
                 }
+
+                logResponse(http, data: data, endpoint: endpoint, elapsed: Date().timeIntervalSince(started))
 
                 if (200..<300).contains(http.statusCode) {
                     return (data, http)
@@ -202,5 +207,50 @@ actor RestApi: RestApiPort {
             throw PolyError.transport(.protocolError(reason: "Invalid JSON response"))
         }
         return json
+    }
+
+    // MARK: - Debug logging
+
+    private func logRequest(_ request: URLRequest, endpoint: String, attempt: Int) {
+        let method = request.httpMethod ?? "GET"
+        let urlString = request.url?.absoluteString ?? "<no-url>"
+        let attemptLabel = attempt == 0 ? "" : " attempt=\(attempt + 1)/\(Self.maxRetries + 1)"
+        logger.debug("→ \(method) \(urlString)\(attemptLabel)", metadata: ["endpoint": endpoint])
+        for (name, value) in (request.allHTTPHeaderFields ?? [:]).sorted(by: { $0.key < $1.key }) {
+            logger.debug("    \(name): \(Self.redactHeader(name: name, value: value))", metadata: nil)
+        }
+        if let body = request.httpBody, !body.isEmpty {
+            logger.debug("    body: \(Self.previewBody(body))", metadata: nil)
+        }
+    }
+
+    private func logResponse(_ http: HTTPURLResponse, data: Data, endpoint: String, elapsed: TimeInterval) {
+        let ms = Int(elapsed * 1000)
+        logger.debug("← \(http.statusCode) (\(ms)ms)", metadata: ["endpoint": endpoint])
+        if !(200..<300).contains(http.statusCode), !data.isEmpty {
+            // Surface the server's error body at warn so failures are diagnosable
+            // without flipping logLevel to .debug.
+            logger.warn("HTTP \(http.statusCode) body: \(Self.previewBody(data))", metadata: ["endpoint": endpoint])
+        } else if !data.isEmpty {
+            logger.debug("    body: \(Self.previewBody(data))", metadata: nil)
+        }
+    }
+
+    private static func redactHeader(name: String, value: String) -> String {
+        switch name.lowercased() {
+        case "x-token", "authorization":
+            let trimmed = value.hasPrefix("Bearer ") ? String(value.dropFirst("Bearer ".count)) : value
+            let last4 = trimmed.suffix(4)
+            return "…\(last4) (redacted)"
+        default:
+            return value
+        }
+    }
+
+    private static func previewBody(_ data: Data) -> String {
+        let truncated = data.prefix(logBodyMaxBytes)
+        let text = String(data: truncated, encoding: .utf8) ?? "<\(data.count) bytes binary>"
+        let suffix = data.count > logBodyMaxBytes ? "…(\(data.count) bytes total)" : ""
+        return text + suffix
     }
 }

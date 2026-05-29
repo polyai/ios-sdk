@@ -1,10 +1,8 @@
 // Copyright PolyAI Limited
 
 import Foundation
-import os
 
 struct OSLogLogger: PolyLogger {
-    private let logger = os.Logger(subsystem: "ai.poly.messaging", category: "SDK")
     private let level: LogLevel
 
     init(level: LogLevel = .error) {
@@ -13,22 +11,26 @@ struct OSLogLogger: PolyLogger {
 
     func debug(_ message: String, metadata: [String: any Sendable]?) {
         guard level >= .debug else { return }
-        logger.debug("\(message) \(Self.format(metadata))")
+        emit("DEBUG", message, metadata)
     }
 
     func info(_ message: String, metadata: [String: any Sendable]?) {
         guard level >= .info else { return }
-        logger.info("\(message) \(Self.format(metadata))")
+        emit("INFO ", message, metadata)
     }
 
     func warn(_ message: String, metadata: [String: any Sendable]?) {
         guard level >= .warn else { return }
-        logger.warning("\(message) \(Self.format(metadata))")
+        emit("WARN ", message, metadata)
     }
 
     func error(_ message: String, metadata: [String: any Sendable]?) {
         guard level >= .error else { return }
-        logger.error("\(message) \(Self.format(metadata))")
+        emit("ERROR", message, metadata)
+    }
+
+    private func emit(_ tag: String, _ message: String, _ metadata: [String: any Sendable]?) {
+        print("[poly:\(tag)] \(message)\(Self.format(metadata))")
     }
 
     private static func format(_ metadata: [String: any Sendable]?) -> String {
@@ -36,6 +38,6 @@ struct OSLogLogger: PolyLogger {
         let pairs = metadata
             .sorted { $0.key < $1.key }
             .map { "\($0.key)=\(String(describing: $0.value))" }
-        return "{" + pairs.joined(separator: " ") + "}"
+        return " {" + pairs.joined(separator: " ") + "}"
     }
 }
