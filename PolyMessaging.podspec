@@ -12,7 +12,7 @@ Pod::Spec.new do |s|
   DESC
   s.homepage         = 'https://github.com/polyai/ios-sdk'
   s.license          = { :type => 'Apache-2.0', :file => 'LICENSE' }
-  s.author           = { 'PolyAI Limited' => 'support@poly-ai.com' }
+  s.author           = { 'PolyAI Limited' => 'messaging-pod@poly-ai.com' }
   s.source           = { :git => 'https://github.com/polyai/ios-sdk.git', :tag => "v#{s.version}" }
 
   s.swift_version            = '5.9'
