@@ -60,7 +60,7 @@ If you change the SDK, mirror the change across the SwiftUI and UIKit example la
 
 ## Commit conventions
 
-This repository uses [Conventional Commits](https://www.conventionalcommits.org/) and [release-please](https://github.com/googleapis/release-please) to manage versioning and `CHANGELOG.md`.
+This repository uses [Conventional Commits](https://www.conventionalcommits.org/) for commit messages. Versioning and `CHANGELOG.md` are maintained by hand when cutting a release.
 
 | Type       | Effect on version (pre-1.0)              |
 |------------|------------------------------------------|
@@ -80,11 +80,11 @@ chore(release): 0.5.0
 
 ## Releases
 
-Releases are driven by release-please:
+Releases are cut manually:
 
 1. Conventional commits land on `main`.
-2. The release-please workflow maintains an open Release PR that bumps `Sources/PolyMessaging/Public/Version.swift`, updates `CHANGELOG.md`, and tags `vX.Y.Z` on merge.
-3. The version literal in `Version.swift` is the single source of truth — it is the User-Agent the SDK sends and the version surfaced to example apps. **Do not edit it by hand.**
+2. To cut a release, bump `Sources/PolyMessaging/Public/Version.swift`, add a matching entry to `CHANGELOG.md`, then tag `vX.Y.Z`.
+3. The version literal in `Version.swift` is the single source of truth — it is the User-Agent the SDK sends and the version surfaced to example apps. **Bump it only when cutting a release, never in feature PRs.**
 
 ## Verifying changes before opening a PR
 

@@ -30,7 +30,7 @@ Closes #
 - [ ] No API keys, session IDs, or credentials in the diff
 - [ ] `README.md` updated if public API or behavior changed
 - [ ] SwiftUI and UIKit example ladders mirrored (if SDK behavior changed)
-- [ ] `Version.swift` not edited by hand (release-please owns it)
+- [ ] `Version.swift` not touched (it is bumped only when cutting a release)
 
 ## Screenshots / recordings
 
