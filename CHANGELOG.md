@@ -4,6 +4,12 @@ All notable changes to the PolyMessaging iOS SDK are documented here.
 This project adheres to [Semantic Versioning](https://semver.org). While the SDK
 is pre-1.0, breaking changes bump the **minor** version.
 
+## [0.7.0] - 2026-06-01
+
+Add CocoaPods as a distribution channel. The SDK can now be installed with
+`pod 'PolyMessaging', '~> 0.7'` alongside the existing Swift Package Manager
+options. No API or behaviour changes.
+
 ## [0.6.0] - 2026-05-29
 
 **Breaking change.** `Configuration.environment` now defaults to `.us` (US
