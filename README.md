@@ -30,7 +30,7 @@ Reference: [Configuration](#configuration) · [Error handling](#error-handling) 
 
 ## Install
 
-Add the package by its Git URL, pinned to a version. Pick **one** of the three options below.
+Add the package by its Git URL, pinned to a version. Pick **one** of the four options below.
 
 ### Option 1 — Xcode (recommended)
 
@@ -39,14 +39,14 @@ Add the package by its Git URL, pinned to a version. Pick **one** of the three o
    ```
    https://github.com/polyai/ios-sdk
    ```
-3. Set **Dependency Rule** → *Up to Next Major Version* → `0.5.1`
+3. Set **Dependency Rule** → *Up to Next Major Version* → `0.6.0`
 4. Click **Add Package** → tick the **PolyMessaging** library for your app target → **Add Package** again.
 
 ### Option 2 — Swift Package Manager (`Package.swift`)
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/polyai/ios-sdk", from: "0.5.1")
+    .package(url: "https://github.com/polyai/ios-sdk", from: "0.6.0")
 ]
 // then add to your target:
 .product(name: "PolyMessaging", package: "ios-sdk")
@@ -58,12 +58,20 @@ dependencies: [
 packages:
   PolyMessaging:
     url: https://github.com/polyai/ios-sdk
-    exactVersion: 0.5.1      # or: upToNextMajorVersion: 0.5.1
+    exactVersion: 0.6.0      # or: upToNextMajorVersion: 0.6.0
 targets:
   YourApp:
     dependencies:
       - package: PolyMessaging
 ```
+
+### Option 4 — [CocoaPods](https://cocoapods.org) (`Podfile`)
+
+```ruby
+pod 'PolyMessaging', '~> 0.6'
+```
+
+Then run `pod install` and open the generated `.xcworkspace`.
 
 Then initialize once at app launch. The exact placement — SwiftUI's `@main` App init, or UIKit's `AppDelegate.application(_:didFinishLaunchingWithOptions:)` — is shown in full in the [Quick start](#quick-start) below.
 
