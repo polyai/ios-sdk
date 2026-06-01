@@ -42,7 +42,15 @@ Add the package by its Git URL, pinned to a version. Pick **one** of the four op
 3. Set **Dependency Rule** → *Up to Next Major Version* → `0.7.0`
 4. Click **Add Package** → tick the **PolyMessaging** library for your app target → **Add Package** again.
 
-### Option 2 — Swift Package Manager (`Package.swift`)
+### Option 2 — [CocoaPods](https://cocoapods.org) (`Podfile`)
+
+```ruby
+pod 'PolyMessaging', '~> 0.7'
+```
+
+Then run `pod install` and open the generated `.xcworkspace`.
+
+### Option 3 — Swift Package Manager (`Package.swift`)
 
 ```swift
 dependencies: [
@@ -52,7 +60,7 @@ dependencies: [
 .product(name: "PolyMessaging", package: "ios-sdk")
 ```
 
-### Option 3 — [XcodeGen](https://github.com/yonaskolb/XcodeGen) (`project.yml`)
+### Option 4 — [XcodeGen](https://github.com/yonaskolb/XcodeGen) (`project.yml`)
 
 ```yaml
 packages:
@@ -64,14 +72,6 @@ targets:
     dependencies:
       - package: PolyMessaging
 ```
-
-### Option 4 — [CocoaPods](https://cocoapods.org) (`Podfile`)
-
-```ruby
-pod 'PolyMessaging', '~> 0.7'
-```
-
-Then run `pod install` and open the generated `.xcworkspace`.
 
 Then initialize once at app launch. The exact placement — SwiftUI's `@main` App init, or UIKit's `AppDelegate.application(_:didFinishLaunchingWithOptions:)` — is shown in full in the [Quick start](#quick-start) below.
 
