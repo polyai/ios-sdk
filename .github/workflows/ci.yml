@@ -46,3 +46,19 @@ jobs:
         run: swift build
       - name: Test
         run: swift test
+
+  podspec-lint:
+    name: podspec-lint
+    runs-on: macos-14
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v6
+      - name: Select stable Xcode
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
+      # Validates PolyMessaging.podspec compiles for every declared platform.
+      # --allow-warnings: the SDK build emits non-fatal compiler warnings that
+      # would otherwise fail the lint, which treats warnings as errors.
+      - name: pod lib lint
+        run: pod lib lint PolyMessaging.podspec --allow-warnings
