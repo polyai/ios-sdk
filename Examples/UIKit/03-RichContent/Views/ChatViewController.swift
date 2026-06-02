@@ -26,7 +26,7 @@ final class ChatViewController: UIViewController {
     private var session: ChatSession!
     private var bag = Set<AnyCancellable>()
 
-    // Local-notification banners for new agent messages (foreground + ~30s background grace window)
+    // New-message banners (foreground + grace window) — see NewMessageNotifier.swift
     // (see Components/NewMessageNotifier.swift).
     private let messageNotifier = NewMessageNotifier()
 

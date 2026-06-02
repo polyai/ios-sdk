@@ -5,7 +5,7 @@ import XCTest
 /// End-to-end check for the in-app new-message notification banner
 /// (Components/NewMessageNotifier.swift) — driven against the live dev backend.
 ///
-/// Confirms the foreground-banner behaviour (the notifier also keeps a short background grace window): with the app open, send a message,
+/// Confirms the foreground banner: with the app open, send a message,
 /// and when the agent replies a local notification banner is presented by
 /// SpringBoard. A screenshot of the banner is saved to the test artifacts.
 ///

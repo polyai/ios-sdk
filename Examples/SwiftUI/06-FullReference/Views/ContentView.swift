@@ -241,8 +241,7 @@ private struct ChatScreen: View {
             )
         }
         .onReceive(session.$messages) { syncSendingLabels($0) }
-        // In-app local-notification banners for new agent messages — foreground +
-        // a brief background grace window (see Components/NewMessageNotifier.swift).
+        // New-message banners (foreground + grace window) — see NewMessageNotifier.swift
         .newMessageNotifications(for: session)
         .onAppear {
             if wasResumed {

@@ -95,8 +95,7 @@ struct ContentView: View {
         // and hides the sidebar. Use NavigationStack on iOS 16+ when we
         // raise the deployment target. (Examples target iOS 15.)
         .navigationViewStyle(.stack)
-        // In-app local-notification banners for new agent messages
-        // foreground + a brief background grace window (see Components/NewMessageNotifier.swift).
+        // New-message banners (foreground + grace window) — see NewMessageNotifier.swift
         .newMessageNotifications(for: session)
     }
 
