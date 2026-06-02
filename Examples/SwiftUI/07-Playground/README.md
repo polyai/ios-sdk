@@ -21,6 +21,7 @@ Set your API key in `PlaygroundApp.swift` (currently `"YOUR_API_KEY"`).
 - Tap `client.events` for a filterable, copyable log of every typed event
 - Subscribe to `client.events` / `client.connectionStatus` / `client.sessionState` for live diagnostic counters
 - Render iMessage-style timestamp separators using each `ChatMessage.timestamp`
+- Foreground-only new-message banners — a local notification when the agent replies while the app is open (`Components/NewMessageNotifier.swift`)
 
 ## How it works
 
@@ -328,6 +329,27 @@ static func shouldInsertSeparator(previous: Date?, current: Date) -> Bool {
 ```
 
 **Under the hood:** the timestamp is already on every `ChatMessage` the SDK publishes — there's no extra subscription. `MessageTimestamp` owns the grouping rule and the locale-aware formatters (time today, "Yesterday 3:42 PM", weekday this week, month/day this year, else full date).
+
+### In-app new-message banners (foreground only) — `Components/NewMessageNotifier.swift`
+
+Pop a local-notification banner when the agent replies *while the app is open* — handy for confirming chunked/streaming replies land a single alert. There is deliberately **no background path**: the SDK's realtime connection only delivers while the app is running, so nothing is ever scheduled from a suspended state. Real background delivery would need APNs + a server-side push integration, which the SDK does not provide.
+
+The SDK signal:
+
+```swift
+session.$messages   // published [ChatMessage] — the same array the chat list renders
+```
+
+In a view — one modifier on the chat screen:
+
+```swift
+ChatView(/* ... */)
+    .newMessageNotifications(for: session)   // Components/NewMessageNotifier.swift
+```
+
+**Under the hood:** the modifier sets a `UNUserNotificationCenterDelegate` (so iOS presents the banner for the *foreground* app instead of suppressing it), seeds the "already notified" set from the first `messages` snapshot (so a resumed conversation's replayed history doesn't fire a burst), then schedules one immediate `trigger: nil` notification per new `.agent` message — gated to `scenePhase == .active`. Toggle streaming in the Settings sheet to see it stays one banner per reply (the bubble `id` is stable across chunks).
+
+*See [Integration guide › In-app new-message alerts (foreground only)](../../../README.md#in-app-new-message-alerts-foreground-only).*
 
 ## What this example is for
 

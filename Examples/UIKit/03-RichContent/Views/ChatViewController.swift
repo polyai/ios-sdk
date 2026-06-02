@@ -26,6 +26,10 @@ final class ChatViewController: UIViewController {
     private var session: ChatSession!
     private var bag = Set<AnyCancellable>()
 
+    // Foreground-only local-notification banners for new agent messages
+    // (see Components/NewMessageNotifier.swift).
+    private let messageNotifier = NewMessageNotifier()
+
     // Rows: each message, plus a suggestions pill-row appended under the last
     // agent message (mirrors 06 — pills live in the list, not pinned above input).
     private enum Row: Hashable {
@@ -63,6 +67,7 @@ final class ChatViewController: UIViewController {
         layoutUI()
         configureDataSource()
         bind()
+        messageNotifier.start(observing: session)
     }
 
     // MARK: - Layout

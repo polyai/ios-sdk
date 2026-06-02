@@ -20,6 +20,7 @@ Set your API key in `App/AppDelegate.swift` (currently `"YOUR_API_KEY"`).
 - `tel:` call buttons — `AgentMessage.callActions`
 - Markdown **+ a small HTML subset** (e.g. `<br>`) rendered in a **`UITextView`** (not a `UILabel`) so links are tappable
 - Forward-compat: drop `.unknown` content types silently
+- Foreground-only new-message banners — a local notification when the agent replies while the app is open (`Components/NewMessageNotifier.swift`)
 
 **The SDK decodes the data; it never fetches bytes or dials phones.** You own image loading, caching, retry, link-opening, and the `tel:` `URL`. This example shows one way to do all of that with stock UIKit.
 
@@ -241,6 +242,32 @@ outerStack.addArrangedSubview(deliveryLabel)   // "Sending..." / "Tap to retry"
 Each component hides itself when its data is empty — `AttachmentCarouselView.configure(with:)` flips `isHidden` (carefully — `if isHidden != shouldHide` to avoid corrupting `UIStackView`'s hidden bookkeeping), and `CallActionsRow.configure(actions:)` does the same.
 
 **Under the hood:** the SDK delivers text, attachments, and call actions on one assembled `AgentMessage` — no separate events to coordinate. `.unknown` is the SDK's forward-compat slot for content types it doesn't model yet; dropping it (instead of falling through to a placeholder) is the safe default.
+
+### In-app new-message banners (foreground only) — `Components/NewMessageNotifier.swift`
+
+Pop a local-notification banner when the agent replies *while the app is open*. There is deliberately **no background path** — the SDK's realtime connection only delivers while the app is running, so nothing is ever scheduled from a suspended state. Real background delivery would need APNs + a server-side push integration, which the SDK does not provide.
+
+The SDK signal:
+
+```swift
+session.$messages   // published [ChatMessage] — the same array the table view renders
+```
+
+In a view controller — own one per chat surface and start it once the session exists:
+
+```swift
+private let messageNotifier = NewMessageNotifier()   // Components/NewMessageNotifier.swift
+
+override func viewDidLoad() {
+    super.viewDidLoad()
+    // ...layoutUI / configureDataSource / bind...
+    messageNotifier.start(observing: session)
+}
+```
+
+**Under the hood:** `NewMessageNotifier` is an `NSObject` + `UNUserNotificationCenterDelegate`. `start(observing:)` makes itself the notification-center delegate (so iOS presents the banner for the *foreground* app instead of suppressing it), then sinks `session.$messages` over Combine: it seeds the "already notified" set from the first emission (so a resumed conversation's replayed history doesn't fire a burst) and schedules one immediate `trigger: nil` notification per new `.agent` message — gated to `UIApplication.shared.applicationState == .active`. With streaming on the agent bubble's `id` is stable across chunks, so it fires exactly once, with the opening tokens.
+
+*See [Integration guide › In-app new-message alerts (foreground only)](../../../README.md#in-app-new-message-alerts-foreground-only).*
 
 ## What this example skips
 

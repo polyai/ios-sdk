@@ -4,7 +4,9 @@
 #
 #   1. Builds & screenshots all 7 SwiftUI examples (01-Hello through 07-Playground)
 #   2. Runs the StandardSwiftUI XCUITest target (live E2E against dev backend)
-#   3. Drops everything into /tmp/poly-e2e/ + prints a pass/fail summary.
+#   3. Runs NotificationBannerUITests (foreground banner) across SwiftUI+UIKit
+#      × 03/06/07, then (3b) the reboot/resume-dedupe test on SwiftUI 06.
+#   4. Drops everything into /tmp/poly-e2e/ + prints a pass/fail summary.
 #
 # The API key MUST be provided via POLY_CONNECTOR_TOKEN env var —
 # never hard-coded.
@@ -33,6 +35,38 @@ SWIFTUI_EXAMPLES=(
   "05-Handoff:HandoffSwiftUI:App/HandoffApp.swift"
   "06-FullReference:FullReferenceSwiftUI:App/FullReferenceApp.swift"
   "07-Playground:PlaygroundSwiftUI:App/PlaygroundApp.swift"
+)
+
+# Optional overrides for the live config. When POLY_ENVIRONMENT is set, every
+# patched App entrypoint is rewritten to that environment + host identifier.
+# Leave empty to keep each example's committed `.us` default.
+#   e.g. POLY_ENVIRONMENT='.cluster("dev")' \
+#        POLY_HOST_IDENTIFIER='https://jupiter-api.dev.polyai.app/' ...
+POLY_ENVIRONMENT="${POLY_ENVIRONMENT:-}"
+POLY_HOST_IDENTIFIER="${POLY_HOST_IDENTIFIER:-}"
+
+# Notification-banner E2E targets (Part 3). Each entry:
+#   <framework>:<dir>:<scheme>:<App entrypoint rel-path>
+# These run NotificationBannerUITests and confirm the foreground-only banner
+# from Components/NewMessageNotifier.swift, saving a screenshot of the banner.
+NOTIF_TARGETS=(
+  "SwiftUI:03-RichContent:RichContentSwiftUI:App/RichContentApp.swift"
+  "UIKit:03-RichContent:RichContentUIKit:App/AppDelegate.swift"
+  "SwiftUI:06-FullReference:FullReferenceSwiftUI:App/FullReferenceApp.swift"
+  "UIKit:06-FullReference:FullReferenceUIKit:App/AppDelegate.swift"
+  "SwiftUI:07-Playground:PlaygroundSwiftUI:App/PlaygroundApp.swift"
+  "UIKit:07-Playground:PlaygroundUIKit:App/AppDelegate.swift"
+)
+
+# Reboot/resume-dedupe E2E targets (Part 3b). Same entry shape as NOTIF_TARGETS.
+# These run test_resume_doesNotReNotifyAlreadyShownMessages: notify once, then
+# relaunch + resume the same conversation and assert the SDK's history replay
+# does NOT re-show a banner (the persisted messageId store in
+# Components/NewMessageNotifier.swift must suppress it). Only the 06-FullReference
+# SwiftUI example carries this test today — its connect screen offers an explicit
+# "Resume Chat" button, which the test drives.
+NOTIF_RESUME_TARGETS=(
+  "SwiftUI:06-FullReference:FullReferenceSwiftUI:App/FullReferenceApp.swift"
 )
 
 # ---------------------------------------------------------------------------
@@ -104,20 +138,50 @@ echo "==> Using simulator UDID: $BOOTED_UDID"
 # ---------------------------------------------------------------------------
 echo "==> Patching API key into example App.swift files (will revert on exit)"
 mkdir -p "$BACKUP_DIR"
-for entry in "${SWIFTUI_EXAMPLES[@]}"; do
-  dir="${entry%%:*}"
-  rest="${entry#*:}"
-  app_rel="${rest##*:}"
-  app_path="$REPO_ROOT/Examples/SwiftUI/$dir/$app_rel"
+
+# patch_app <abs-app-path>
+# Backs up, injects the token, and — when POLY_ENVIRONMENT is set — rewrites the
+# initialize(.init(...)) block to that environment + host identifier. Idempotent
+# across the SwiftUI and notification lists (skips if already backed up).
+patch_app() {
+  local app_path="$1"
   if [ ! -f "$app_path" ]; then
     echo "    WARNING: $app_path not found, skipping patch"
-    continue
+    return
   fi
-  flat="${app_path//\//__}"
+  local flat="${app_path//\//__}"
+  [ -f "$BACKUP_DIR/$flat" ] && return   # already patched this run
   cp -p "$app_path" "$BACKUP_DIR/$flat"
   PATCHED_FILES+=("$app_path")
-  # In-place: replace YOUR_API_KEY with the real token
-  /usr/bin/sed -i '' "s/YOUR_API_KEY/${POLY_CONNECTOR_TOKEN}/g" "$app_path"
+  TOKEN="$POLY_CONNECTOR_TOKEN" ENVV="$POLY_ENVIRONMENT" HOSTID="$POLY_HOST_IDENTIFIER" \
+  python3 - "$app_path" <<'PY'
+import os, re, sys
+path = sys.argv[1]
+tok, env, host = os.environ["TOKEN"], os.environ.get("ENVV",""), os.environ.get("HOSTID","")
+s = open(path).read()
+s = s.replace("YOUR_API_KEY", tok)
+if env:
+    fields = [f'apiKey: "{tok}"', f'environment: {env}']
+    if host:
+        fields.append(f'hostIdentifier: "{host}"')
+    fields.append('logLevel: .error')
+    block = "PolyMessaging.initialize(.init(\n            " + ",\n            ".join(fields) + "\n        ))"
+    s2 = re.sub(r'PolyMessaging\.initialize\(\.init\(.*?\)\)', block, s, count=1, flags=re.S)
+    if s2 == s:
+        sys.stderr.write(f"WARNING: no initialize block matched in {path}\n")
+    s = s2
+open(path, "w").write(s)
+PY
+}
+
+for entry in "${SWIFTUI_EXAMPLES[@]}"; do
+  dir="${entry%%:*}"; rest="${entry#*:}"; app_rel="${rest##*:}"
+  patch_app "$REPO_ROOT/Examples/SwiftUI/$dir/$app_rel"
+done
+# Also patch the UIKit notification targets (Part 3 drives these too).
+for entry in "${NOTIF_TARGETS[@]}"; do
+  IFS=':' read -r fw dir scheme app_rel <<<"$entry"
+  patch_app "$REPO_ROOT/Examples/$fw/$dir/$app_rel"
 done
 
 # ---------------------------------------------------------------------------
@@ -237,6 +301,122 @@ if [ -d "$STD_RESULT_BUNDLE" ]; then
 fi
 
 # ---------------------------------------------------------------------------
+# Part 3: notification-banner E2E (SwiftUI + UIKit, 03 + 06 + 07)
+#
+# Runs NotificationBannerUITests on each target: grants notification permission,
+# sends a message, and confirms a foreground local-notification banner is
+# presented when the agent replies. The banner screenshot is extracted to
+# $OUT_DIR/notif-<tag>-banner.png.
+# ---------------------------------------------------------------------------
+echo ""
+echo "========================================"
+echo "PART 3: Notification banner E2E"
+echo "========================================"
+
+notif_results=()
+notif_one() {
+  local fw="$1" dir="$2" scheme="$3" tag="$4"
+  local proj_dir="$REPO_ROOT/Examples/$fw/$dir"
+  local log="$LOGDIR/notif-$tag.log"
+  local rb="$OUT_DIR/notif-$tag.xcresult"
+  rm -rf "$rb"
+
+  echo ""
+  echo "==> [$tag] xcodegen + NotificationBannerUITests"
+  ( cd "$proj_dir" && xcodegen generate ) >"$log" 2>&1 || true
+  xcodebuild test \
+    -project "$proj_dir/$scheme.xcodeproj" -scheme "$scheme" \
+    -destination "$DEST" -derivedDataPath "$REPO_ROOT/.build/dd-e2e-$tag" \
+    -only-testing:"${scheme}UITests/NotificationBannerUITests/test_newMessageBanner_appearsWhileForeground" \
+    -resultBundlePath "$rb" >>"$log" 2>&1
+  local rc=$?
+
+  # Extract the banner screenshot (attachment named "2-BANNER…").
+  local shot="$OUT_DIR/notif-$tag-banner.png"
+  if [ -d "$rb" ]; then
+    local exdir="$OUT_DIR/_att-$tag"; mkdir -p "$exdir"
+    xcrun xcresulttool export attachments --path "$rb" --output-path "$exdir" >/dev/null 2>&1 || true
+    if [ -f "$exdir/manifest.json" ]; then
+      local fname
+      fname="$(python3 -c "import json,sys;d=json.load(open('$exdir/manifest.json'));print(next((a['exportedFileName'] for e in d for a in e.get('attachments',[]) if (a.get('suggestedHumanReadableName') or '').startswith('2-BANNER')),''))" 2>/dev/null)"
+      [ -n "$fname" ] && [ -f "$exdir/$fname" ] && cp -f "$exdir/$fname" "$shot"
+    fi
+  fi
+
+  if [ "$rc" -eq 0 ] || grep -q "TEST SUCCEEDED" "$log"; then
+    echo "    [$tag] PASS  (banner: ${shot})"
+    notif_results+=("$tag|PASS|$shot")
+  else
+    echo "    [$tag] FAIL  (see $log)"
+    notif_results+=("$tag|FAIL|$log")
+  fi
+}
+
+for entry in "${NOTIF_TARGETS[@]}"; do
+  IFS=':' read -r fw dir scheme _ <<<"$entry"
+  tag="$(echo "${fw}-${dir%%-*}" | tr '[:upper:]' '[:lower:]')"
+  notif_one "$fw" "$dir" "$scheme" "$tag"
+done
+
+# ---------------------------------------------------------------------------
+# Part 3b: reboot/resume-dedupe E2E
+#
+# Runs test_resume_doesNotReNotifyAlreadyShownMessages: the test relaunches the
+# app and resumes the conversation, so the SDK replays history; the persisted
+# messageId store must suppress any second banner. PASS means *no* duplicate
+# banner appeared during the resume window.
+# ---------------------------------------------------------------------------
+echo ""
+echo "========================================"
+echo "PART 3b: Reboot/resume dedupe E2E"
+echo "========================================"
+
+resume_results=()
+resume_one() {
+  local fw="$1" dir="$2" scheme="$3" tag="$4"
+  local proj_dir="$REPO_ROOT/Examples/$fw/$dir"
+  local log="$LOGDIR/resume-$tag.log"
+  local rb="$OUT_DIR/resume-$tag.xcresult"
+  rm -rf "$rb"
+
+  echo ""
+  echo "==> [$tag] xcodegen + resume-dedupe test"
+  ( cd "$proj_dir" && xcodegen generate ) >"$log" 2>&1 || true
+  xcodebuild test \
+    -project "$proj_dir/$scheme.xcodeproj" -scheme "$scheme" \
+    -destination "$DEST" -derivedDataPath "$REPO_ROOT/.build/dd-e2e-$tag" \
+    -only-testing:"${scheme}UITests/NotificationBannerUITests/test_resume_doesNotReNotifyAlreadyShownMessages" \
+    -resultBundlePath "$rb" >>"$log" 2>&1
+  local rc=$?
+
+  # On FAIL, surface the unexpected-resume-banner screenshot if the test captured one.
+  local shot="$OUT_DIR/resume-$tag-no-banner.png"
+  if [ -d "$rb" ]; then
+    local exdir="$OUT_DIR/_att-resume-$tag"; mkdir -p "$exdir"
+    xcrun xcresulttool export attachments --path "$rb" --output-path "$exdir" >/dev/null 2>&1 || true
+    if [ -f "$exdir/manifest.json" ]; then
+      local fname
+      fname="$(python3 -c "import json,sys;d=json.load(open('$exdir/manifest.json'));print(next((a['exportedFileName'] for e in d for a in e.get('attachments',[]) if (a.get('suggestedHumanReadableName') or '').startswith('resume-no-banner')),''))" 2>/dev/null)"
+      [ -n "$fname" ] && [ -f "$exdir/$fname" ] && cp -f "$exdir/$fname" "$shot"
+    fi
+  fi
+
+  if [ "$rc" -eq 0 ] || grep -q "TEST SUCCEEDED" "$log"; then
+    echo "    [$tag] PASS  (no duplicate banner on resume)"
+    resume_results+=("$tag|PASS|$shot")
+  else
+    echo "    [$tag] FAIL  (see $log)"
+    resume_results+=("$tag|FAIL|$log")
+  fi
+}
+
+for entry in "${NOTIF_RESUME_TARGETS[@]}"; do
+  IFS=':' read -r fw dir scheme _ <<<"$entry"
+  tag="$(echo "${fw}-${dir%%-*}" | tr '[:upper:]' '[:lower:]')"
+  resume_one "$fw" "$dir" "$scheme" "$tag"
+done
+
+# ---------------------------------------------------------------------------
 # Summary
 # ---------------------------------------------------------------------------
 echo ""
@@ -262,6 +442,36 @@ echo ""
 echo "Part 2 — XCUITest verdict: $UITEST_VERDICT"
 echo "  Log:      $STD_LOG"
 echo "  xcresult: $STD_RESULT_BUNDLE  (open in Xcode)"
+echo ""
+echo "Part 3 — notification banner E2E:"
+NOTIF_PASS=0; NOTIF_FAIL=0
+for r in "${notif_results[@]:-}"; do
+  [ -z "$r" ] && continue
+  tag="${r%%|*}"; rest="${r#*|}"; verdict="${rest%%|*}"; detail="${rest#*|}"
+  if [ "$verdict" = "PASS" ]; then
+    echo "  PASS  $tag  ->  $detail"
+    NOTIF_PASS=$((NOTIF_PASS+1))
+  else
+    echo "  FAIL  $tag  ($detail)"
+    NOTIF_FAIL=$((NOTIF_FAIL+1))
+  fi
+done
+echo "  Part 3 total: $NOTIF_PASS pass / $NOTIF_FAIL fail"
+echo ""
+echo "Part 3b — reboot/resume dedupe E2E:"
+RESUME_PASS=0; RESUME_FAIL=0
+for r in "${resume_results[@]:-}"; do
+  [ -z "$r" ] && continue
+  tag="${r%%|*}"; rest="${r#*|}"; verdict="${rest%%|*}"; detail="${rest#*|}"
+  if [ "$verdict" = "PASS" ]; then
+    echo "  PASS  $tag  (no duplicate banner on resume)"
+    RESUME_PASS=$((RESUME_PASS+1))
+  else
+    echo "  FAIL  $tag  ($detail)"
+    RESUME_FAIL=$((RESUME_FAIL+1))
+  fi
+done
+echo "  Part 3b total: $RESUME_PASS pass / $RESUME_FAIL fail"
 echo ""
 echo "All artifacts:  $OUT_DIR"
 echo ""

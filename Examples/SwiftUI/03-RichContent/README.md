@@ -20,6 +20,7 @@ Set your API key in `App/RichContentApp.swift` (currently `"YOUR_API_KEY"`).
 - `tel:` call buttons — `AgentMessage.callActions`
 - Markdown **and** a small HTML subset — `AgentMessage.text` (Markdown, plus tags like `<br>` normalized to match the web chat widget)
 - Forward-compat: drop `.unknown` content types silently
+- Foreground-only new-message banners — a local notification when the agent replies while the app is open (`Components/NewMessageNotifier.swift`)
 
 **The SDK decodes the data; it never fetches bytes or dials phones.** You own image loading, caching, retry, link-opening, and the `tel:` `URL`. This example shows one way to do all of that with stock SwiftUI.
 
@@ -244,6 +245,27 @@ case .agent(let m):
 ```
 
 **Under the hood:** the SDK delivers text, attachments, and call actions on one assembled `AgentMessage` — no separate events to coordinate. `.unknown` is the SDK's forward-compat slot for content types it doesn't model yet; dropping it (instead of falling through to a placeholder) is the safe default.
+
+### In-app new-message banners (foreground only) — `Components/NewMessageNotifier.swift`
+
+Pop a local-notification banner when the agent replies *while the app is open*. There is deliberately **no background path** — the SDK's realtime connection only delivers while the app is running, so nothing is ever scheduled from a suspended state. Real background delivery would need APNs + a server-side push integration, which the SDK does not provide.
+
+The SDK signal:
+
+```swift
+session.$messages   // published [ChatMessage] — the same array the chat list renders
+```
+
+In a view — one modifier on the chat view:
+
+```swift
+ChatView(/* ... */)
+    .newMessageNotifications(for: session)   // Components/NewMessageNotifier.swift
+```
+
+**Under the hood:** the modifier sets a `UNUserNotificationCenterDelegate` (so iOS presents the banner for the *foreground* app instead of suppressing it), seeds the "already notified" set from the first `messages` snapshot (so a resumed conversation's replayed history doesn't fire a burst), then schedules one immediate `trigger: nil` notification per new `.agent` message — gated to `scenePhase == .active`. With streaming on the agent bubble's `id` is stable across chunks, so it fires exactly once, with the opening tokens.
+
+*See [Integration guide › In-app new-message alerts (foreground only)](../../../README.md#in-app-new-message-alerts-foreground-only).*
 
 ## What this example skips
 

@@ -25,6 +25,10 @@ final class ChatViewController: UIViewController {
     private let diagnostics: DevDiagnostics
     private var bag = Set<AnyCancellable>()
 
+    // Foreground-only local-notification banners for new agent messages
+    // (see Components/NewMessageNotifier.swift).
+    private let messageNotifier = NewMessageNotifier()
+
     private let network = NetworkMonitor()
 
     // The suggestions row is its own list item (not embedded in a bubble cell),
@@ -76,6 +80,7 @@ final class ChatViewController: UIViewController {
         layoutUI()
         configureDataSource()
         bind()
+        messageNotifier.start(observing: session)
     }
 
     override func viewDidAppear(_ animated: Bool) {

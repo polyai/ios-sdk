@@ -241,6 +241,9 @@ private struct ChatScreen: View {
             )
         }
         .onReceive(session.$messages) { syncSendingLabels($0) }
+        // In-app local-notification banners for new agent messages — foreground
+        // only (see Components/NewMessageNotifier.swift).
+        .newMessageNotifications(for: session)
         .onAppear {
             if wasResumed {
                 showResumeBanner = true

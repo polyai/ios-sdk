@@ -1267,6 +1267,97 @@ deinit { eventsTask?.cancel() }
 
 > Tie the `Task` to your view's lifecycle (SwiftUI `.task { }`, or cancel in `deinit`). Subscribe **before** sending — `events` is lazy-start.
 
+### In-app new-message alerts (foreground only)
+
+A common ask: pop a notification banner when the agent replies. The SDK's realtime connection **only delivers while your app is running**, so these alerts are inherently foreground-only — there is no background path here. Drive them off the **completed-message events** on `client.events` and schedule an immediate **local** notification, gated to the active app.
+
+Two details make it production-clean:
+
+- **Full text, once per message.** Use `.agentMessage` / `.liveAgentMessage` (not `.agentMessageChunk`). Each carries the *complete* `text` and a stable, server-assigned `messageId` — so the banner shows the whole reply, not the first streamed token.
+- **No re-notifying on resume/relaunch.** The SDK replays the conversation on resume/reconnect (so `messages` repopulates). Dedupe on the stable `messageId`, and **persist** the set you've shown — otherwise a relaunch re-shows everything. A tiny `UserDefaults`-backed set is enough.
+
+> **Foreground only — by design.** Nothing is ever scheduled while the app is suspended, and we never use a time-based trigger (which could fire after backgrounding). Delivering a banner while the app is **closed/backgrounded** needs **APNs + a server-side push integration**, which this SDK does not provide.
+
+To show the banner *while your app is open*, set a `UNUserNotificationCenterDelegate` — otherwise iOS suppresses banners for the foreground app:
+
+```swift
+// Present banners even while the app is foreground.
+final class ForegroundBannerPresenter: NSObject, UNUserNotificationCenterDelegate {
+    func userNotificationCenter(_ c: UNUserNotificationCenter, willPresent n: UNNotification,
+        withCompletionHandler done: @escaping (UNNotificationPresentationOptions) -> Void) {
+        done([.banner, .sound])
+    }
+}
+```
+```swift
+// Persisted dedupe — survives relaunch, so resume doesn't re-show old messages.
+struct NotifiedMessageStore {
+    private let key = "poly.notifiedMessageIds"
+    private var seen: Set<String>
+    init() { seen = Set(UserDefaults.standard.stringArray(forKey: key) ?? []) }
+    func contains(_ id: String) -> Bool { seen.contains(id) }
+    mutating func markShown(_ id: String) {
+        guard seen.insert(id).inserted else { return }
+        // (cap the stored list in real code so it can't grow unbounded)
+        UserDefaults.standard.set(Array(seen), forKey: key)
+    }
+}
+```
+```swift
+// SwiftUI — subscribe once; `client.events` is multicast so this doesn't disturb
+// the ChatSession driving your UI. `.task` is cancelled when the view goes away.
+@State private var store = NotifiedMessageStore()
+
+var body: some View {
+    ChatView(/* ... */)
+        .onAppear {
+            let center = UNUserNotificationCenter.current()
+            center.delegate = bannerPresenter            // your ForegroundBannerPresenter
+            center.requestAuthorization(options: [.alert, .sound]) { _, _ in }
+        }
+        .task {
+            for await event in session.client.events {
+                let msg: (id: String, title: String, body: String)?
+                switch event {
+                case .agentMessage(_, let p):     msg = (p.messageId, p.agentName ?? "New message", p.text)
+                case .liveAgentMessage(_, let p): msg = (p.messageId, p.agentName ?? "New message", p.text)
+                default:                          msg = nil
+                }
+                guard let msg, !store.contains(msg.id) else { continue }      // dedupe (persisted)
+                guard UIApplication.shared.applicationState == .active else { continue }  // foreground gate
+                let content = UNMutableNotificationContent()
+                content.title = msg.title; content.body = msg.body
+                UNUserNotificationCenter.current().add(                       // trigger: nil = deliver now
+                    UNNotificationRequest(identifier: msg.id, content: content, trigger: nil))
+                store.markShown(msg.id)
+            }
+        }
+}
+```
+```swift
+// UIKit — same logic in a Task; cancel it when the view controller goes away.
+notifyTask = Task { [weak self] in
+    for await event in session.client.events {
+        guard let self else { return }
+        let msg: (id: String, title: String, body: String)?
+        switch event {
+        case .agentMessage(_, let p):     msg = (p.messageId, p.agentName ?? "New message", p.text)
+        case .liveAgentMessage(_, let p): msg = (p.messageId, p.agentName ?? "New message", p.text)
+        default:                          msg = nil
+        }
+        guard let msg, !self.store.contains(msg.id) else { continue }
+        guard UIApplication.shared.applicationState == .active else { continue }
+        let content = UNMutableNotificationContent()
+        content.title = msg.title; content.body = msg.body
+        UNUserNotificationCenter.current().add(
+            UNNotificationRequest(identifier: msg.id, content: content, trigger: nil))
+        self.store.markShown(msg.id)
+    }
+}
+```
+
+Runnable in the **03 Rich Content**, **06 Full reference**, and **07 Playground** examples — see `Components/NewMessageNotifier.swift` in each.
+
 ---
 
 # Reference

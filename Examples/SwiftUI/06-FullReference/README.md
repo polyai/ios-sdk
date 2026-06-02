@@ -22,6 +22,7 @@ Set your API key in `FullReferenceApp.swift` (currently `"YOUR_API_KEY"`).
 - Delayed "Sending…" label (~500ms debounce) so fast confirmations never flash it
 - Retry that calls `session.removeMessage(draftId:)` before re-sending, so failed bubbles never linger
 - Streaming-aware scroll: re-anchor on text-length growth, not just `messages.count`
+- Foreground-only new-message banners — a local notification when the agent replies while the app is open (`Components/NewMessageNotifier.swift`)
 
 The SDK invariants behind each pattern are in the root README's [Integration guide](../../../README.md#integration-guide); this example shows them as one concrete multi-screen app.
 
@@ -412,6 +413,28 @@ ScrollViewReader { proxy in
 **Under the hood:** with `streamingEnabled: true` (the default), `ChatSession` extends the last `.agent` message's `text` on every chunk and re-publishes `messages`. Watching `lastAgentTextLength` (a derived `Int`) gives SwiftUI a stable, scalar signal to drive the scroll — without it, a streaming reply would slide off the bottom of the screen as it grows.
 
 *See [Integration guide › Streaming](../../../README.md#streaming).*
+
+### In-app new-message banners (foreground only) — `Views/ContentView.swift`, `Components/NewMessageNotifier.swift`
+
+Pop a local-notification banner when the agent replies *while the app is open*. There is deliberately **no background path** — the SDK's realtime connection only delivers while the app is running, so nothing is ever scheduled from a suspended state. Real background delivery would need APNs + a server-side push integration, which the SDK does not provide.
+
+The SDK signal:
+
+```swift
+session.$messages   // published [ChatMessage] — the same array the chat list renders
+```
+
+In a view — one modifier on the chat screen:
+
+```swift
+ChatView(/* ... */)
+    .onReceive(session.$messages) { syncSendingLabels($0) }
+    .newMessageNotifications(for: session)   // Components/NewMessageNotifier.swift
+```
+
+**Under the hood:** the modifier sets a `UNUserNotificationCenterDelegate` (so iOS presents the banner for the *foreground* app instead of suppressing it), seeds the "already notified" set from the first `messages` snapshot (so a resume's replayed history doesn't fire a burst — relevant here because 06 resumes sessions), then schedules one immediate `trigger: nil` notification per new `.agent` message — gated to `scenePhase == .active`. With streaming on the agent bubble's `id` is stable across chunks, so it fires exactly once, with the opening tokens.
+
+*See [Integration guide › In-app new-message alerts (foreground only)](../../../README.md#in-app-new-message-alerts-foreground-only).*
 
 ## What this example skips
 
