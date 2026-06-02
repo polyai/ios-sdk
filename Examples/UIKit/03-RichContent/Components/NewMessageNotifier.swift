@@ -4,23 +4,33 @@
 //  Examples/UIKit/03-RichContent
 //
 //  Mirrors README:
-//    - § "Side effects: client.events > In-app new-message alerts (foreground only)"
+//    - § "Side effects: client.events > In-app new-message alerts"
 //
 //  Fires a local notification banner with the *full* agent reply when a new
-//  message arrives while the app is in the foreground.
+//  message arrives. Robustness:
+//   • Reads the completed-message events (`.agentMessage` / `.liveAgentMessage`)
+//     off `client.events` — the whole text + a stable, server-assigned
+//     `messageId`, not the first streamed chunk.
+//   • Dedupes on that `messageId` via a persisted (UserDefaults) store, so
+//     resuming / reconnecting / relaunching never re-shows a message the user
+//     was already notified about.
 //
-//  Two things make this robust:
-//   • It reads the completed-message events (`.agentMessage` / `.liveAgentMessage`)
-//     off `client.events`, which carry the whole text — not the first streamed
-//     chunk — and a stable, server-assigned `messageId`.
-//   • It dedupes on that `messageId` using a small UserDefaults-backed store, so
-//     resuming a conversation or relaunching the app never re-shows a message the
-//     user was already notified about. (The SDK replays the conversation on
-//     resume, which is exactly why an in-memory guard isn't enough.)
+//  ⚠️ WORKAROUND — these are LOCAL notifications, NOT remote push.
+//  PolyMessaging's realtime connection only delivers while the app is running, so
+//  delivery degrades the further the app is from the foreground:
+//   • Foreground            → banner fires immediately.
+//   • Background grace (~30s)→ on backgrounding we hold a `beginBackgroundTask`
+//                              so the socket survives briefly; a reply landing in
+//                              that short window still banners.
+//   • Suspended / locked /   → NOTHING arrives — iOS has torn the socket down,
+//     force-quit               and no client-side trick can change that.
 //
-//  There is deliberately no background path: PolyMessaging's realtime connection
-//  only delivers while the app is running. Real background delivery would need
-//  APNs + a server-side push integration, which the SDK doesn't provide.
+//  Real lock-screen delivery (even when the app is killed) needs APNs + a
+//  server-side push integration — device-token registration plus a backend that
+//  pushes on each new message. The SDK does not provide that yet — COMING SOON.
+//  (A further client-only option, `BGAppRefreshTask`, can poll-and-notify when
+//  iOS opportunistically wakes the app, but it's best-effort and iOS-timed, not
+//  instant — not wired up here.)
 //
 //  Own one per chat surface, then call `start(observing: session)` once the
 //  ChatSession exists (e.g. in viewDidLoad).
@@ -64,11 +74,22 @@ final class NewMessageNotifier: NSObject, UNUserNotificationCenterDelegate {
 
     private var task: Task<Void, Never>?
     private var store = NotifiedMessageStore()
+    // Held while backgrounded so the realtime socket survives the ~30s grace
+    // window iOS grants before suspending the app.
+    private var bgTask: UIBackgroundTaskIdentifier = .invalid
 
     func start(observing session: ChatSession) {
         let center = UNUserNotificationCenter.current()
         center.delegate = self
         center.requestAuthorization(options: [.alert, .sound]) { _, _ in }
+
+        // Hold a background task across the grace window so a reply landing just
+        // after backgrounding still banners.
+        let nc = NotificationCenter.default
+        nc.addObserver(self, selector: #selector(appDidBackground),
+                       name: UIApplication.didEnterBackgroundNotification, object: nil)
+        nc.addObserver(self, selector: #selector(appWillForeground),
+                       name: UIApplication.willEnterForegroundNotification, object: nil)
 
         // Consume the *completed* message events — full text + a stable server
         // messageId. (Partial chunks arrive via .agentMessageChunk and are
@@ -86,7 +107,30 @@ final class NewMessageNotifier: NSObject, UNUserNotificationCenterDelegate {
     func stop() {
         task?.cancel()
         task = nil
+        NotificationCenter.default.removeObserver(self)
+        endGraceWindow()
     }
+
+    // MARK: - Background grace window
+
+    @objc private func appDidBackground() { beginGraceWindow() }
+    @objc private func appWillForeground() { endGraceWindow() }
+
+    private func beginGraceWindow() {
+        guard bgTask == .invalid else { return }
+        bgTask = UIApplication.shared.beginBackgroundTask(withName: "poly.newMessageGrace") { [weak self] in
+            // iOS is reclaiming the time — always end the task or it force-quits us.
+            self?.endGraceWindow()
+        }
+    }
+
+    private func endGraceWindow() {
+        guard bgTask != .invalid else { return }
+        UIApplication.shared.endBackgroundTask(bgTask)
+        bgTask = .invalid
+    }
+
+    // MARK: - Event handling
 
     private func handle(_ event: MessagingEvent) {
         let message: (id: String, title: String, body: String)?
@@ -102,9 +146,10 @@ final class NewMessageNotifier: NSObject, UNUserNotificationCenterDelegate {
 
         // Already shown — covers resume / reconnect / relaunch replays.
         guard !store.contains(message.id) else { return }
-        // Foreground-only. Don't mark when inactive: a genuinely-missed message
-        // can then show on the next foreground replay.
-        guard UIApplication.shared.applicationState == .active else { return }
+        // Present while the app is active OR within the brief background grace
+        // window. Once iOS suspends the app neither is true and no events arrive.
+        let active = UIApplication.shared.applicationState == .active
+        guard active || bgTask != .invalid else { return }
 
         present(id: message.id, title: message.title, body: message.body)
         store.markShown(message.id)
@@ -115,8 +160,9 @@ final class NewMessageNotifier: NSObject, UNUserNotificationCenterDelegate {
         content.title = title
         content.body = body
         content.sound = .default
-        // `trigger: nil` delivers immediately. Never use a time-based trigger —
-        // that could fire after the app is backgrounded, which we don't want.
+        // `trigger: nil` delivers immediately (foreground or the grace window).
+        // Never use a time-based trigger — it could fire long after the app is
+        // suspended, which we don't want.
         let request = UNNotificationRequest(identifier: id, content: content, trigger: nil)
         UNUserNotificationCenter.current().add(request)
     }

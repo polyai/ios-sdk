@@ -47,7 +47,7 @@ POLY_HOST_IDENTIFIER="${POLY_HOST_IDENTIFIER:-}"
 
 # Notification-banner E2E targets (Part 3). Each entry:
 #   <framework>:<dir>:<scheme>:<App entrypoint rel-path>
-# These run NotificationBannerUITests and confirm the foreground-only banner
+# These run NotificationBannerUITests and confirm the foreground banner
 # from Components/NewMessageNotifier.swift, saving a screenshot of the banner.
 NOTIF_TARGETS=(
   "SwiftUI:03-RichContent:RichContentSwiftUI:App/RichContentApp.swift"

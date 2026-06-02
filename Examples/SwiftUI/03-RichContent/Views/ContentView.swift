@@ -96,7 +96,7 @@ struct ContentView: View {
         // raise the deployment target. (Examples target iOS 15.)
         .navigationViewStyle(.stack)
         // In-app local-notification banners for new agent messages
-        // foreground only (see Components/NewMessageNotifier.swift).
+        // foreground + a brief background grace window (see Components/NewMessageNotifier.swift).
         .newMessageNotifications(for: session)
     }
 
