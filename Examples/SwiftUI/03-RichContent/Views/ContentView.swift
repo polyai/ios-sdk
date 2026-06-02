@@ -47,6 +47,10 @@ struct ContentView: View {
                             if session.isAgentTyping {
                                 TypingIndicator(avatarUrl: session.lastAgentMessage?.avatarUrl)
                                     .frame(maxWidth: .infinity, alignment: .leading)
+                                    // Match each message bubble's .padding(.horizontal)
+                                    // so the typing avatar lines up with the agent
+                                    // message avatars instead of hugging the far edge.
+                                    .padding(.horizontal)
                             }
                         }
                         // Horizontal padding lives on each bubble's outer
@@ -56,9 +60,13 @@ struct ContentView: View {
                     }
                     .modifier(InteractiveKeyboardDismiss())
                     .onChange(of: session.messages.count) { _ in
-                        if let last = session.messages.last {
-                            withAnimation { proxy.scrollTo(last.id, anchor: .bottom) }
-                        }
+                        scrollToBottom(proxy)
+                    }
+                    // Streaming grows the last agent message's text in place without
+                    // changing messages.count, so also follow its length — otherwise
+                    // the view stops scrolling mid-stream (mirrors 06-FullReference).
+                    .onChange(of: session.lastAgentMessage?.text.count) { _ in
+                        scrollToBottom(proxy)
                     }
                 }
 
@@ -92,6 +100,15 @@ struct ContentView: View {
     private func showSendingLabel(for message: ChatMessage) -> Bool {
         if case .user(let m) = message, m.delivery == .pending { return true }
         return false
+    }
+
+    /// Keep the newest message pinned to the bottom. Re-runs after a short delay
+    /// so it catches the layout settling as a streaming bubble grows taller.
+    private func scrollToBottom(_ proxy: ScrollViewProxy) {
+        guard let lastId = session.messages.last?.id else { return }
+        let doScroll = { withAnimation { proxy.scrollTo(lastId, anchor: .bottom) } }
+        doScroll()
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { doScroll() }
     }
 
     private func send() {

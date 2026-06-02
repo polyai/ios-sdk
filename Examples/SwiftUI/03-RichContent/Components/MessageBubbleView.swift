@@ -90,14 +90,22 @@ struct MessageBubbleView: View {
                             AttachmentCarousel(attachments: images)
                         }
 
-                        // 3. URL attachments → vertical stack of cards.
+                        // 3. URL attachments → horizontal carousel of cards (swipe
+                        //    sideways), mirroring the image carousel above rather than
+                        //    a tall vertical stack. Matches UIKit 03's urlCarousel and
+                        //    the 06-FullReference carousel pattern.
                         let urls = m.attachments.filter { $0.contentType == .url }
                         if !urls.isEmpty {
-                            VStack(alignment: .leading, spacing: 8) {
-                                ForEach(Array(urls.enumerated()), id: \.offset) { _, att in
-                                    URLCard(attachment: att)
+                            ScrollView(.horizontal, showsIndicators: false) {
+                                HStack(spacing: 10) {
+                                    ForEach(Array(urls.enumerated()), id: \.offset) { _, att in
+                                        URLCard(attachment: att)
+                                    }
                                 }
+                                .padding(.horizontal, 4)
+                                .padding(.vertical, 4)
                             }
+                            .accessibilityIdentifier("urlCarousel")
                         }
 
                         // 4. `.unknown` content types are intentionally dropped —

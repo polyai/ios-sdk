@@ -104,34 +104,39 @@ In a view:
 
 ```swift
 let urls = m.attachments.filter { $0.contentType == .url }
-ForEach(Array(urls.enumerated()), id: \.offset) { _, att in
-    Button {
-        if let url = att.contentUrl { UIApplication.shared.open(url) }
-    } label: {
-        VStack(alignment: .leading, spacing: 0) {
-            if let preview = att.previewImageUrl {
-                RetryableAsyncImage(url: preview) { image in
-                    image.resizable().scaledToFill()
-                } placeholder: {
-                    ZStack { Color(.systemGray5); ProgressView() }
-                } fallback: {
-                    ZStack { Color(.systemGray5); Image(systemName: "photo").foregroundColor(.secondary) }
+// URL link-cards in a horizontal carousel (swipe sideways), like the image row.
+ScrollView(.horizontal, showsIndicators: false) {
+    HStack(spacing: 10) {
+        ForEach(Array(urls.enumerated()), id: \.offset) { _, att in
+            Button {
+                if let url = att.contentUrl { UIApplication.shared.open(url) }
+            } label: {
+                VStack(alignment: .leading, spacing: 0) {
+                    if let preview = att.previewImageUrl {
+                        RetryableAsyncImage(url: preview) { image in
+                            image.resizable().scaledToFill()
+                        } placeholder: {
+                            ZStack { Color(.systemGray5); ProgressView() }
+                        } fallback: {
+                            ZStack { Color(.systemGray5); Image(systemName: "photo").foregroundColor(.secondary) }
+                        }
+                        .frame(width: 260, height: 140)
+                        .clipped()
+                    }
+                    VStack(alignment: .leading, spacing: 6) {
+                        if let title = att.title { Text(title).font(.subheadline.bold()) }
+                        if let cta = att.callToActionText { Text(cta).font(.caption.bold()).foregroundColor(.blue) }
+                    }
+                    .padding(10)
                 }
-                .frame(width: 260, height: 140)
-                .clipped()
+                .frame(width: 260)
+                .background(Color(.systemGray6))
+                .clipShape(RoundedRectangle(cornerRadius: 12))
             }
-            VStack(alignment: .leading, spacing: 6) {
-                if let title = att.title { Text(title).font(.subheadline.bold()) }
-                if let cta = att.callToActionText { Text(cta).font(.caption.bold()).foregroundColor(.blue) }
-            }
-            .padding(10)
+            .buttonStyle(.plain)
+            .disabled(att.contentUrl == nil)
         }
-        .frame(width: 260)
-        .background(Color(.systemGray6))
-        .clipShape(RoundedRectangle(cornerRadius: 12))
     }
-    .buttonStyle(.plain)
-    .disabled(att.contentUrl == nil)
 }
 ```
 
@@ -221,7 +226,7 @@ RichText(m.text)
 
 ### Bubble layout — compose everything
 
-The agent bubble stacks: text → image carousel → URL cards → call actions. `.unknown` content types are dropped silently for forward-compat.
+The agent bubble stacks: text → image carousel → URL card carousel → call actions. `.unknown` content types are dropped silently for forward-compat.
 
 ```swift
 case .agent(let m):
@@ -232,7 +237,7 @@ case .agent(let m):
         if !images.isEmpty { /* ScrollView + AsyncImage row */ }
 
         let urls = m.attachments.filter { $0.contentType == .url }
-        ForEach(urls, id: \.contentUrl) { /* URL card */ }
+        if !urls.isEmpty { /* ScrollView + URL card row */ }
 
         ForEach(m.callActions) { /* tel: button */ }
     }

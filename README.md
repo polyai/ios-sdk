@@ -884,10 +884,14 @@ struct ChatView: View {
                         }
                     }
                 }
-                // URL cards
-                ForEach(m.attachments.filter { $0.contentType == .url }, id: \.contentUrl) { att in
-                    if let url = att.contentUrl {
-                        Link(att.title ?? url.absoluteString, destination: url)
+                // URL cards — horizontal carousel, like the images above
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 8) {
+                        ForEach(m.attachments.filter { $0.contentType == .url }, id: \.contentUrl) { att in
+                            if let url = att.contentUrl {
+                                Link(att.title ?? url.absoluteString, destination: url)
+                            }
+                        }
                     }
                 }
                 // Tel: buttons
