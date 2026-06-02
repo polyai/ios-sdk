@@ -53,6 +53,7 @@ var body: some View {
         if session.isAgentTyping {
             TypingIndicator(avatarUrl: session.lastAgentMessage?.avatarUrl)
                 .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal)   // align the typing avatar with the message bubbles
         }
 
         TextField("Message...", text: $input)
