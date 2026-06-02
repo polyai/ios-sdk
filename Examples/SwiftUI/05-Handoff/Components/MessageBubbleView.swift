@@ -115,8 +115,19 @@ struct MessageBubbleView: View {
                     if !images.isEmpty {
                         AttachmentCarousel(attachments: images)
                     }
-                    ForEach(Array(urlCards.enumerated()), id: \.offset) { _, att in
-                        URLCard(attachment: att)
+                    // URL link-cards in a horizontal carousel (swipe sideways),
+                    // mirroring the image carousel rather than a vertical stack.
+                    if !urlCards.isEmpty {
+                        ScrollView(.horizontal, showsIndicators: false) {
+                            HStack(spacing: 10) {
+                                ForEach(Array(urlCards.enumerated()), id: \.offset) { _, att in
+                                    URLCard(attachment: att)
+                                }
+                            }
+                            .padding(.horizontal, 4)
+                            .padding(.vertical, 4)
+                        }
+                        .accessibilityIdentifier("urlCarousel")
                     }
                 }
 
