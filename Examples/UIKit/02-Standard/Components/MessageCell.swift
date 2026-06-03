@@ -112,6 +112,11 @@ final class MessageCell: UITableViewCell {
             outerStack.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -4),
             outerStack.widthAnchor.constraint(lessThanOrEqualTo: contentView.widthAnchor, multiplier: 0.85),
 
+            // Cap the bubble itself to ~75% of the cell's content width so that on
+            // iPad / landscape neither agent (leading) nor user (trailing) bubbles
+            // stretch nearly edge-to-edge. Alignment + hugging keep short bubbles snug.
+            bubble.widthAnchor.constraint(lessThanOrEqualTo: contentView.widthAnchor, multiplier: 0.75),
+
             // Bubble inner padding 14h / 10v (matches SwiftUI reference).
             label.topAnchor.constraint(equalTo: bubble.topAnchor, constant: 10),
             label.bottomAnchor.constraint(equalTo: bubble.bottomAnchor, constant: -10),

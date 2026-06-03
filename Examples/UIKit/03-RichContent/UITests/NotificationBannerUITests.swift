@@ -48,12 +48,12 @@ final class NotificationBannerUITests: XCTestCase {
     // MARK: - Per-example flow
 
     private func connect() {
-        XCTAssertTrue(app.textFields["composer"].waitForExistence(timeout: 30),
+        XCTAssertTrue(app.textViews["composer"].waitForExistence(timeout: 30),
                       "composer present after auto-connect")
     }
 
     private func send(_ text: String) {
-        let composer = app.textFields["composer"]
+        let composer = app.textViews["composer"]
         composer.tap()
         _ = app.keyboards.element.waitForExistence(timeout: 5)  // avoid the no-focus typeText flake
         composer.typeText(text)

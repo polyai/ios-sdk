@@ -16,7 +16,7 @@ final class HelloUIKitFlowTests: XCTestCase {
         _ = app.staticTexts.containing(
             NSPredicate(format: "label CONTAINS[c] %@", "Webchat")).firstMatch.waitForExistence(timeout: 20)
 
-        let composer = app.textFields["composer"]
+        let composer = app.textViews["composer"]
         XCTAssertTrue(composer.waitForExistence(timeout: 25), "composer present after connect")
         let before = Set(app.staticTexts.allElementsBoundByIndex.map { $0.label })
 

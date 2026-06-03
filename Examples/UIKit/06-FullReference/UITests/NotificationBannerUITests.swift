@@ -52,12 +52,12 @@ final class NotificationBannerUITests: XCTestCase {
         if start.waitForExistence(timeout: 8) { start.tap() }
         else if app.buttons["Start New Chat"].waitForExistence(timeout: 3) { app.buttons["Start New Chat"].tap() }
         else if app.buttons["Resume Chat"].waitForExistence(timeout: 3) { app.buttons["Resume Chat"].tap() }
-        XCTAssertTrue(app.textFields["composer"].waitForExistence(timeout: 30),
+        XCTAssertTrue(app.textViews["composer"].waitForExistence(timeout: 30),
                       "composer present after connect")
     }
 
     private func send(_ text: String) {
-        let composer = app.textFields["composer"]
+        let composer = app.textViews["composer"]
         composer.tap()
         _ = app.keyboards.element.waitForExistence(timeout: 5)  // avoid the no-focus typeText flake
         composer.typeText(text)

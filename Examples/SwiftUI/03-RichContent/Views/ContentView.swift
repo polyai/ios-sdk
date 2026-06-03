@@ -13,12 +13,19 @@ import SwiftUI
 import PolyMessaging
 
 struct ContentView: View {
+    static let maxMessageLength = 500
+
     // @StateObject survives view re-renders — one ChatSession per chat surface.
     @StateObject var session = PolyMessaging.chat()
     @State private var input = ""
 
+    // F1: only auto-scroll when the user is already near the bottom; otherwise
+    // surface a "New messages" pill instead of yanking them away from history.
+    @State private var isNearBottom = true
+    @State private var hasNewBelow = false
+
     private var sendDisabled: Bool {
-        input.trimmingCharacters(in: .whitespaces).isEmpty || session.hasEnded
+        input.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || session.hasEnded
     }
 
     var body: some View {
@@ -26,47 +33,78 @@ struct ContentView: View {
             VStack(spacing: 0) {
                 ConnectionBanner(status: session.connection)
 
-                ScrollViewReader { proxy in
-                    ScrollView {
-                        LazyVStack(spacing: 8) {
-                            ForEach(session.messages) { message in
-                                MessageBubbleView(
-                                    message: message,
-                                    onRetry: { text in Task { try? await session.send(text) } },
-                                    showSendingLabel: showSendingLabel(for: message),
-                                    // Pills attach under the last message and clear
-                                    // as soon as the user sends (mirrors 06).
-                                    showSuggestions: !session.hasEnded && message.id == session.messages.last?.id,
-                                    onSuggestionTap: { text in
-                                        session.clearSuggestions(for: message.id)
-                                        Task { try? await session.send(text) }
-                                    }
-                                )
-                                .id(message.id)
+                GeometryReader { outer in
+                    ScrollViewReader { proxy in
+                        ScrollView {
+                            LazyVStack(spacing: 8) {
+                                ForEach(session.messages) { message in
+                                    MessageBubbleView(
+                                        message: message,
+                                        containerWidth: outer.size.width,
+                                        onRetry: { text in Task { try? await session.send(text) } },
+                                        showSendingLabel: showSendingLabel(for: message),
+                                        // Pills attach under the last message and clear
+                                        // as soon as the user sends (mirrors 06).
+                                        showSuggestions: !session.hasEnded && message.id == session.messages.last?.id,
+                                        onSuggestionTap: { text in
+                                            session.clearSuggestions(for: message.id)
+                                            Task { try? await session.send(text) }
+                                        }
+                                    )
+                                    .id(message.id)
+                                }
+                                if session.isAgentTyping {
+                                    TypingIndicator(avatarUrl: session.lastAgentMessage?.avatarUrl)
+                                        .frame(maxWidth: .infinity, alignment: .leading)
+                                        // Match each message bubble's .padding(.horizontal)
+                                        // so the typing avatar lines up with the agent
+                                        // message avatars instead of hugging the far edge.
+                                        .padding(.horizontal)
+                                }
+                                // Stable scroll anchor — avoids off-by-one when the
+                                // LazyVStack hasn't laid out new bubbles yet, and lets
+                                // us measure how close the user is to the bottom.
+                                Color.clear
+                                    .frame(height: 1)
+                                    .id("bottom")
+                                    .background(GeometryReader { g in
+                                        Color.clear.preference(
+                                            key: BottomVisibleKey.self,
+                                            value: g.frame(in: .named("chatScroll")).maxY
+                                        )
+                                    })
                             }
-                            if session.isAgentTyping {
-                                TypingIndicator(avatarUrl: session.lastAgentMessage?.avatarUrl)
-                                    .frame(maxWidth: .infinity, alignment: .leading)
-                                    // Match each message bubble's .padding(.horizontal)
-                                    // so the typing avatar lines up with the agent
-                                    // message avatars instead of hugging the far edge.
-                                    .padding(.horizontal)
+                            // Horizontal padding lives on each bubble's outer
+                            // HStack (MessageBubbleView). Keeping it here would
+                            // double-pad the row in landscape.
+                            .padding(.vertical, 8)
+                        }
+                        .coordinateSpace(name: "chatScroll")
+                        .onPreferenceChange(BottomVisibleKey.self) { bottomMaxY in
+                            let near = bottomMaxY <= outer.size.height + 80
+                            if near != isNearBottom { isNearBottom = near }
+                            if near, hasNewBelow { hasNewBelow = false }
+                        }
+                        .modifier(InteractiveKeyboardDismiss())
+                        .overlay(alignment: .bottom) {
+                            if hasNewBelow {
+                                newMessagesPill(proxy: proxy)
+                                    .padding(.bottom, 10)
+                                    .transition(.move(edge: .bottom).combined(with: .opacity))
                             }
                         }
-                        // Horizontal padding lives on each bubble's outer
-                        // HStack (MessageBubbleView). Keeping it here would
-                        // double-pad the row in landscape.
-                        .padding(.vertical, 8)
-                    }
-                    .modifier(InteractiveKeyboardDismiss())
-                    .onChange(of: session.messages.count) { _ in
-                        scrollToBottom(proxy)
-                    }
-                    // Streaming grows the last agent message's text in place without
-                    // changing messages.count, so also follow its length — otherwise
-                    // the view stops scrolling mid-stream (mirrors 06-FullReference).
-                    .onChange(of: session.lastAgentMessage?.text.count) { _ in
-                        scrollToBottom(proxy)
+                        .onChange(of: session.messages.count) { _ in
+                            onNewContent(proxy)
+                        }
+                        // Streaming grows the last agent message's text in place without
+                        // changing messages.count, so also follow its length — otherwise
+                        // the view stops scrolling mid-stream (mirrors 06-FullReference).
+                        .onChange(of: session.lastAgentMessage?.text.count) { _ in
+                            onNewContent(proxy)
+                        }
+                        .onChange(of: session.isAgentTyping) { _ in
+                            onNewContent(proxy)
+                        }
                     }
                 }
 
@@ -104,19 +142,45 @@ struct ContentView: View {
         return false
     }
 
+    /// New content arrived: follow it only if the user is already at the bottom;
+    /// otherwise leave them where they are and surface the "New messages" pill.
+    private func onNewContent(_ proxy: ScrollViewProxy) {
+        if isNearBottom {
+            scrollToBottom(proxy)
+        } else {
+            hasNewBelow = true
+        }
+    }
+
     /// Keep the newest message pinned to the bottom. Re-runs after a short delay
     /// so it catches the layout settling as a streaming bubble grows taller.
     private func scrollToBottom(_ proxy: ScrollViewProxy) {
-        guard let lastId = session.messages.last?.id else { return }
-        let doScroll = { withAnimation { proxy.scrollTo(lastId, anchor: .bottom) } }
+        let doScroll = { withAnimation { proxy.scrollTo("bottom", anchor: .bottom) } }
         doScroll()
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { doScroll() }
     }
 
+    private func newMessagesPill(proxy: ScrollViewProxy) -> some View {
+        Button {
+            withAnimation { proxy.scrollTo("bottom", anchor: .bottom) }
+            hasNewBelow = false
+            isNearBottom = true
+        } label: {
+            Label("New messages", systemImage: "arrow.down")
+                .font(.caption.bold())
+                .padding(.horizontal, 14)
+                .padding(.vertical, 8)
+                .background(Capsule().fill(Color.blue))
+                .foregroundColor(.white)
+                .shadow(color: .black.opacity(0.2), radius: 4, y: 2)
+        }
+        .accessibilityLabel("Scroll to newest messages")
+    }
+
     private func send() {
-        let text = input
+        let trimmed = input.trimmingCharacters(in: .whitespacesAndNewlines)
         input = ""
-        Task { try? await session.send(text) }
+        if !session.hasEnded, !trimmed.isEmpty { Task { try? await session.send(trimmed) } }
     }
 
     private var chatEndedFooter: some View {
@@ -133,15 +197,12 @@ struct ContentView: View {
     }
 
     private var inputBar: some View {
-        HStack(spacing: 12) {
-            TextField("Message...", text: $input)
+        HStack(alignment: .bottom, spacing: 12) {
+            composerField
                 .accessibilityIdentifier("composer")
                 .textFieldStyle(.plain)
-                .submitLabel(.send)
-                .onChange(of: input) { _ in Task { await session.sendTyping() } }
-                .onSubmit { send() }
                 .padding(.horizontal, 12).padding(.vertical, 10)
-                .background(Color(.systemGray6)).clipShape(Capsule())
+                .background(Color(.systemGray6)).clipShape(RoundedRectangle(cornerRadius: 20))
             Button { send() } label: {
                 Image(systemName: "arrow.up.circle.fill")
                     .font(.system(size: 36))
@@ -150,6 +211,40 @@ struct ContentView: View {
             .disabled(sendDisabled)
         }
         .padding(.horizontal).padding(.vertical, 8).background(.bar)
+    }
+
+    // F4: a composer that grows 1–5 lines on iOS 16+ (web parity); single-line
+    // fallback on iOS 15. Return sends in both cases (newlines arrive via paste).
+    @ViewBuilder
+    private var composerField: some View {
+        if #available(iOS 16.0, *) {
+            TextField("Message...", text: $input, axis: .vertical)
+                .lineLimit(1...5)
+                .onChange(of: input) { handleComposerChange($0) }
+        } else {
+            TextField("Message...", text: $input)
+                .submitLabel(.send)
+                .onChange(of: input) { newValue in
+                    if newValue.count > Self.maxMessageLength {
+                        input = String(newValue.prefix(Self.maxMessageLength))
+                    }
+                    Task { await session.sendTyping() }
+                }
+                .onSubmit { send() }
+        }
+    }
+
+    /// iOS 16+ growing field: Return inserts '\n', so detect a trailing newline and
+    /// treat it as a send; otherwise enforce the length cap and broadcast typing.
+    private func handleComposerChange(_ newValue: String) {
+        if newValue.hasSuffix("\n") {
+            send()
+            return
+        }
+        if newValue.count > Self.maxMessageLength {
+            input = String(newValue.prefix(Self.maxMessageLength))
+        }
+        Task { await session.sendTyping() }
     }
 
     @ViewBuilder
@@ -185,5 +280,14 @@ private struct InteractiveKeyboardDismiss: ViewModifier {
         } else {
             content
         }
+    }
+}
+
+/// Reports the bottom sentinel's maxY within the scroll viewport so the view can
+/// tell whether the user is parked near the bottom (F1 gated auto-scroll).
+private struct BottomVisibleKey: PreferenceKey {
+    static let defaultValue: CGFloat = .greatestFiniteMagnitude
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value = min(value, nextValue())
     }
 }

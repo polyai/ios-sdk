@@ -94,12 +94,12 @@ final class HandoffUIKitFlowTests: XCTestCase {
 
     /// 05 auto-connects (no connect screen): just wait for the composer.
     private func connectFresh() {
-        XCTAssertTrue(app.textFields["composer"].waitForExistence(timeout: 25),
+        XCTAssertTrue(app.textViews["composer"].waitForExistence(timeout: 25),
                       "composer present after auto-connect")
     }
 
     private func send(_ text: String) {
-        let composer = app.textFields["composer"]
+        let composer = app.textViews["composer"]
         XCTAssertTrue(composer.waitForExistence(timeout: 10), "composer present")
         composer.tap()
         composer.typeText(text)
