@@ -1283,7 +1283,7 @@ A common ask: pop a notification banner when the agent replies. ⚠️ **This is
 
 > **Foreground + a short grace window — and that's the client-side ceiling.** The example `NewMessageNotifier` holds a `beginBackgroundTask` on backgrounding so a reply landing in the ~30s before iOS suspends the app still banners. We never use a time-based trigger (it could fire long after suspension). Beyond that window — suspended, locked, or killed — nothing arrives client-side; lock-screen delivery is an **APNs + backend push** feature (not built yet — **coming soon**), see the table above.
 
-**Step by step** — each step shows the idea, then the code.
+**Step by step** — each step shows the idea, then the code. Steps 1–5 are plain `UserNotifications` + the SDK's `client.events`, so the code is **identical in SwiftUI and UIKit**; the only per-framework difference is the wiring (where the loop runs, how the grace task is held), shown for **both** in *Putting it together* below.
 
 **1. Become the foreground delegate.** Set a `UNUserNotificationCenterDelegate` whose `willPresent` returns `[.banner, .sound]` — otherwise iOS suppresses banners for the *active* app — and request authorization once, up front.
 
@@ -1353,7 +1353,52 @@ store.markShown(msg.id)
 
 **6. Streaming-safe — no extra code.** With streaming on, the agent message's `id` is stable across chunks, so step 3's dedupe yields exactly **one** banner per reply (with the opening tokens).
 
-**Where the loop lives** differs by framework — SwiftUI runs it in a `.task { }` (auto-cancelled when the view goes away), UIKit in a `Task` you cancel in `deinit`; subscribe *before* sending, as `events` is lazy-start. Runnable in the **03 Rich Content**, **06 Full reference**, and **07 Playground** examples — `Components/NewMessageNotifier.swift` packages all of the above (plus the `beginBackgroundTask` grace window) into one drop-in type. Still a **local-only workaround** — no remote push yet (**coming soon**).
+**Putting it together** — the loop and grace window wire up a little differently per framework:
+
+```swift
+// SwiftUI — run the loop in `.task` (auto-cancelled with the view); hold the
+// background grace task while backgrounded via scenePhase.
+.onAppear {
+    let center = UNUserNotificationCenter.current()
+    center.delegate = bannerPresenter                       // your ForegroundBannerPresenter
+    center.requestAuthorization(options: [.alert, .sound]) { _, _ in }
+}
+.task {
+    for await event in session.client.events { /* steps 2–5: match → dedupe → gate → post */ }
+}
+.onChange(of: scenePhase) { phase in                        // graceWindowIsOpen = a held beginBackgroundTask
+    switch phase {
+    case .background: graceTask.begin()
+    case .active:     graceTask.end()
+    default:          break
+    }
+}
+```
+```swift
+// UIKit — run the loop in a Task you cancel in deinit; hold the grace task via
+// the background / foreground notifications.
+override func viewDidLoad() {
+    super.viewDidLoad()
+    let center = UNUserNotificationCenter.current()
+    center.delegate = self                                  // the VC is the UNUserNotificationCenterDelegate
+    center.requestAuthorization(options: [.alert, .sound]) { _, _ in }
+
+    let nc = NotificationCenter.default
+    nc.addObserver(self, selector: #selector(didBackground),
+                   name: UIApplication.didEnterBackgroundNotification, object: nil)
+    nc.addObserver(self, selector: #selector(willForeground),
+                   name: UIApplication.willEnterForegroundNotification, object: nil)
+
+    notifyTask = Task { [weak self] in
+        guard let self else { return }
+        for await event in self.session.client.events { /* steps 2–5: match → dedupe → gate → post */ }
+    }
+}
+@objc private func didBackground()  { graceTask.begin() }   // beginBackgroundTask
+@objc private func willForeground() { graceTask.end() }
+```
+
+Subscribe *before* sending — `events` is lazy-start. Runnable in the **03 Rich Content**, **06 Full reference**, and **07 Playground** examples — `Components/NewMessageNotifier.swift` packages all of the above (loop + grace window) into one drop-in type. Still a **local-only workaround** — no remote push yet (**coming soon**).
 
 ---
 
