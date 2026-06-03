@@ -1283,7 +1283,7 @@ A common ask: pop a notification banner when the agent replies. ⚠️ **This is
 
 > **Foreground + a short grace window — and that's the client-side ceiling.** The example `NewMessageNotifier` holds a `beginBackgroundTask` on backgrounding so a reply landing in the ~30s before iOS suspends the app still banners. We never use a time-based trigger (it could fire long after suspension). Beyond that window — suspended, locked, or killed — nothing arrives client-side; lock-screen delivery is an **APNs + backend push** feature (not built yet — **coming soon**), see the table above.
 
-**Step by step** — each step shows the idea, then the code.
+**Step by step** — each step shows the idea, then the code. Steps 1–5 are plain `UserNotifications` + the SDK's `client.events`, so the code is **identical in SwiftUI and UIKit**; the only per-framework difference is the wiring (where the loop runs, how the grace task is held), shown for **both** in *Putting it together* below.
 
 **1. Become the foreground delegate.** Set a `UNUserNotificationCenterDelegate` whose `willPresent` returns `[.banner, .sound]` — otherwise iOS suppresses banners for the *active* app — and request authorization once, up front.
 
@@ -1364,7 +1364,7 @@ store.markShown(msg.id)
     center.requestAuthorization(options: [.alert, .sound]) { _, _ in }
 }
 .task {
-    for await event in session.client.events { /* steps 2–5 */ }
+    for await event in session.client.events { /* steps 2–5: match → dedupe → gate → post */ }
 }
 .onChange(of: scenePhase) { phase in                        // graceWindowIsOpen = a held beginBackgroundTask
     switch phase {
@@ -1391,7 +1391,7 @@ override func viewDidLoad() {
 
     notifyTask = Task { [weak self] in
         guard let self else { return }
-        for await event in self.session.client.events { /* steps 2–5 */ }
+        for await event in self.session.client.events { /* steps 2–5: match → dedupe → gate → post */ }
     }
 }
 @objc private func didBackground()  { graceTask.begin() }   // beginBackgroundTask
