@@ -24,6 +24,7 @@ Set your API key in `AppDelegate.swift` (currently `"YOUR_API_KEY"`).
 - Tap `client.events` for a filterable, copyable log of every typed event
 - Subscribe to `client.events` / `client.connectionStatus` / `client.sessionState` for live diagnostic counters
 - Render iMessage-style timestamp rows using each `ChatMessage.timestamp`
+- New-message banners (local workaround) — a notification when the agent replies; foreground + a brief background grace window (no remote push yet — coming soon) (`Components/NewMessageNotifier.swift`)
 
 ## How it works
 
@@ -352,6 +353,65 @@ static func shouldInsertSeparator(previous: Date?, current: Date) -> Bool {
 ```
 
 **Under the hood:** the timestamp is already on every `ChatMessage` the SDK publishes — there's no extra subscription. `MessageTimestamp` owns the grouping rule and the locale-aware formatters (time today, "Yesterday 3:42 PM", weekday this week, month/day this year, else full date).
+
+### In-app new-message banners (local workaround) — `Components/NewMessageNotifier.swift`
+
+Pop a local-notification banner when the agent replies — handy for confirming chunked/streaming replies land a single alert. ⚠️ **Local-notification workaround, not remote push** (no APNs yet — **coming soon**). It fires in the **foreground** and through the short (~30s) **background grace window** (`NewMessageNotifier` holds a `beginBackgroundTask`); once iOS suspends / locks / kills the app nothing arrives — real lock-screen delivery needs APNs + a server-side push integration the SDK doesn't provide yet.
+
+The SDK signal:
+
+```swift
+session.client.events   // AsyncStream<MessagingEvent> — completed-message events (full text + stable messageId)
+```
+
+In a view controller — own one per chat surface and start it once the session exists:
+
+```swift
+private let messageNotifier = NewMessageNotifier()   // Components/NewMessageNotifier.swift
+
+override func viewDidLoad() {
+    super.viewDidLoad()
+    // ...layoutUI / configureDataSource / bind...
+    messageNotifier.start(observing: session)
+}
+```
+
+**Under the hood.**
+
+*In a nutshell* — set the notification-center delegate, watch `client.events` for completed agent messages, skip already-shown ones, and post a local banner while foreground or in the grace window. (Full generic walkthrough in the [integration guide](../../../README.md#in-app-new-message-alerts-local-only-workaround), linked below.)
+
+*In detail*, mapped to this example's code:
+
+**1. Become the foreground delegate** — `NewMessageNotifier` (an `NSObject` + `UNUserNotificationCenterDelegate`) makes itself the delegate in `start(observing:)` so iOS shows the banner for the *active* app:
+
+```swift
+let center = UNUserNotificationCenter.current()
+center.delegate = self
+center.requestAuthorization(options: [.alert, .sound]) { _, _ in }
+```
+
+**2. Listen + dedupe** — consume the *completed*-message events off `session.client.events` (full text + a stable `messageId`, not chunks) and skip anything already in the **persisted** (UserDefaults) store:
+
+```swift
+task = Task { [weak self] in
+    for await event in session.client.events { self?.handle(event) }
+}
+// inside handle(_:)
+guard !store.contains(message.id) else { return }   // persisted → resume replays don't re-fire
+```
+
+**3. Gate + post** — present only while `.active` or inside the background grace window (a `beginBackgroundTask` started on `didEnterBackground`), then mark it shown:
+
+```swift
+let active = UIApplication.shared.applicationState == .active
+guard active || bgTask != .invalid else { return }
+present(id: message.id, title: message.title, body: message.body)   // UNNotificationRequest, trigger: nil
+store.markShown(message.id)
+```
+
+Toggle streaming in the Settings sheet to confirm it stays one banner per reply (the bubble `id` is stable across chunks).
+
+*See [Integration guide › In-app new-message alerts (local-only workaround)](../../../README.md#in-app-new-message-alerts-local-only-workaround).*
 
 ## What this example is for
 

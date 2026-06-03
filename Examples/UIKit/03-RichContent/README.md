@@ -20,6 +20,7 @@ Set your API key in `App/AppDelegate.swift` (currently `"YOUR_API_KEY"`).
 - `tel:` call buttons — `AgentMessage.callActions`
 - Markdown **+ a small HTML subset** (e.g. `<br>`) rendered in a **`UITextView`** (not a `UILabel`) so links are tappable
 - Forward-compat: drop `.unknown` content types silently
+- New-message banners (local workaround) — a notification when the agent replies; foreground + a brief background grace window (no remote push yet — coming soon) (`Components/NewMessageNotifier.swift`)
 
 **The SDK decodes the data; it never fetches bytes or dials phones.** You own image loading, caching, retry, link-opening, and the `tel:` `URL`. This example shows one way to do all of that with stock UIKit.
 
@@ -241,6 +242,65 @@ outerStack.addArrangedSubview(deliveryLabel)   // "Sending..." / "Tap to retry"
 Each component hides itself when its data is empty — `AttachmentCarouselView.configure(with:)` flips `isHidden` (carefully — `if isHidden != shouldHide` to avoid corrupting `UIStackView`'s hidden bookkeeping), and `CallActionsRow.configure(actions:)` does the same.
 
 **Under the hood:** the SDK delivers text, attachments, and call actions on one assembled `AgentMessage` — no separate events to coordinate. `.unknown` is the SDK's forward-compat slot for content types it doesn't model yet; dropping it (instead of falling through to a placeholder) is the safe default.
+
+### In-app new-message banners (local workaround) — `Components/NewMessageNotifier.swift`
+
+Pop a local-notification banner when the agent replies. ⚠️ **Local-notification workaround, not remote push** — there's no APNs functionality yet (**coming soon**). It fires in the **foreground**, and — because `NewMessageNotifier` holds a `beginBackgroundTask` — through the short (~30s) **background grace window** after you leave the app. Once iOS suspends the app (or it's locked / force-quit) nothing arrives: real lock-screen delivery needs APNs + a server-side push integration the SDK doesn't provide yet.
+
+The SDK signal:
+
+```swift
+session.client.events   // AsyncStream<MessagingEvent> — completed-message events (full text + stable messageId)
+```
+
+In a view controller — own one per chat surface and start it once the session exists:
+
+```swift
+private let messageNotifier = NewMessageNotifier()   // Components/NewMessageNotifier.swift
+
+override func viewDidLoad() {
+    super.viewDidLoad()
+    // ...layoutUI / configureDataSource / bind...
+    messageNotifier.start(observing: session)
+}
+```
+
+**Under the hood.**
+
+*In a nutshell* — set the notification-center delegate, watch `client.events` for completed agent messages, skip already-shown ones, and post a local banner while foreground or in the grace window. (Full generic walkthrough in the [integration guide](../../../README.md#in-app-new-message-alerts-local-only-workaround), linked below.)
+
+*In detail*, mapped to this example's code:
+
+**1. Become the foreground delegate** — `NewMessageNotifier` (an `NSObject` + `UNUserNotificationCenterDelegate`) makes itself the delegate in `start(observing:)` so iOS shows the banner for the *active* app:
+
+```swift
+let center = UNUserNotificationCenter.current()
+center.delegate = self
+center.requestAuthorization(options: [.alert, .sound]) { _, _ in }
+```
+
+**2. Listen + dedupe** — consume the *completed*-message events off `session.client.events` (full text + a stable `messageId`, not chunks) and skip anything already in the **persisted** (UserDefaults) store:
+
+```swift
+task = Task { [weak self] in
+    for await event in session.client.events { self?.handle(event) }
+}
+// inside handle(_:)
+guard !store.contains(message.id) else { return }   // persisted → resume replays don't re-fire
+```
+
+**3. Gate + post** — present only while `.active` or inside the background grace window (a `beginBackgroundTask` started on `didEnterBackground`), then mark it shown:
+
+```swift
+let active = UIApplication.shared.applicationState == .active
+guard active || bgTask != .invalid else { return }
+present(id: message.id, title: message.title, body: message.body)   // UNNotificationRequest, trigger: nil
+store.markShown(message.id)
+```
+
+With streaming on, the agent bubble's `id` is stable across chunks, so it fires exactly once — with the opening tokens.
+
+*See [Integration guide › In-app new-message alerts (local-only workaround)](../../../README.md#in-app-new-message-alerts-local-only-workaround).*
 
 ## What this example skips
 

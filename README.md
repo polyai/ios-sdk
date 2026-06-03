@@ -1267,6 +1267,94 @@ deinit { eventsTask?.cancel() }
 
 > Tie the `Task` to your view's lifecycle (SwiftUI `.task { }`, or cancel in `deinit`). Subscribe **before** sending — `events` is lazy-start.
 
+### In-app new-message alerts (local-only workaround)
+
+A common ask: pop a notification banner when the agent replies. ⚠️ **This is a local-notification *workaround*, not remote push** — and there is **no remote push (APNs) functionality in the SDK yet (coming soon).** The SDK's realtime connection only delivers **while your app is running**, so you drive the banner off the **completed-message events** on `client.events` and schedule an immediate **local** notification. Delivery therefore degrades with app state:
+
+| App state | Banner? |
+|---|---|
+| **Foreground** | ✅ fires immediately |
+| **Background — brief grace window (~30s)** | ⚠️ yes, *if* you hold a `beginBackgroundTask` (the example `NewMessageNotifier` does) |
+| **Suspended / locked / force-quit** | ❌ never — iOS has torn the socket down |
+
+**Real lock-screen delivery when the app is closed needs APNs + a server-side push integration** — device-token registration plus a backend that pushes on each new message. That isn't built yet (**coming soon**), and there's no client-only substitute: `BGAppRefreshTask` can poll-and-notify when iOS *opportunistically* wakes the app, but it's best-effort and iOS-timed, not instant.
+
+**How it works — the gist.** Become the notification-center delegate (so iOS shows the banner even while you're *in* the app), watch `client.events` for *completed* agent messages, skip any you've already shown, and post an immediate **local** notification while the app is foreground or inside the grace window.
+
+> **Foreground + a short grace window — and that's the client-side ceiling.** The example `NewMessageNotifier` holds a `beginBackgroundTask` on backgrounding so a reply landing in the ~30s before iOS suspends the app still banners. We never use a time-based trigger (it could fire long after suspension). Beyond that window — suspended, locked, or killed — nothing arrives client-side; lock-screen delivery is an **APNs + backend push** feature (not built yet — **coming soon**), see the table above.
+
+**Step by step** — each step shows the idea, then the code.
+
+**1. Become the foreground delegate.** Set a `UNUserNotificationCenterDelegate` whose `willPresent` returns `[.banner, .sound]` — otherwise iOS suppresses banners for the *active* app — and request authorization once, up front.
+
+```swift
+final class ForegroundBannerPresenter: NSObject, UNUserNotificationCenterDelegate {
+    func userNotificationCenter(_ c: UNUserNotificationCenter, willPresent n: UNNotification,
+        withCompletionHandler done: @escaping (UNNotificationPresentationOptions) -> Void) {
+        done([.banner, .sound])                      // show the banner even while foreground
+    }
+}
+
+let center = UNUserNotificationCenter.current()
+center.delegate = bannerPresenter                    // your ForegroundBannerPresenter
+center.requestAuthorization(options: [.alert, .sound]) { _, _ in }
+```
+
+**2. Listen for *completed* messages.** Consume `session.client.events` and act only on `.agentMessage` / `.liveAgentMessage` — each carries the **whole** reply `text` and a stable, server-assigned `messageId`. Ignore the partial `.agentMessageChunk`s, so the banner shows the full reply, not the first streamed token.
+
+```swift
+// `client.events` is multicast, so observing it doesn't disturb the ChatSession driving your UI.
+for await event in session.client.events {
+    let msg: (id: String, title: String, body: String)?
+    switch event {
+    case .agentMessage(_, let p):     msg = (p.messageId, p.agentName ?? "New message", p.text)
+    case .liveAgentMessage(_, let p): msg = (p.messageId, p.agentName ?? "New message", p.text)
+    default:                          msg = nil       // ignore .agentMessageChunk etc.
+    }
+    guard let msg else { continue }
+    // …steps 3–5 run here, once per completed message…
+}
+```
+
+**3. Dedupe — persisted.** Keep a **bounded** `UserDefaults`-backed set of shown `messageId`s. The SDK replays the conversation on resume / reconnect / relaunch, so an *in-memory* guard isn't enough; persist it and replays are silently skipped.
+
+```swift
+struct NotifiedMessageStore {
+    private let key = "poly.notifiedMessageIds"
+    private var seen: Set<String>
+    init() { seen = Set(UserDefaults.standard.stringArray(forKey: key) ?? []) }
+    func contains(_ id: String) -> Bool { seen.contains(id) }
+    mutating func markShown(_ id: String) {
+        guard seen.insert(id).inserted else { return }
+        // (cap the stored list in real code so it can't grow unbounded)
+        UserDefaults.standard.set(Array(seen), forKey: key)
+    }
+}
+
+guard !store.contains(msg.id) else { continue }      // skip a message we've already shown
+```
+
+**4. Gate on app state.** Post only when the app is `.active` **or** the background grace window is open — a `beginBackgroundTask` you hold from `didEnterBackground` until foreground (or until iOS expires it). Outside both, the app is suspended and no events arrive anyway.
+
+```swift
+let active = UIApplication.shared.applicationState == .active
+guard active || graceWindowIsOpen else { continue }  // graceWindowIsOpen: a held beginBackgroundTask
+```
+
+**5. Post immediately.** Build the content and add a request with `trigger: nil` (deliver now) — **never** a time-based trigger, which could fire long after suspension — then mark it shown.
+
+```swift
+let content = UNMutableNotificationContent()
+content.title = msg.title; content.body = msg.body; content.sound = .default
+UNUserNotificationCenter.current().add(
+    UNNotificationRequest(identifier: msg.id, content: content, trigger: nil))
+store.markShown(msg.id)
+```
+
+**6. Streaming-safe — no extra code.** With streaming on, the agent message's `id` is stable across chunks, so step 3's dedupe yields exactly **one** banner per reply (with the opening tokens).
+
+**Where the loop lives** differs by framework — SwiftUI runs it in a `.task { }` (auto-cancelled when the view goes away), UIKit in a `Task` you cancel in `deinit`; subscribe *before* sending, as `events` is lazy-start. Runnable in the **03 Rich Content**, **06 Full reference**, and **07 Playground** examples — `Components/NewMessageNotifier.swift` packages all of the above (plus the `beginBackgroundTask` grace window) into one drop-in type. Still a **local-only workaround** — no remote push yet (**coming soon**).
+
 ---
 
 # Reference

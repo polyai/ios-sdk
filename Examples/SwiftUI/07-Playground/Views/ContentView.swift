@@ -394,6 +394,8 @@ private struct ChatScreen: View {
             )
         }
         .onReceive(session.$messages) { syncSendingLabels($0) }
+        // New-message banners (foreground + grace window) — see NewMessageNotifier.swift
+        .newMessageNotifications(for: session)
         .onAppear {
             if wasResumed {
                 showResumeBanner = true

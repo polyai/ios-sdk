@@ -25,6 +25,7 @@ Set your API key in `AppDelegate.swift` (currently `"YOUR_API_KEY"`).
 - Destructive `session.end()` followed by a return to connect
 - Delayed "Sending…" label (~500ms debounce) so fast confirmations never flash it
 - Retry that calls `session.removeMessage(draftId:)` before re-sending, so failed bubbles never linger
+- New-message banners (local workaround) — a notification when the agent replies; foreground + a brief background grace window (no remote push yet — coming soon) (`Components/NewMessageNotifier.swift`)
 
 The SDK invariants behind each pattern are in the root README's [Integration guide](../../../README.md#integration-guide); this example shows them as one concrete multi-screen app.
 
@@ -414,6 +415,65 @@ private func draftId(for id: UUID) -> String? {
 *See [Integration guide › Delivery state & retry](../../../README.md#delivery--read-state).*
 
 > **Streaming:** agent replies grow token-by-token by default (`Configuration.streamingEnabled: true` — ChatGPT-style). The chat's diffable data source uses `snapshot.reconfigureItems(...)` on the agent message's id every time `$messages` re-publishes, so the cell re-runs with the longer text and the table animates the height change. See the root README's [*Streaming*](../../../README.md#streaming) section and [`07-Playground`](../07-Playground/) for a live toggle.
+
+### In-app new-message banners (local workaround) — `Views/ChatViewController.swift`, `Components/NewMessageNotifier.swift`
+
+Pop a local-notification banner when the agent replies. ⚠️ **Local-notification workaround, not remote push** — there's no APNs functionality yet (**coming soon**). It fires in the **foreground**, and — because `NewMessageNotifier` holds a `beginBackgroundTask` — through the short (~30s) **background grace window** after you leave the app. Once iOS suspends the app (or it's locked / force-quit) nothing arrives: real lock-screen delivery needs APNs + a server-side push integration the SDK doesn't provide yet.
+
+The SDK signal:
+
+```swift
+session.client.events   // AsyncStream<MessagingEvent> — completed-message events (full text + stable messageId)
+```
+
+In a view controller — own one per chat surface and start it once the session exists:
+
+```swift
+private let messageNotifier = NewMessageNotifier()   // Components/NewMessageNotifier.swift
+
+override func viewDidLoad() {
+    super.viewDidLoad()
+    // ...layoutUI / configureDataSource / bind...
+    messageNotifier.start(observing: session)
+}
+```
+
+**Under the hood.**
+
+*In a nutshell* — set the notification-center delegate, watch `client.events` for completed agent messages, skip already-shown ones, and post a local banner while foreground or in the grace window. (Full generic walkthrough in the [integration guide](../../../README.md#in-app-new-message-alerts-local-only-workaround), linked below.)
+
+*In detail*, mapped to this example's code:
+
+**1. Become the foreground delegate** — `NewMessageNotifier` (an `NSObject` + `UNUserNotificationCenterDelegate`) makes itself the delegate in `start(observing:)` so iOS shows the banner for the *active* app:
+
+```swift
+let center = UNUserNotificationCenter.current()
+center.delegate = self
+center.requestAuthorization(options: [.alert, .sound]) { _, _ in }
+```
+
+**2. Listen + dedupe** — consume the *completed*-message events off `session.client.events` (full text + a stable `messageId`, not chunks) and skip anything already in the **persisted** (UserDefaults) store:
+
+```swift
+task = Task { [weak self] in
+    for await event in session.client.events { self?.handle(event) }
+}
+// inside handle(_:)
+guard !store.contains(message.id) else { return }   // persisted → resume replays don't re-fire
+```
+
+**3. Gate + post** — present only while `.active` or inside the background grace window (a `beginBackgroundTask` started on `didEnterBackground`), then mark it shown:
+
+```swift
+let active = UIApplication.shared.applicationState == .active
+guard active || bgTask != .invalid else { return }
+present(id: message.id, title: message.title, body: message.body)   // UNNotificationRequest, trigger: nil
+store.markShown(message.id)
+```
+
+06 resumes sessions, so the **persisted** dedupe is exactly what stops the replayed history firing a burst on resume; with streaming on, the bubble `id` is stable across chunks, so it fires once.
+
+*See [Integration guide › In-app new-message alerts (local-only workaround)](../../../README.md#in-app-new-message-alerts-local-only-workaround).*
 
 ## What this example skips
 
