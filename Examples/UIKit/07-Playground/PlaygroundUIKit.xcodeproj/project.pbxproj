@@ -10,8 +10,10 @@
 		021CE3EF42A6612C7E761ABC /* DevDiagnostics.swift in Sources */ = {isa = PBXBuildFile; fileRef = 362A1D6282DECFC8922A0A07 /* DevDiagnostics.swift */; };
 		0EE231DD78E45B8DA2DB71A5 /* MessageCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20EF49D6378232B765CB2F6C /* MessageCell.swift */; };
 		1BD13CE65AEF7A439984616A /* PolyMessaging in Frameworks */ = {isa = PBXBuildFile; productRef = FB0B7CD7FC83D5C5A12B6225 /* PolyMessaging */; };
+		22CE94E51AF06A42D71F5BD6 /* NewMessageNotifier.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3C2595B70BB247B93F966BA0 /* NewMessageNotifier.swift */; };
 		2404D5BC149B36FB28107DF0 /* DebugStripView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 53EAC4372112049315AF845C /* DebugStripView.swift */; };
 		24C05DD71401043F4CAFD33E /* LoadingSkeleton.swift in Sources */ = {isa = PBXBuildFile; fileRef = 83387929E02855FD8BE29A5A /* LoadingSkeleton.swift */; };
+		266AC576C3D5CE2DE536D216 /* NotificationBannerUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1DC1C7A592EEF8F5EA432008 /* NotificationBannerUITests.swift */; };
 		293C007D1BC5FE7B1D125444 /* EventLogger.swift in Sources */ = {isa = PBXBuildFile; fileRef = 751D5AA14BDA918FD0CBC696 /* EventLogger.swift */; };
 		3580D9EEBD099E8AB22DC4B2 /* ErrorViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A09F5F80A0DE74C45562E5C /* ErrorViewController.swift */; };
 		39BC2F39E824CAEEFBA94345 /* PlaygroundUIKitFlowTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01C0769F5C2B4E232306CCEE /* PlaygroundUIKitFlowTests.swift */; };
@@ -49,12 +51,15 @@
 		01C0769F5C2B4E232306CCEE /* PlaygroundUIKitFlowTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaygroundUIKitFlowTests.swift; sourceTree = "<group>"; };
 		04478B3AD90013257D275066 /* SettingsViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsViewController.swift; sourceTree = "<group>"; };
 		13610C44CCB3811A2BC4DE54 /* SceneDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SceneDelegate.swift; sourceTree = "<group>"; };
+		1DC1C7A592EEF8F5EA432008 /* NotificationBannerUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationBannerUITests.swift; sourceTree = "<group>"; };
 		20EF49D6378232B765CB2F6C /* MessageCell.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MessageCell.swift; sourceTree = "<group>"; };
+		22CADDF9B268D74029238E80 /* ios-sdk */ = {isa = PBXFileReference; lastKnownFileType = folder; name = "ios-sdk"; path = ../../..; sourceTree = SOURCE_ROOT; };
 		2ED9F937DD9AB5D9DE60D698 /* CallActionsRow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CallActionsRow.swift; sourceTree = "<group>"; };
 		362A1D6282DECFC8922A0A07 /* DevDiagnostics.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DevDiagnostics.swift; sourceTree = "<group>"; };
 		3898A6FAA8DD3800CDAA1024 /* NetworkMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NetworkMonitor.swift; sourceTree = "<group>"; };
 		39AE45DB649BF8F6B406D580 /* RetryableImageView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RetryableImageView.swift; sourceTree = "<group>"; };
 		3A36AEE7C84CF3FE4B9EFCA2 /* ChatModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatModels.swift; sourceTree = "<group>"; };
+		3C2595B70BB247B93F966BA0 /* NewMessageNotifier.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NewMessageNotifier.swift; sourceTree = "<group>"; };
 		53EAC4372112049315AF845C /* DebugStripView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DebugStripView.swift; sourceTree = "<group>"; };
 		614B7CC26AEBA0FF65110087 /* URLCardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = URLCardView.swift; sourceTree = "<group>"; };
 		72F57AE9BFE00DE59A367721 /* MessageTimestamp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MessageTimestamp.swift; sourceTree = "<group>"; };
@@ -71,7 +76,6 @@
 		A7B6D6ABF07EF53C98F94790 /* LoadingViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoadingViewController.swift; sourceTree = "<group>"; };
 		AF920ECB54551D0DD66F11E3 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 		CBF5E85DAEB14A728DBD0C0E /* LogsViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LogsViewController.swift; sourceTree = "<group>"; };
-		D071647B18861BE90CF3EFFD /* poly-messaging-ios */ = {isa = PBXFileReference; lastKnownFileType = folder; name = "poly-messaging-ios"; path = ../../..; sourceTree = SOURCE_ROOT; };
 		E8D2E78A0DC357D3B7E0BB72 /* README.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = README.md; sourceTree = "<group>"; };
 		E94645C2AB1AD03161C3FAE1 /* OfflineBanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OfflineBanner.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -124,7 +128,7 @@
 		6B960B9D738B391CF35D2288 /* Packages */ = {
 			isa = PBXGroup;
 			children = (
-				D071647B18861BE90CF3EFFD /* poly-messaging-ios */,
+				22CADDF9B268D74029238E80 /* ios-sdk */,
 			);
 			name = Packages;
 			sourceTree = "<group>";
@@ -147,6 +151,7 @@
 		759D20CFADA2AE3DF6C897B5 /* UITests */ = {
 			isa = PBXGroup;
 			children = (
+				1DC1C7A592EEF8F5EA432008 /* NotificationBannerUITests.swift */,
 				01C0769F5C2B4E232306CCEE /* PlaygroundUIKitFlowTests.swift */,
 			);
 			path = UITests;
@@ -169,6 +174,7 @@
 				53EAC4372112049315AF845C /* DebugStripView.swift */,
 				83387929E02855FD8BE29A5A /* LoadingSkeleton.swift */,
 				20EF49D6378232B765CB2F6C /* MessageCell.swift */,
+				3C2595B70BB247B93F966BA0 /* NewMessageNotifier.swift */,
 				E94645C2AB1AD03161C3FAE1 /* OfflineBanner.swift */,
 				39AE45DB649BF8F6B406D580 /* RetryableImageView.swift */,
 				9288256A47149ED4261438FB /* SuggestionsView.swift */,
@@ -310,6 +316,7 @@
 				0EE231DD78E45B8DA2DB71A5 /* MessageCell.swift in Sources */,
 				A2FD7F4D3499A76983A0236B /* MessageTimestamp.swift in Sources */,
 				7C2A80256B0A11288020BCFC /* NetworkMonitor.swift in Sources */,
+				22CE94E51AF06A42D71F5BD6 /* NewMessageNotifier.swift in Sources */,
 				71D26A4BDD6FDC191903DFCD /* OfflineBanner.swift in Sources */,
 				8FD16C2C4E2514A6063E4043 /* RetryableImageView.swift in Sources */,
 				737D586A4DDF412443C29EF0 /* RootViewController.swift in Sources */,
@@ -324,6 +331,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				266AC576C3D5CE2DE536D216 /* NotificationBannerUITests.swift in Sources */,
 				39BC2F39E824CAEEFBA94345 /* PlaygroundUIKitFlowTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

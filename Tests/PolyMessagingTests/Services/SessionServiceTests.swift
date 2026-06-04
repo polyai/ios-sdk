@@ -24,6 +24,43 @@ final class SessionServiceTests: XCTestCase {
         XCTAssertEqual(sessionCalls, 1)
     }
 
+    func testCreateSessionSendsPlatformAndInjectedDeviceType() async throws {
+        let api = MockRestApi()
+        let config = Configuration(apiKey: "test_token", environment: .us)
+        let service = SessionService(
+            api: api, config: config, logger: NoopLogger(), deviceType: .tablet
+        )
+        try await service.createSession()
+
+        let context = api.lastSessionContext
+        XCTAssertEqual(context?.platform, "ios")
+        // device_type is orthogonal to platform — both are sent.
+        XCTAssertEqual(context?.deviceType, "tablet")
+    }
+
+    func testCreateSessionSendsEachDeviceType() async throws {
+        for deviceType in [DeviceType.mobile, .tablet, .desktop] {
+            let api = MockRestApi()
+            let config = Configuration(apiKey: "test_token", environment: .us)
+            let service = SessionService(
+                api: api, config: config, logger: NoopLogger(), deviceType: deviceType
+            )
+            try await service.createSession()
+
+            XCTAssertEqual(api.lastSessionContext?.deviceType, deviceType.rawValue)
+        }
+    }
+
+    func testCreateSessionDefaultsDeviceTypeToDetectedClass() async throws {
+        // No override → DeviceTypeDetector.detect() ("desktop" on the macOS host); field is always a known class.
+        let (service, api) = makeService()
+        try await service.createSession()
+
+        let deviceType = api.lastSessionContext?.deviceType
+        XCTAssertNotNil(deviceType)
+        XCTAssertTrue(["mobile", "tablet", "desktop"].contains(deviceType ?? ""))
+    }
+
     func testCreateSessionSetsActiveState() async throws {
         let (service, _) = makeService()
         try await service.createSession()

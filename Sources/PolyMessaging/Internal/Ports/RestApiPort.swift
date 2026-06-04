@@ -4,13 +4,17 @@ import Foundation
 
 struct SessionContext: Sendable {
     let platform: String
+    /// Device class (`mobile`/`tablet`/`desktop`), orthogonal to `platform` — see ``DeviceType``.
+    let deviceType: String
     let streamingEnabled: Bool
 
     init(
         platform: String,
+        deviceType: String,
         streamingEnabled: Bool
     ) {
         self.platform = platform
+        self.deviceType = deviceType
         self.streamingEnabled = streamingEnabled
     }
 }

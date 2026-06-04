@@ -9,6 +9,8 @@ actor SessionService {
     private let config: Configuration
     private let logger: PolyLogger
     private let store: SessionStore
+    /// Device class reported on session create; resolved once (form factor can't change mid-process), injectable for tests.
+    private let deviceType: DeviceType
 
     private var accessToken: String?
     private var tokenExpiresAt: Date?
@@ -39,11 +41,18 @@ actor SessionService {
     private static let maxRefetchAttempts = 3
     private static let refetchDebounceNanos: UInt64 = 300_000_000
 
-    init(api: any RestApiPort, config: Configuration, logger: PolyLogger, sessionTimeoutSeconds: TimeInterval = 600) {
+    init(
+        api: any RestApiPort,
+        config: Configuration,
+        logger: PolyLogger,
+        sessionTimeoutSeconds: TimeInterval = 600,
+        deviceType: DeviceType = DeviceTypeDetector.detect()
+    ) {
         self.api = api
         self.config = config
         self.logger = logger
         self.sessionTimeoutSeconds = sessionTimeoutSeconds
+        self.deviceType = deviceType
         self.store = SessionStore(apiKey: config.apiKey)
         self.state = SessionState(
             sessionId: nil, status: .unknown,
@@ -78,6 +87,7 @@ actor SessionService {
 
             let context = SessionContext(
                 platform: Platform.ios.rawValue,
+                deviceType: deviceType.rawValue,
                 streamingEnabled: config.streamingEnabled
             )
             let session = try await api.createSession(context: context)

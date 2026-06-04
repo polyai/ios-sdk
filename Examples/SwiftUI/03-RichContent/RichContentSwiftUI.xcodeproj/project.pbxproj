@@ -12,9 +12,11 @@
 		1B48AAF70D94808591542AB2 /* README.md in Resources */ = {isa = PBXBuildFile; fileRef = 2B47C32E25EF9AF247DFCDE6 /* README.md */; };
 		1B6BAEF6FC5DB83E4BA65FAF /* ConnectionBanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E32A144CDC774C3D1AAABC7 /* ConnectionBanner.swift */; };
 		2A7D55C05AD94F20D13C24B8 /* PolyMessaging in Frameworks */ = {isa = PBXBuildFile; productRef = 9A942C11E40FAD91FD0C624D /* PolyMessaging */; };
+		3866C214B0E1E4BC58A0E284 /* NotificationBannerUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9E051C9846EFA2A134659986 /* NotificationBannerUITests.swift */; };
 		41D7396FC28FA905F83D1A1B /* RetryableAsyncImage.swift in Sources */ = {isa = PBXBuildFile; fileRef = D428AA018E162FED1BCAA84A /* RetryableAsyncImage.swift */; };
 		460A3485B7C450244449C708 /* MessageBubbleView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0FE3AEFDB543A98F9BACC2A3 /* MessageBubbleView.swift */; };
 		7D274E32EBDA8AC69119B19B /* AttachmentCarousel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 125D5D2252EEE47C6F0E963F /* AttachmentCarousel.swift */; };
+		9AB6C9D4292137F8444BB91E /* NewMessageNotifier.swift in Sources */ = {isa = PBXBuildFile; fileRef = 60C14E714CA9750F1FD67A45 /* NewMessageNotifier.swift */; };
 		9C5343561CB5F28196BA4F84 /* RichContentSwiftUIFlowTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CCCA9628B5F6E11EBF8C0C08 /* RichContentSwiftUIFlowTests.swift */; };
 		9F2A9CED44B9BFE5DDC3D475 /* RichContentApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6A4D5556BF67B57E6F3FB6EC /* RichContentApp.swift */; };
 		AF057F23388C725E1DB033B5 /* URLCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = A88C826FEDAA86D8E52F011E /* URLCard.swift */; };
@@ -42,14 +44,16 @@
 		2B47C32E25EF9AF247DFCDE6 /* README.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = README.md; sourceTree = "<group>"; };
 		2E32A144CDC774C3D1AAABC7 /* ConnectionBanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectionBanner.swift; sourceTree = "<group>"; };
 		57D6441338E693B2FD25172A /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
+		60C14E714CA9750F1FD67A45 /* NewMessageNotifier.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NewMessageNotifier.swift; sourceTree = "<group>"; };
 		6A4D5556BF67B57E6F3FB6EC /* RichContentApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RichContentApp.swift; sourceTree = "<group>"; };
 		98D6CE9EE67933A1FC18CE12 /* RichContentSwiftUI.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = RichContentSwiftUI.app; sourceTree = BUILT_PRODUCTS_DIR; };
-		9F6BD3882E6C28EC7958F670 /* poly-messaging-ios */ = {isa = PBXFileReference; lastKnownFileType = folder; name = "poly-messaging-ios"; path = ../../..; sourceTree = SOURCE_ROOT; };
+		9E051C9846EFA2A134659986 /* NotificationBannerUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationBannerUITests.swift; sourceTree = "<group>"; };
 		A88C826FEDAA86D8E52F011E /* URLCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = URLCard.swift; sourceTree = "<group>"; };
 		A8A5F69F39CB55A5342705DF /* RichContentSwiftUIUITests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = RichContentSwiftUIUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		CCCA9628B5F6E11EBF8C0C08 /* RichContentSwiftUIFlowTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RichContentSwiftUIFlowTests.swift; sourceTree = "<group>"; };
 		CF167748A1C662C749AF4E31 /* RichText.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RichText.swift; sourceTree = "<group>"; };
 		D428AA018E162FED1BCAA84A /* RetryableAsyncImage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RetryableAsyncImage.swift; sourceTree = "<group>"; };
+		E6072A2A078C89AAAF7BAA7D /* ios-sdk */ = {isa = PBXFileReference; lastKnownFileType = folder; name = "ios-sdk"; path = ../../..; sourceTree = SOURCE_ROOT; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -83,6 +87,7 @@
 		59A7EA844ADDEA89780C1BAB /* UITests */ = {
 			isa = PBXGroup;
 			children = (
+				9E051C9846EFA2A134659986 /* NotificationBannerUITests.swift */,
 				CCCA9628B5F6E11EBF8C0C08 /* RichContentSwiftUIFlowTests.swift */,
 			);
 			path = UITests;
@@ -95,6 +100,7 @@
 				20ABF0E53CE5FFFCBE76EB74 /* CallActionButton.swift */,
 				2E32A144CDC774C3D1AAABC7 /* ConnectionBanner.swift */,
 				0FE3AEFDB543A98F9BACC2A3 /* MessageBubbleView.swift */,
+				60C14E714CA9750F1FD67A45 /* NewMessageNotifier.swift */,
 				D428AA018E162FED1BCAA84A /* RetryableAsyncImage.swift */,
 				CF167748A1C662C749AF4E31 /* RichText.swift */,
 				0F87A017B01E89C8D48DDC94 /* SuggestionRow.swift */,
@@ -129,7 +135,7 @@
 		ADAD17084FED642226CF3FE9 /* Packages */ = {
 			isa = PBXGroup;
 			children = (
-				9F6BD3882E6C28EC7958F670 /* poly-messaging-ios */,
+				E6072A2A078C89AAAF7BAA7D /* ios-sdk */,
 			);
 			name = Packages;
 			sourceTree = "<group>";
@@ -245,6 +251,7 @@
 				1B6BAEF6FC5DB83E4BA65FAF /* ConnectionBanner.swift in Sources */,
 				B8EB80BD3EDE28601B936979 /* ContentView.swift in Sources */,
 				460A3485B7C450244449C708 /* MessageBubbleView.swift in Sources */,
+				9AB6C9D4292137F8444BB91E /* NewMessageNotifier.swift in Sources */,
 				41D7396FC28FA905F83D1A1B /* RetryableAsyncImage.swift in Sources */,
 				9F2A9CED44B9BFE5DDC3D475 /* RichContentApp.swift in Sources */,
 				BE63792C5BF86533CF60C0FC /* RichText.swift in Sources */,
@@ -258,6 +265,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				3866C214B0E1E4BC58A0E284 /* NotificationBannerUITests.swift in Sources */,
 				9C5343561CB5F28196BA4F84 /* RichContentSwiftUIFlowTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

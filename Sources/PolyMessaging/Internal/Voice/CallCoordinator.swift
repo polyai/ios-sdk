@@ -84,7 +84,11 @@ actor CallCoordinator {
             try ensureActive()
 
             let session = try await api.createSession(
-                context: SessionContext(platform: "ios", streamingEnabled: streamingEnabled)
+                context: SessionContext(
+                    platform: "ios",
+                    deviceType: DeviceTypeDetector.detect().rawValue,
+                    streamingEnabled: streamingEnabled
+                )
             )
             try ensureActive()
 

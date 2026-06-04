@@ -14,10 +14,12 @@
 		3C1FAE0F93516D70D6439F2D /* SuggestionsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0C942FAF570E5E258B9F9130 /* SuggestionsView.swift */; };
 		7192DCB62014D0A16F434F67 /* Main.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = F816E79258905C312B65700E /* Main.storyboard */; };
 		756953B60C87E6450638A820 /* README.md in Resources */ = {isa = PBXBuildFile; fileRef = E3BA32D8CFC144D31EE3DA04 /* README.md */; };
+		78FF3D19F0A9281F5A4F5C69 /* NotificationBannerUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7ABC8E473F45A1C62C17032E /* NotificationBannerUITests.swift */; };
 		900ADDD18FBF245958C53BF4 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A434BD4293CBD9A23C7DC74 /* AppDelegate.swift */; };
 		93E63EB34D0735A546845DDD /* RetryableImageView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 151FFB764E826EF0FBB51BBE /* RetryableImageView.swift */; };
 		95828C78940CC2736FB7C481 /* SceneDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C50CACA4E3F97CA5ADE09DD /* SceneDelegate.swift */; };
 		B11841779C83CEBF3D7D2F36 /* CallActionsRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = A7365617807FFE421EAAEAF8 /* CallActionsRow.swift */; };
+		BF84ABDB7061D97D3C326F0F /* NewMessageNotifier.swift in Sources */ = {isa = PBXBuildFile; fileRef = 27C546062BEF3DD84B93480D /* NewMessageNotifier.swift */; };
 		C46EFDEC5EE147F1F54CA409 /* MessageCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8CC93F2A5D869D2966F63AFF /* MessageCell.swift */; };
 		EF7749B7759C3295452BA61A /* URLCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B6D6214CBF2343A1350A986E /* URLCardView.swift */; };
 /* End PBXBuildFile section */
@@ -36,12 +38,14 @@
 		0C942FAF570E5E258B9F9130 /* SuggestionsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SuggestionsView.swift; sourceTree = "<group>"; };
 		151FFB764E826EF0FBB51BBE /* RetryableImageView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RetryableImageView.swift; sourceTree = "<group>"; };
 		1C50CACA4E3F97CA5ADE09DD /* SceneDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SceneDelegate.swift; sourceTree = "<group>"; };
+		27C546062BEF3DD84B93480D /* NewMessageNotifier.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NewMessageNotifier.swift; sourceTree = "<group>"; };
 		4A434BD4293CBD9A23C7DC74 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 		74BED80CAC6535514B3E1CD0 /* RichContentUIKitUITests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = RichContentUIKitUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		7ABC8E473F45A1C62C17032E /* NotificationBannerUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationBannerUITests.swift; sourceTree = "<group>"; };
+		7FBBE86D5F3E6354EE216C8D /* ios-sdk */ = {isa = PBXFileReference; lastKnownFileType = folder; name = "ios-sdk"; path = ../../..; sourceTree = SOURCE_ROOT; };
 		8CC93F2A5D869D2966F63AFF /* MessageCell.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MessageCell.swift; sourceTree = "<group>"; };
 		A7365617807FFE421EAAEAF8 /* CallActionsRow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CallActionsRow.swift; sourceTree = "<group>"; };
 		ACA07BDD7D77D0C247CF230C /* RichContentUIKit.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = RichContentUIKit.app; sourceTree = BUILT_PRODUCTS_DIR; };
-		B0F52D1CC067C47521432893 /* poly-messaging-ios */ = {isa = PBXFileReference; lastKnownFileType = folder; name = "poly-messaging-ios"; path = ../../..; sourceTree = SOURCE_ROOT; };
 		B6D6214CBF2343A1350A986E /* URLCardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = URLCardView.swift; sourceTree = "<group>"; };
 		BF488AC0187FDAB658C85EBD /* ChatViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatViewController.swift; sourceTree = "<group>"; };
 		C1E1DA620F3B67DC6056C83D /* RichContentUIKitFlowTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RichContentUIKitFlowTests.swift; sourceTree = "<group>"; };
@@ -68,6 +72,7 @@
 				EBACD86A7B3A78A1790C0B6D /* AttachmentCarouselView.swift */,
 				A7365617807FFE421EAAEAF8 /* CallActionsRow.swift */,
 				8CC93F2A5D869D2966F63AFF /* MessageCell.swift */,
+				27C546062BEF3DD84B93480D /* NewMessageNotifier.swift */,
 				151FFB764E826EF0FBB51BBE /* RetryableImageView.swift */,
 				0C942FAF570E5E258B9F9130 /* SuggestionsView.swift */,
 				B6D6214CBF2343A1350A986E /* URLCardView.swift */,
@@ -108,7 +113,7 @@
 		7A5F781A819BA81DB2F175DA /* Packages */ = {
 			isa = PBXGroup;
 			children = (
-				B0F52D1CC067C47521432893 /* poly-messaging-ios */,
+				7FBBE86D5F3E6354EE216C8D /* ios-sdk */,
 			);
 			name = Packages;
 			sourceTree = "<group>";
@@ -138,6 +143,7 @@
 		FC88B25A321E8B72A3963C0F /* UITests */ = {
 			isa = PBXGroup;
 			children = (
+				7ABC8E473F45A1C62C17032E /* NotificationBannerUITests.swift */,
 				C1E1DA620F3B67DC6056C83D /* RichContentUIKitFlowTests.swift */,
 			);
 			path = UITests;
@@ -243,6 +249,7 @@
 				B11841779C83CEBF3D7D2F36 /* CallActionsRow.swift in Sources */,
 				29A927E430687833F8652B48 /* ChatViewController.swift in Sources */,
 				C46EFDEC5EE147F1F54CA409 /* MessageCell.swift in Sources */,
+				BF84ABDB7061D97D3C326F0F /* NewMessageNotifier.swift in Sources */,
 				93E63EB34D0735A546845DDD /* RetryableImageView.swift in Sources */,
 				95828C78940CC2736FB7C481 /* SceneDelegate.swift in Sources */,
 				3C1FAE0F93516D70D6439F2D /* SuggestionsView.swift in Sources */,
@@ -254,6 +261,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				78FF3D19F0A9281F5A4F5C69 /* NotificationBannerUITests.swift in Sources */,
 				1C4528C6BC2171E0F55580A6 /* RichContentUIKitFlowTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

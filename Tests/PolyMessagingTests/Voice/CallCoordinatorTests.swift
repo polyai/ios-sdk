@@ -61,6 +61,10 @@ final class CallCoordinatorTests: XCTestCase {
         XCTAssertEqual(api.createSessionCallCount, 1)
         XCTAssertEqual(media.createOfferCount, 1)
 
+        // The voice session-create carries platform + device_type for analytics.
+        XCTAssertEqual(api.lastSessionContext?.platform, "ios")
+        XCTAssertTrue(["mobile", "tablet", "desktop"].contains(api.lastSessionContext?.deviceType ?? ""))
+
         // The messaging session is linked to the WebRTC call.
         let linkFrames = conn.sentRawData
             .compactMap { try? JSONSerialization.jsonObject(with: $0) as? [String: Any] }

@@ -20,27 +20,15 @@ import XCTest
 @MainActor
 final class LiveMessagingProbeTests: XCTestCase {
 
-    /// API key for the live probe. Supply it via the `POLY_LIVE_TOKEN`
-    /// environment variable when running; defaults to empty otherwise.
-    private let devToken = ""
-
     func test_liveConversation_agentGreetsAndReplies() async throws {
-        try XCTSkipUnless(
-            ProcessInfo.processInfo.environment["POLY_LIVE"] == "1",
-            "Set POLY_LIVE=1 to run the live messaging probe"
-        )
+        let session = PolyMessaging.start(try liveConfigOrSkip())
 
-        let token = ProcessInfo.processInfo.environment["POLY_LIVE_TOKEN"] ?? devToken
-        let session = PolyMessaging.start(.init(apiKey: token, environment: .us))
-
-        // 1) Agent greets on join.
         let greeted = await waitUntil(session, timeout: 45) { $0.agentMessages.isEmpty == false }
         let greeting = session.agentMessages.first?.text
         print("LIVE probe — agent greeting: \(greeting ?? "<none>")")
         print("LIVE probe — connection=\(session.connection) failure=\(String(describing: session.failureReason))")
         XCTAssertTrue(greeted, "agent should send an opening message on join")
 
-        // 2) Agent replies to a user message (a real back-and-forth turn).
         let greetingCount = session.agentMessages.count
         try await session.send("Hello, what are your opening hours?")
         let replied = await waitUntil(session, timeout: 45) { $0.agentMessages.count > greetingCount }
@@ -48,6 +36,66 @@ final class LiveMessagingProbeTests: XCTestCase {
         XCTAssertTrue(replied, "agent should reply to the user message")
 
         await session.client.shutdown()
+    }
+
+    /// Drives the dev "WebbyChat" agent's reliable triggers (also used by the
+    /// FullReference XCUITests): "send me a link to google" and "end the convo".
+    func test_liveRichConversation_carouselLinkAndEnd() async throws {
+        let session = PolyMessaging.start(try liveConfigOrSkip())
+
+        let greeted = await waitUntil(session, timeout: 45) { $0.agentMessages.isEmpty == false }
+        XCTAssertTrue(greeted, "agent should greet on join")
+        let greeting = session.agentMessages.first
+        print("LIVE rich — greeting: \(greeting?.text ?? "<none>")")
+        print("LIVE rich — greeting suggestions=\(greeting?.suggestions.count ?? 0) attachments=\(greeting?.attachments.count ?? 0)")
+
+        XCTAssertFalse(greeting?.suggestions.isEmpty ?? true,
+                       "greeting should carry response-suggestion pills")
+        // Attachment may land a frame after the message, so wait for it.
+        let hasCarousel = await waitUntil(session, timeout: 10) {
+            $0.agentMessages.contains { !$0.attachments.isEmpty }
+        }
+        XCTAssertTrue(hasCarousel, "greeting should carry an attachment (the carousel)")
+        if let att = session.agentMessages.flatMap({ $0.attachments }).first {
+            print("LIVE rich — attachment type=\(att.contentType.rawValue) url=\(att.contentUrl?.absoluteString ?? "nil")")
+        }
+
+        var count = session.agentMessages.count
+        try await session.send("send me a link to google")
+        let gotLink = await waitUntil(session, timeout: 60) {
+            $0.agentMessages.count > count &&
+            ($0.agentMessages.last?.text.lowercased().contains("http") ?? false)
+        }
+        print("LIVE rich — link reply: \(session.agentMessages.last?.text ?? "<none>")")
+        XCTAssertTrue(gotLink, "asking for a link should return a reply containing a URL")
+
+        // Server SESSION_END flips hasEnded.
+        count = session.agentMessages.count
+        try await session.send("end the convo")
+        let ended = await waitUntil(session, timeout: 60) { $0.hasEnded }
+        print("LIVE rich — hasEnded=\(session.hasEnded) connection=\(session.connection)")
+        XCTAssertTrue(ended, "asking the agent to end should end the conversation (hasEnded == true)")
+
+        await session.client.shutdown()
+    }
+
+    /// Skips when no token is set. A connector token is cluster-scoped: with a
+    /// host identifier we target that named cluster (default "dev"), else prod US.
+    private func liveConfigOrSkip() throws -> Configuration {
+        let env = ProcessInfo.processInfo.environment
+        let token = env["POLY_CONNECTOR_TOKEN"] ?? env["POLY_LIVE_TOKEN"] ?? ""
+        try XCTSkipUnless(
+            !token.isEmpty,
+            "Set POLY_CONNECTOR_TOKEN (or POLY_LIVE_TOKEN) to run the live messaging probe"
+        )
+        if let host = env["POLY_HOST_IDENTIFIER"] {
+            return .init(
+                apiKey: token,
+                environment: .cluster(env["POLY_CLUSTER"] ?? "dev"),
+                hostIdentifier: host
+            )
+        }
+        return .init(apiKey: token, environment: .us)
     }
 
     private func waitUntil(_ s: ChatSession, timeout: TimeInterval, _ cond: (ChatSession) -> Bool) async -> Bool {
