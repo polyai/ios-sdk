@@ -39,8 +39,7 @@ final class SessionServiceTests: XCTestCase {
     }
 
     func testCreateSessionSendsEachDeviceType() async throws {
-        // Exercise the full enum through the session-create flow, not just the
-        // pure mapping — phone/tablet/desktop each propagate to the API context.
+        // Each device type propagates through the session-create flow to the API context.
         for deviceType in [DeviceType.mobile, .tablet, .desktop] {
             let api = MockRestApi()
             let config = Configuration(apiKey: "test_token", environment: .us)
@@ -54,9 +53,7 @@ final class SessionServiceTests: XCTestCase {
     }
 
     func testCreateSessionDefaultsDeviceTypeToDetectedClass() async throws {
-        // No injected override → uses DeviceTypeDetector.detect(), which on the
-        // macOS test host resolves to "desktop". Asserts the field is always
-        // populated with a known class rather than left empty.
+        // No override → DeviceTypeDetector.detect() ("desktop" on the macOS host); field is always a known class.
         let (service, api) = makeService()
         try await service.createSession()
 

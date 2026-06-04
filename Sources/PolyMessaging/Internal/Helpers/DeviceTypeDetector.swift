@@ -5,12 +5,10 @@ import Foundation
 import UIKit
 #endif
 
-/// Device *class* (form factor) reported on session create so analytics can
-/// segment traffic by device. Orthogonal to ``Platform`` (`ios`), not a
-/// replacement: `platform` is the embedding *channel* (the native SDK), while
-/// `deviceType` is the physical *device class*. An `ios` session can be a phone
-/// or a tablet — and the same SDK running on macOS is a desktop. Mirrors the
-/// web SDK's `device_type` dimension (MES-537).
+/// Device form factor reported on session create, for analytics segmentation.
+/// Orthogonal to ``Platform`` (`ios` = embedding channel), not a replacement: an
+/// `ios` session can be a phone or tablet, and on macOS it's a desktop. Mirrors
+/// the web SDK's `device_type` dimension (MES-537).
 public enum DeviceType: String, Sendable {
     case mobile
     case tablet
@@ -19,10 +17,9 @@ public enum DeviceType: String, Sendable {
 
 /// Resolves the running device's form factor.
 ///
-/// The pure ``deviceType(for:)`` mapping is deliberately split from the impure
-/// ``detect()`` read (`UIDevice` / UIKit) so the classification logic is
-/// unit-testable on any host — including the macOS test runner, which has no
-/// device idiom to read. This mirrors the web SDK's `readDeviceSignals` /
+/// The pure ``deviceType(for:)`` mapping is split from the impure ``detect()``
+/// (`UIDevice`/UIKit) read so the classification is unit-testable on any host,
+/// including the macOS test runner. Mirrors the web SDK's `readDeviceSignals` /
 /// `detectDeviceType` split.
 enum DeviceTypeDetector {
 
@@ -36,9 +33,8 @@ enum DeviceTypeDetector {
         case other
     }
 
-    /// Pure classification. Anything that isn't unambiguously a phone or tablet
-    /// falls back to `.desktop` — both MES-537's required default and the
-    /// correct answer for Mac Catalyst (`.mac`) and native macOS builds.
+    /// Pure classification; anything not unambiguously phone/tablet falls back to
+    /// `.desktop` — MES-537's required default and correct for Mac Catalyst/macOS.
     static func deviceType(for idiom: InterfaceIdiom) -> DeviceType {
         switch idiom {
         case .phone:
