@@ -39,13 +39,13 @@ Add the package by its Git URL, pinned to a version. Pick **one** of the four op
    ```
    https://github.com/polyai/ios-sdk
    ```
-3. Set **Dependency Rule** → *Up to Next Major Version* → `0.7.0`
+3. Set **Dependency Rule** → *Up to Next Major Version* → `0.8.0`
 4. Click **Add Package** → tick the **PolyMessaging** library for your app target → **Add Package** again.
 
 ### Option 2 — [CocoaPods](https://cocoapods.org) (`Podfile`)
 
 ```ruby
-pod 'PolyMessaging', '~> 0.7'
+pod 'PolyMessaging', '~> 0.8'
 ```
 
 Then run `pod install` and open the generated `.xcworkspace`.
@@ -54,7 +54,7 @@ Then run `pod install` and open the generated `.xcworkspace`.
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/polyai/ios-sdk", from: "0.7.0")
+    .package(url: "https://github.com/polyai/ios-sdk", from: "0.8.0")
 ]
 // then add to your target:
 .product(name: "PolyMessaging", package: "ios-sdk")
@@ -66,7 +66,7 @@ dependencies: [
 packages:
   PolyMessaging:
     url: https://github.com/polyai/ios-sdk
-    exactVersion: 0.7.0      # or: upToNextMajorVersion: 0.7.0
+    exactVersion: 0.8.0      # or: upToNextMajorVersion: 0.8.0
 targets:
   YourApp:
     dependencies:
