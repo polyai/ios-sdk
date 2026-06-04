@@ -143,6 +143,13 @@ final class MessageCell: UITableViewCell {
             outerStack.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -4),
             outerStack.widthAnchor.constraint(lessThanOrEqualTo: contentView.widthAnchor, multiplier: 0.85),
 
+            // Cap the bubble itself at ~75% of the cell's content width so on
+            // wide layouts (iPad / landscape) a message never stretches nearly
+            // edge-to-edge. Applies to both agent (leading) and user (trailing)
+            // bubbles; the bubble still hugs short text and the leading/trailing
+            // alignment constraints keep agent left / user right.
+            bubble.widthAnchor.constraint(lessThanOrEqualTo: contentView.widthAnchor, multiplier: 0.75),
+
             // Bubble inner padding 14h / 10v.
             label.topAnchor.constraint(equalTo: bubble.topAnchor, constant: 10),
             label.bottomAnchor.constraint(equalTo: bubble.bottomAnchor, constant: -10),

@@ -87,6 +87,14 @@ final class MessageCell: UITableViewCell {
         bubble.layer.cornerRadius = 18
         bubble.layer.masksToBounds = true
         bubbleRow.addArrangedSubview(bubble)
+        // Cap the bubble at ~75% of the cell's content width so long messages
+        // wrap and leave a gap on the opposite side (on iPad / landscape they
+        // would otherwise stretch nearly edge-to-edge). The bubble still hugs
+        // its content for short messages; this only limits the upper bound,
+        // and the leading/trailing alignment is preserved by the outerStack.
+        NSLayoutConstraint.activate([
+            bubble.widthAnchor.constraint(lessThanOrEqualTo: contentView.widthAnchor, multiplier: 0.75),
+        ])
 
         // A non-editable UITextView (not a UILabel) so Markdown links are tappable
         // and open in Safari. isScrollEnabled = false lets it self-size in the cell;

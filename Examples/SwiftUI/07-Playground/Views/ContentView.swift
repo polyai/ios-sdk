@@ -227,7 +227,7 @@ struct ContentView: View {
     }
 
     private func send(_ text: String) {
-        let trimmed = text.trimmingCharacters(in: .whitespaces)
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
         messageText = ""
         let s = session

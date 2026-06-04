@@ -16,6 +16,9 @@ import PolyMessaging
 /// name label above the bubble, so users can tell a human is on the other end.
 struct MessageBubbleView: View {
     let message: ChatMessage
+    /// Width of the enclosing chat container; used to cap bubble width relative to
+    /// the actual layout so it tracks rotation / iPad split-view (F5). 0 = unbounded.
+    var containerWidth: CGFloat = 0
     var onRetry: ((String) -> Void)? = nil
     var showSendingLabel: Bool = false
     var showSuggestions: Bool = false
@@ -61,10 +64,11 @@ struct MessageBubbleView: View {
                     .background(m.delivery == .failed ? Color.red.opacity(0.15) : Color.blue)
                     .foregroundColor(m.delivery == .failed ? .primary : .white)
                     .clipShape(RoundedRectangle(cornerRadius: 18))
-                    // Cap bubble width at ~75% of the screen so very long
-                    // messages wrap inside the bubble instead of pushing
-                    // past the row's trailing edge into the nav bar.
-                    .frame(maxWidth: UIScreen.main.bounds.width * 0.75, alignment: .trailing)
+                    // Cap bubble width at ~75% of the actual container width
+                    // (tracks rotation / iPad split-view) so very long messages
+                    // wrap inside the bubble instead of pushing past the row's
+                    // trailing edge into the nav bar.
+                    .frame(maxWidth: containerWidth > 0 ? containerWidth * 0.75 : .infinity, alignment: .trailing)
 
                 if showSendingLabel && m.delivery == .pending {
                     Text("Sending...")
@@ -105,6 +109,9 @@ struct MessageBubbleView: View {
                                     .stroke(isLive ? Color.teal.opacity(0.5) : Color.clear, lineWidth: 1)
                             )
                             .clipShape(RoundedRectangle(cornerRadius: 18))
+                            // Cap agent bubble width like the user bubble so long
+                            // replies don't span edge-to-edge on iPad / landscape.
+                            .frame(maxWidth: containerWidth > 0 ? containerWidth * 0.75 : .infinity, alignment: .leading)
                         Spacer(minLength: 60)
                     }
                 }

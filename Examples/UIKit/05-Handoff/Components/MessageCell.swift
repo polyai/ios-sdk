@@ -88,6 +88,13 @@ final class MessageCell: UITableViewCell {
         bubble.layer.masksToBounds = true
         bubbleRow.addArrangedSubview(bubble)
 
+        // Cap the bubble at ~75% of the cell's content width so on iPad /
+        // landscape a bubble never stretches edge-to-edge — leaving a gap on
+        // the opposite side. The bubble still hugs its text (so short messages
+        // stay small) and keeps its leading/trailing alignment.
+        let bubbleMaxWidth = bubble.widthAnchor.constraint(lessThanOrEqualTo: contentView.widthAnchor, multiplier: 0.75)
+        bubbleMaxWidth.isActive = true
+
         // A non-editable UITextView (not a UILabel) so Markdown links are tappable
         // and open in Safari. isScrollEnabled = false lets it self-size in the cell;
         // the insets are zeroed so the bubble's own padding applies. linkTextAttributes

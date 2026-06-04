@@ -13,6 +13,9 @@ import PolyMessaging
 
 struct MessageBubbleView: View {
     let message: ChatMessage
+    // F5: the chat list's actual width, so the bubble cap tracks rotation /
+    // iPad split instead of always using the full physical screen width.
+    var containerWidth: CGFloat = UIScreen.main.bounds.width
     var onRetry: ((String) -> Void)? = nil
     var showSendingLabel: Bool = false
     var showSuggestions: Bool = false
@@ -45,10 +48,10 @@ struct MessageBubbleView: View {
                             .background(m.delivery == .failed ? Color.red.opacity(0.15) : Color.blue)
                             .foregroundColor(m.delivery == .failed ? .primary : .white)
                             .clipShape(RoundedRectangle(cornerRadius: 18))
-                            // Cap bubble width at ~75% of the screen so very long
+                            // Cap bubble width at ~75% of the container so very long
                             // messages wrap inside the bubble instead of pushing
                             // past the row's trailing edge into the nav bar.
-                            .frame(maxWidth: UIScreen.main.bounds.width * 0.75, alignment: .trailing)
+                            .frame(maxWidth: containerWidth * 0.75, alignment: .trailing)
 
                         if showSendingLabel && m.delivery == .pending {
                             Text("Sending...")
@@ -80,6 +83,9 @@ struct MessageBubbleView: View {
                                     .padding(.vertical, 10)
                                     .background(Color(.systemGray5))
                                     .clipShape(RoundedRectangle(cornerRadius: 18))
+                                    // Cap agent bubble width like the user bubble so long
+                                    // replies don't span edge-to-edge on iPad / landscape.
+                                    .frame(maxWidth: containerWidth > 0 ? containerWidth * 0.75 : .infinity, alignment: .leading)
                                 Spacer(minLength: 60)
                             }
                         }

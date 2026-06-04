@@ -28,6 +28,11 @@ struct ChatView: View {
     let onStartNewConversation: () -> Void
     let onTyping: () -> Void
 
+    // F1: only auto-scroll when the user is already near the bottom; otherwise
+    // surface a "New messages" pill instead of yanking them away from history.
+    @State private var isNearBottom = true
+    @State private var hasNewBelow = false
+
     private var inputDisabled: Bool {
         // Always allow composing while the conversation is live — offline,
         // reconnecting, or after a terminal failure (sending is optimistic).
@@ -35,7 +40,7 @@ struct ChatView: View {
     }
 
     private var sendDisabled: Bool {
-        inputDisabled || messageText.trimmingCharacters(in: .whitespaces).isEmpty
+        inputDisabled || messageText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
     var body: some View {
@@ -51,93 +56,141 @@ struct ChatView: View {
     // MARK: - Message list
 
     private var messageList: some View {
-        ScrollViewReader { proxy in
-            ScrollView {
-                LazyVStack(spacing: 8) {
-                    if shouldShowSkeleton {
-                        LoadingSkeleton()
-                            .padding(.top, 4)
-                            .transition(.opacity)
-                            .accessibilityLabel("Loading conversation")
-                    }
-                    ForEach(Array(messages.enumerated()), id: \.element.id) { index, message in
-                        let isLast = index == messages.count - 1
-                        if showTimestamps,
-                           MessageTimestamp.shouldInsertSeparator(
-                               previous: index > 0 ? messages[index - 1].timestamp : nil,
-                               current: message.timestamp
-                           ) {
-                            TimestampSeparator(date: message.timestamp)
+        GeometryReader { outer in
+            ScrollViewReader { proxy in
+                ScrollView {
+                    LazyVStack(spacing: 8) {
+                        if shouldShowSkeleton {
+                            LoadingSkeleton()
+                                .padding(.top, 4)
+                                .transition(.opacity)
+                                .accessibilityLabel("Loading conversation")
                         }
-                        MessageBubbleView(
-                            message: message,
-                            showSendingLabel: sendingLabels.contains(message.id),
-                            showSuggestions: isLast && hasSuggestions(message) && !chatEnded,
-                            showTimestamp: showTimestamps,
-                            onSuggestionTap: { suggestion in
-                                onSuggestionTap(suggestion, message.id)
-                            },
-                            onRetry: { text, draftId in
-                                onRetry(text, draftId)
+                        ForEach(Array(messages.enumerated()), id: \.element.id) { index, message in
+                            let isLast = index == messages.count - 1
+                            if showTimestamps,
+                               MessageTimestamp.shouldInsertSeparator(
+                                   previous: index > 0 ? messages[index - 1].timestamp : nil,
+                                   current: message.timestamp
+                               ) {
+                                TimestampSeparator(date: message.timestamp)
                             }
-                        )
-                        .id(message.id)
+                            MessageBubbleView(
+                                message: message,
+                                containerWidth: outer.size.width,
+                                showSendingLabel: sendingLabels.contains(message.id),
+                                showSuggestions: isLast && hasSuggestions(message) && !chatEnded,
+                                showTimestamp: showTimestamps,
+                                onSuggestionTap: { suggestion in
+                                    onSuggestionTap(suggestion, message.id)
+                                },
+                                onRetry: { text, draftId in
+                                    onRetry(text, draftId)
+                                }
+                            )
+                            .id(message.id)
+                        }
+                        if isAgentTyping {
+                            TypingIndicator(avatarUrl: agentAvatarUrl)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .padding(.leading, 16)
+                                .id("typing")
+                                .accessibilityLabel("Agent is typing")
+                        }
+                        Color.clear
+                            .frame(height: 1)
+                            .id("bottom")
+                            .background(GeometryReader { g in
+                                Color.clear.preference(
+                                    key: BottomVisibleKey.self,
+                                    value: g.frame(in: .named("chatScroll")).maxY
+                                )
+                            })
                     }
-                    if isAgentTyping {
-                        TypingIndicator(avatarUrl: agentAvatarUrl)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .padding(.leading, 16)
-                            .id("typing")
-                            .accessibilityLabel("Agent is typing")
-                    }
-                    Color.clear
-                        .frame(height: 1)
-                        .id("bottom")
+                    .padding(.vertical, 12)
+                    .animation(.easeInOut(duration: 0.2), value: shouldShowSkeleton)
                 }
-                .padding(.vertical, 12)
-                .animation(.easeInOut(duration: 0.2), value: shouldShowSkeleton)
-            }
-            .modifier(InteractiveKeyboardDismiss())
-            .accessibilityElement(children: .contain)
-            .accessibilityLabel("Chat conversation")
-            .onAppear {
-                // Staggered scrolls cover messages already present and those still streaming in.
-                for delay in [0.2, 0.5, 1.0] {
-                    DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
-                        withAnimation {
-                            proxy.scrollTo("bottom", anchor: .bottom)
+                .coordinateSpace(name: "chatScroll")
+                .onPreferenceChange(BottomVisibleKey.self) { bottomMaxY in
+                    // The bottom sentinel is visible (≈ near bottom) when its maxY
+                    // sits within the viewport, give or take a small threshold.
+                    let near = bottomMaxY <= outer.size.height + 80
+                    if near != isNearBottom { isNearBottom = near }
+                    if near, hasNewBelow { hasNewBelow = false }
+                }
+                .modifier(InteractiveKeyboardDismiss())
+                .accessibilityElement(children: .contain)
+                .accessibilityLabel("Chat conversation")
+                .overlay(alignment: .bottom) {
+                    if hasNewBelow {
+                        newMessagesPill(proxy: proxy)
+                            .padding(.bottom, 10)
+                            .transition(.move(edge: .bottom).combined(with: .opacity))
+                    }
+                }
+                .onAppear {
+                    // First open: land at the bottom (newest). Staggered to cover
+                    // messages already present and those still streaming in.
+                    for delay in [0.2, 0.5, 1.0] {
+                        DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
+                            withAnimation { proxy.scrollTo("bottom", anchor: .bottom) }
                         }
                     }
                 }
-            }
-            .onChange(of: messages.count) { _ in
-                scrollToBottom(proxy: proxy)
-                scrollToBottom(proxy: proxy, delay: true)
-                announceLastAgentMessage()
-            }
-            .onChange(of: sendingLabels) { _ in
-                scrollToBottom(proxy: proxy, delay: true)
-            }
-            .onChange(of: isAgentTyping) { typing in
-                if typing { scrollToBottom(proxy: proxy) }
-                else { scrollToBottom(proxy: proxy, delay: true) }
-            }
-            .onChange(of: lastAgentSuggestionCount) { _ in
-                scrollToBottom(proxy: proxy, delay: true)
-            }
-            .onChange(of: lastAgentAttachmentCount) { _ in
-                scrollToBottom(proxy: proxy, delay: true)
-            }
-            // Progressive streaming updates text in-place without changing messages.count.
-            .onChange(of: lastAgentTextLength) { _ in
-                scrollToBottom(proxy: proxy)
-            }
-            .onChange(of: isInputFocused) { focused in
-                if focused {
-                    scrollToBottom(proxy: proxy, delay: true)
+                .onChange(of: messages.count) { _ in
+                    onNewContent(proxy: proxy)
+                    announceLastAgentMessage()
+                }
+                .onChange(of: sendingLabels) { _ in
+                    if isNearBottom { scrollToBottom(proxy: proxy, delay: true) }
+                }
+                .onChange(of: isAgentTyping) { _ in
+                    onNewContent(proxy: proxy)
+                }
+                .onChange(of: lastAgentSuggestionCount) { _ in
+                    if isNearBottom { scrollToBottom(proxy: proxy, delay: true) }
+                }
+                .onChange(of: lastAgentAttachmentCount) { _ in
+                    onNewContent(proxy: proxy)
+                }
+                // Progressive streaming updates text in-place without changing messages.count.
+                .onChange(of: lastAgentTextLength) { _ in
+                    if isNearBottom { scrollToBottom(proxy: proxy) } else { hasNewBelow = true }
+                }
+                .onChange(of: isInputFocused) { focused in
+                    // Focusing to type only follows to the bottom if you were already there.
+                    if focused, isNearBottom { scrollToBottom(proxy: proxy, delay: true) }
                 }
             }
         }
+    }
+
+    /// A new message/turn arrived: follow it only if the user is already at the
+    /// bottom; otherwise leave them where they are and show the pill.
+    private func onNewContent(proxy: ScrollViewProxy) {
+        if isNearBottom {
+            scrollToBottom(proxy: proxy)
+            scrollToBottom(proxy: proxy, delay: true)
+        } else {
+            hasNewBelow = true
+        }
+    }
+
+    private func newMessagesPill(proxy: ScrollViewProxy) -> some View {
+        Button {
+            withAnimation { proxy.scrollTo("bottom", anchor: .bottom) }
+            hasNewBelow = false
+            isNearBottom = true
+        } label: {
+            Label("New messages", systemImage: "arrow.down")
+                .font(.caption.bold())
+                .padding(.horizontal, 14)
+                .padding(.vertical, 8)
+                .background(Capsule().fill(Color.blue))
+                .foregroundColor(.white)
+                .shadow(color: .black.opacity(0.2), radius: 4, y: 2)
+        }
+        .accessibilityLabel("Scroll to newest messages")
     }
 
     private var shouldShowSkeleton: Bool {
@@ -208,32 +261,20 @@ struct ChatView: View {
     }
 
     private var inputBar: some View {
-        HStack(spacing: 12) {
-            TextField("Message...", text: $messageText)
+        HStack(alignment: .bottom, spacing: 12) {
+            composerField
                 .accessibilityIdentifier("composer")
                 .textFieldStyle(.plain)
                 .focused($isInputFocused)
-                .submitLabel(.send)
                 .disabled(inputDisabled)
-                .onChange(of: messageText) { newValue in
-                    if newValue.count > Self.maxMessageLength {
-                        messageText = String(newValue.prefix(Self.maxMessageLength))
-                    }
-                    if !newValue.isEmpty {
-                        onTyping()
-                    }
-                }
-                .onSubmit {
-                    guard !sendDisabled else { return }
-                    onSend(messageText)
-                    DispatchQueue.main.async { isInputFocused = true }
-                }
-                .padding(.horizontal, 12).padding(.vertical, 10)
-                .background(Color(.systemGray6)).clipShape(Capsule())
+                .padding(.horizontal, 12).padding(.vertical, 8)
+                .background(Color(.systemGray6)).clipShape(RoundedRectangle(cornerRadius: 18))
                 .accessibilityHint(inputDisabled ? "Input disabled. \(disabledReason)" : "Type a message")
 
             Button {
-                onSend(messageText)
+                let trimmed = messageText.trimmingCharacters(in: .whitespacesAndNewlines)
+                messageText = ""
+                if !trimmed.isEmpty { onSend(trimmed) }
                 isInputFocused = true
             } label: {
                 Image(systemName: "arrow.up.circle.fill")
@@ -244,6 +285,47 @@ struct ChatView: View {
             .accessibilityLabel("Send message")
         }
         .padding(.horizontal).padding(.vertical, 8).background(.bar)
+    }
+
+    // F4: a composer that grows 1–5 lines on iOS 16+ (web parity); single-line
+    // fallback on iOS 15. Return sends in both cases (newlines arrive via paste).
+    @ViewBuilder
+    private var composerField: some View {
+        if #available(iOS 16.0, *) {
+            TextField("Message...", text: $messageText, axis: .vertical)
+                .lineLimit(1...5)
+                .onChange(of: messageText) { handleComposerChange($0) }
+        } else {
+            TextField("Message...", text: $messageText)
+                .submitLabel(.send)
+                .onChange(of: messageText) { newValue in
+                    if newValue.count > Self.maxMessageLength {
+                        messageText = String(newValue.prefix(Self.maxMessageLength))
+                    }
+                    if !newValue.isEmpty { onTyping() }
+                }
+                .onSubmit { submitFromReturn() }
+        }
+    }
+
+    /// iOS 16+ growing field: Return inserts '\n', so detect a trailing newline and
+    /// treat it as a send; otherwise enforce the length cap and broadcast typing.
+    private func handleComposerChange(_ newValue: String) {
+        if newValue.hasSuffix("\n") {
+            submitFromReturn(raw: newValue)
+            return
+        }
+        if newValue.count > Self.maxMessageLength {
+            messageText = String(newValue.prefix(Self.maxMessageLength))
+        }
+        if !newValue.isEmpty { onTyping() }
+    }
+
+    private func submitFromReturn(raw: String? = nil) {
+        let trimmed = (raw ?? messageText).trimmingCharacters(in: .whitespacesAndNewlines)
+        messageText = ""
+        if !inputDisabled, !trimmed.isEmpty { onSend(trimmed) }
+        DispatchQueue.main.async { isInputFocused = true }
     }
 
     private var disabledReason: String {
@@ -259,12 +341,18 @@ struct ChatView: View {
 
     private func scrollToBottom(proxy: ScrollViewProxy, delay: Bool = false) {
         let doScroll = {
-            withAnimation {
-                proxy.scrollTo("bottom", anchor: .bottom)
-            }
+            withAnimation { proxy.scrollTo("bottom", anchor: .bottom) }
         }
         let initial = delay ? 0.15 : 0.05
         DispatchQueue.main.asyncAfter(deadline: .now() + initial) { doScroll() }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { doScroll() }
+    }
+}
+
+/// Reports the bottom sentinel's maxY within the scroll viewport so the view can
+/// tell whether the user is parked near the bottom.
+private struct BottomVisibleKey: PreferenceKey {
+    static let defaultValue: CGFloat = .greatestFiniteMagnitude
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value = min(value, nextValue())
     }
 }

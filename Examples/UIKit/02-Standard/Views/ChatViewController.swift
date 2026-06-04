@@ -18,6 +18,9 @@ import PolyMessaging
 
 final class ChatViewController: UIViewController {
 
+    // F2/F3: hard-stop 500-char cap (matches web MAX_MESSAGE_LENGTH).
+    static let maxMessageLength = 500
+
     // Only the End button is wired in the Storyboard — everything else is
     // built programmatically to keep the Storyboard XML small and robust.
     @IBOutlet weak var endButton: UIBarButtonItem?
@@ -45,13 +48,33 @@ final class ChatViewController: UIViewController {
     private let typingIndicator = TypingDotsView()
     private let inputBar = UIView()
     private let inputBarBorder = UIView()
-    private let inputField = UITextField()
+    private let inputFieldBackground = UIView()
+    // F4: a growing multi-line composer (1–5 lines, then scrolls) replaces the
+    // old single-line UITextField. Return still sends; newlines arrive via paste.
+    private let inputField = UITextView()
+    private let inputPlaceholder = UILabel()
     private let sendButton = UIButton(type: .system)
     private let failureOverlay = UIView()
     private let failureLabel = UILabel()
     private let reconnectButton = UIButton(type: .system)
     private let chatEndedView = UIView()
     private let startNewChatButton = UIButton(type: .system)
+
+    // F4: composer height that grows with content, capped at ~5 lines.
+    private var inputFieldHeight: NSLayoutConstraint!
+    private static let composerMinHeight: CGFloat = 36
+    private static let composerMaxHeight: CGFloat = 120
+
+    // F1: "New messages" pill — shown when new content arrives while the user is
+    // scrolled up, instead of yanking the table to the bottom.
+    private let newMessagesPill = UIButton(type: .system)
+    private var newMessagesPillBottom: NSLayoutConstraint!
+    private var hasNewBelow = false {
+        didSet { setPillVisible(hasNewBelow) }
+    }
+    // True while the local user just sent — forces a follow-scroll even if they
+    // had scrolled up a bit.
+    private var pendingUserSendScroll = false
 
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -73,6 +96,7 @@ final class ChatViewController: UIViewController {
         layoutTable()
         configureTypingFooter()
         layoutInputBar()
+        layoutNewMessagesPill()
         layoutChatEndedView()
         layoutFailureOverlay()
     }
@@ -131,6 +155,7 @@ final class ChatViewController: UIViewController {
         tableView.estimatedRowHeight = 60
         tableView.register(MessageCell.self, forCellReuseIdentifier: MessageCell.reuseID)
         tableView.register(SuggestionsCell.self, forCellReuseIdentifier: SuggestionsCell.reuseID)
+        tableView.delegate = self
         view.addSubview(tableView)
 
         NSLayoutConstraint.activate([
@@ -163,13 +188,32 @@ final class ChatViewController: UIViewController {
         inputBarBorder.backgroundColor = .separator
         inputBar.addSubview(inputBarBorder)
 
-        // Rounded text field — .roundedRect gives the standard composer look
-        // without a separate background view to style and pin.
+        // Rounded background view behind the (growing) text view.
+        inputFieldBackground.translatesAutoresizingMaskIntoConstraints = false
+        inputFieldBackground.backgroundColor = .systemGray6
+        inputFieldBackground.layer.cornerRadius = 18
+        inputFieldBackground.layer.masksToBounds = true
+        inputBar.addSubview(inputFieldBackground)
+
+        // F4: a growing multi-line text view replaces the single-line field.
         inputField.translatesAutoresizingMaskIntoConstraints = false
-        inputField.placeholder = "Message..."
         inputField.accessibilityIdentifier = "composer"
-        inputField.borderStyle = .roundedRect
-        inputBar.addSubview(inputField)
+        inputField.font = .systemFont(ofSize: 15)
+        inputField.backgroundColor = .clear
+        inputField.returnKeyType = .send
+        inputField.isScrollEnabled = false          // grows with content until the height cap
+        inputField.textContainerInset = UIEdgeInsets(top: 8, left: 0, bottom: 8, right: 0)
+        inputField.textContainer.lineFragmentPadding = 0
+        inputField.delegate = self
+        inputFieldBackground.addSubview(inputField)
+
+        // Hand-rolled placeholder (UITextView has none) — hidden once text exists.
+        inputPlaceholder.translatesAutoresizingMaskIntoConstraints = false
+        inputPlaceholder.text = "Message..."
+        inputPlaceholder.font = .systemFont(ofSize: 15)
+        inputPlaceholder.textColor = .placeholderText
+        inputPlaceholder.isUserInteractionEnabled = false
+        inputFieldBackground.addSubview(inputPlaceholder)
 
         sendButton.translatesAutoresizingMaskIntoConstraints = false
         sendButton.accessibilityIdentifier = "sendButton"
@@ -179,9 +223,17 @@ final class ChatViewController: UIViewController {
         sconf.baseForegroundColor = .systemBlue
         sconf.contentInsets = .zero
         sendButton.configuration = sconf
-        // No configurationUpdateHandler needed — UIButton dims a disabled symbol automatically.
+        sendButton.configurationUpdateHandler = { btn in
+            var c = btn.configuration
+            c?.baseForegroundColor = btn.isEnabled ? .systemBlue : .systemGray3
+            btn.configuration = c
+        }
         sendButton.addTarget(self, action: #selector(sendTapped), for: .touchUpInside)
         inputBar.addSubview(sendButton)
+
+        // F4: the composer grows with content; this constraint is updated as the
+        // text view's content height changes (clamped between min and max).
+        inputFieldHeight = inputField.heightAnchor.constraint(equalToConstant: Self.composerMinHeight)
 
         // Pin the input bar to the keyboard layout guide so it rides the keyboard
         // up/down automatically — see "Best practices > Handle keyboard yourself".
@@ -189,7 +241,6 @@ final class ChatViewController: UIViewController {
             inputBar.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             inputBar.trailingAnchor.constraint(equalTo: view.trailingAnchor),
             inputBar.bottomAnchor.constraint(equalTo: view.keyboardLayoutGuide.topAnchor),
-            inputBar.heightAnchor.constraint(equalToConstant: 60),
             // Suggestions now render as a list row, so the table pins straight to
             // the composer.
             tableView.bottomAnchor.constraint(equalTo: inputBar.topAnchor),
@@ -199,22 +250,119 @@ final class ChatViewController: UIViewController {
             inputBarBorder.trailingAnchor.constraint(equalTo: inputBar.trailingAnchor),
             inputBarBorder.heightAnchor.constraint(equalToConstant: 0.5),
 
-            inputField.leadingAnchor.constraint(equalTo: inputBar.leadingAnchor, constant: 12),
-            inputField.centerYAnchor.constraint(equalTo: inputBar.centerYAnchor),
-            inputField.heightAnchor.constraint(equalToConstant: 44),
-            inputField.trailingAnchor.constraint(equalTo: sendButton.leadingAnchor, constant: -8),
+            // The field background hugs the (growing) text view; the input bar in
+            // turn sizes to the background + vertical padding, so the whole bar
+            // grows. Bottom anchors keep the send button aligned to the last line.
+            inputFieldBackground.leadingAnchor.constraint(equalTo: inputBar.leadingAnchor, constant: 12),
+            inputFieldBackground.topAnchor.constraint(equalTo: inputBar.topAnchor, constant: 8),
+            inputFieldBackground.bottomAnchor.constraint(equalTo: inputBar.bottomAnchor, constant: -8),
+            inputFieldBackground.trailingAnchor.constraint(equalTo: sendButton.leadingAnchor, constant: -8),
+
+            inputField.leadingAnchor.constraint(equalTo: inputFieldBackground.leadingAnchor, constant: 14),
+            inputField.trailingAnchor.constraint(equalTo: inputFieldBackground.trailingAnchor, constant: -14),
+            inputField.topAnchor.constraint(equalTo: inputFieldBackground.topAnchor),
+            inputField.bottomAnchor.constraint(equalTo: inputFieldBackground.bottomAnchor),
+            inputFieldHeight,
+
+            inputPlaceholder.leadingAnchor.constraint(equalTo: inputField.leadingAnchor),
+            inputPlaceholder.topAnchor.constraint(equalTo: inputField.topAnchor, constant: 8),
 
             sendButton.trailingAnchor.constraint(equalTo: inputBar.trailingAnchor, constant: -12),
-            sendButton.centerYAnchor.constraint(equalTo: inputBar.centerYAnchor),
+            sendButton.bottomAnchor.constraint(equalTo: inputBar.bottomAnchor, constant: -12),
             sendButton.widthAnchor.constraint(equalToConstant: 36),
             sendButton.heightAnchor.constraint(equalToConstant: 36),
         ])
+    }
 
-        // SDK throttles STARTED frames to ≤1/3s — safe to call on every keystroke.
-        // Mirrors README "Best practices > Trust the typing throttle".
-        inputField.addAction(UIAction { [weak self] _ in
-            Task { await self?.session.sendTyping() }
-        }, for: .editingChanged)
+    // F1: a small rounded "New messages" pill floating just above the input bar.
+    private func layoutNewMessagesPill() {
+        view.addSubview(newMessagesPill)
+        newMessagesPill.translatesAutoresizingMaskIntoConstraints = false
+        var conf = UIButton.Configuration.filled()
+        conf.image = UIImage(systemName: "arrow.down")
+        conf.imagePadding = 6
+        conf.cornerStyle = .capsule
+        conf.baseBackgroundColor = .systemBlue
+        conf.baseForegroundColor = .white
+        conf.contentInsets = NSDirectionalEdgeInsets(top: 8, leading: 14, bottom: 8, trailing: 14)
+        var titleAttr = AttributeContainer()
+        titleAttr.font = .systemFont(ofSize: 13, weight: .semibold)
+        conf.attributedTitle = AttributedString("New messages", attributes: titleAttr)
+        newMessagesPill.configuration = conf
+        newMessagesPill.accessibilityLabel = "Scroll to newest messages"
+        newMessagesPill.layer.shadowColor = UIColor.black.cgColor
+        newMessagesPill.layer.shadowOpacity = 0.2
+        newMessagesPill.layer.shadowRadius = 4
+        newMessagesPill.layer.shadowOffset = CGSize(width: 0, height: 2)
+        newMessagesPill.alpha = 0
+        newMessagesPill.isHidden = true
+        newMessagesPill.addTarget(self, action: #selector(newMessagesPillTapped), for: .touchUpInside)
+
+        newMessagesPillBottom = newMessagesPill.bottomAnchor.constraint(equalTo: inputBar.topAnchor, constant: -10)
+        NSLayoutConstraint.activate([
+            newMessagesPill.centerXAnchor.constraint(equalTo: view.centerXAnchor),
+            newMessagesPillBottom,
+        ])
+    }
+
+    @objc private func newMessagesPillTapped() {
+        hasNewBelow = false
+        scrollTableToBottom(animated: true)
+    }
+
+    private func setPillVisible(_ visible: Bool) {
+        if visible { newMessagesPill.isHidden = false }
+        UIView.animate(withDuration: 0.2, animations: {
+            self.newMessagesPill.alpha = visible ? 1 : 0
+        }, completion: { _ in
+            if !visible { self.newMessagesPill.isHidden = true }
+        })
+    }
+
+    /// F1: the user is "near the bottom" if the last bit of content is within a
+    /// small threshold of the visible bottom edge. Computed from the scroll
+    /// geometry BEFORE applying a snapshot so we can decide whether to follow.
+    private func isNearBottom() -> Bool {
+        let threshold: CGFloat = 80
+        let visibleBottom = tableView.contentOffset.y + tableView.bounds.height
+            - tableView.adjustedContentInset.bottom
+        let contentBottom = tableView.contentSize.height
+        // Treat an empty/short list (content fits the viewport) as "at bottom".
+        if contentBottom <= tableView.bounds.height - tableView.adjustedContentInset.top {
+            return true
+        }
+        return contentBottom - visibleBottom <= threshold
+    }
+
+    /// F4: clamp the composer height to its content between min and max; enable
+    /// internal scrolling only once it hits the max (~5 lines).
+    private func updateComposerHeight() {
+        let fitting = inputField.sizeThatFits(
+            CGSize(width: inputField.bounds.width, height: .greatestFiniteMagnitude)
+        ).height
+        let clamped = min(max(fitting, Self.composerMinHeight), Self.composerMaxHeight)
+        let shouldScroll = fitting > Self.composerMaxHeight
+        if inputField.isScrollEnabled != shouldScroll { inputField.isScrollEnabled = shouldScroll }
+        if abs(inputFieldHeight.constant - clamped) > 0.5 {
+            inputFieldHeight.constant = clamped
+            view.layoutIfNeeded()
+        }
+    }
+
+    // F2/F3: hard-stop 500-char cap (matches web MAX_MESSAGE_LENGTH).
+    private func enforceMaxLength() {
+        let text = inputField.text ?? ""
+        guard text.count > Self.maxMessageLength else { return }
+        inputField.text = String(text.prefix(Self.maxMessageLength))
+    }
+
+    private func updateSendEnabled() {
+        let enabled = !session.hasEnded
+        // F6: trim newlines too, so a composer holding only whitespace/newlines
+        // can't enable Send.
+        let hasText = !inputField.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        sendButton.isEnabled = enabled && hasText
+        inputPlaceholder.isHidden = !inputField.text.isEmpty
     }
 
     private func layoutChatEndedView() {
@@ -414,8 +562,8 @@ final class ChatViewController: UIViewController {
             .receive(on: RunLoop.main)
             .sink { [weak self] ended in
                 guard let self else { return }
-                self.sendButton.isEnabled = !ended
-                self.inputField.isEnabled = !ended
+                self.inputField.isEditable = !ended
+                self.updateSendEnabled()
                 // Hide the End button after the conversation ends.
                 self.navigationItem.rightBarButtonItem = ended ? nil : self.endButtonRef
                 // Swap the input bar with the chat-ended footer.
@@ -429,10 +577,12 @@ final class ChatViewController: UIViewController {
 
     private func setTypingIndicatorVisible(_ visible: Bool) {
         if visible {
+            // F1: capture position before adding the footer changes contentSize.
+            let near = isNearBottom()
             updateTypingFooterFrame()
             tableView.tableFooterView = typingFooter
             typingIndicator.start()
-            scrollTableToBottom(animated: true)
+            followOrNotify(wasNearBottom: near, animated: true)
         } else {
             typingIndicator.stop()
             tableView.tableFooterView = UIView(frame: .zero)
@@ -452,6 +602,13 @@ final class ChatViewController: UIViewController {
     }
 
     private func render(_ messages: [ChatMessage]) {
+        // F1: decide whether to follow the new content BEFORE applying the
+        // snapshot, from the current scroll geometry. Follow only if the user is
+        // already near the bottom, or if they just sent a message themselves.
+        let near = isNearBottom() || pendingUserSendScroll
+        let forceScroll = pendingUserSendScroll
+        pendingUserSendScroll = false
+
         var snapshot = NSDiffableDataSourceSnapshot<Int, Row>()
         snapshot.appendSections([0])
         var rows = messages.map { Row.message($0.id) }
@@ -467,7 +624,18 @@ final class ChatViewController: UIViewController {
             snapshot.reconfigureItems(toReconfigure)
         }
         dataSource.apply(snapshot, animatingDifferences: true) { [weak self] in
-            self?.scrollTableToBottom(animated: true)
+            self?.followOrNotify(wasNearBottom: near, animated: true, force: forceScroll)
+        }
+    }
+
+    /// F1: after content changes, either follow to the bottom (user was already
+    /// there, or just sent) or surface the "New messages" pill.
+    private func followOrNotify(wasNearBottom: Bool, animated: Bool, force: Bool = false) {
+        if wasNearBottom || force {
+            hasNewBelow = false
+            scrollTableToBottom(animated: animated)
+        } else {
+            hasNewBelow = true
         }
     }
 
@@ -491,9 +659,17 @@ final class ChatViewController: UIViewController {
 
     // MARK: - Actions
 
-    @objc private func sendTapped() {
-        guard let text = inputField.text, !text.isEmpty else { return }
+    @objc private func sendTapped() { sendCurrentText() }
+
+    private func sendCurrentText() {
+        // F6: trim whitespace AND newlines for the send guard.
+        let text = inputField.text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !text.isEmpty else { return }
         inputField.text = ""
+        updateComposerHeight()
+        updateSendEnabled()
+        // F1: the local user just sent — always follow to the bottom on the next render.
+        pendingUserSendScroll = true
         Task { try? await self.session.send(text) }
     }
 
@@ -507,6 +683,57 @@ final class ChatViewController: UIViewController {
 
     @objc private func startNewChatTapped() {
         Task { try? await self.session.client.startNewSession() }
+    }
+}
+
+// MARK: - UITextViewDelegate
+
+extension ChatViewController: UITextViewDelegate {
+    // F4: Return sends. Intercept the newline replacement and trigger a send
+    // instead of inserting it; multi-line input still arrives via paste.
+    func textView(_ textView: UITextView,
+                  shouldChangeTextIn range: NSRange,
+                  replacementText text: String) -> Bool {
+        if text == "\n" {
+            sendCurrentText()
+            return false
+        }
+        // F2/F3: enforce the 500-char cap proactively so paste can't exceed it.
+        let current = textView.text ?? ""
+        guard let r = Range(range, in: current) else { return true }
+        let updated = current.replacingCharacters(in: r, with: text)
+        if updated.count > Self.maxMessageLength {
+            // Allow a truncated paste rather than rejecting the whole thing.
+            let allowed = Self.maxMessageLength - (current.count - range.length)
+            guard allowed > 0 else { return false }
+            let insert = String(text.prefix(allowed))
+            textView.text = current.replacingCharacters(in: r, with: insert)
+            textViewDidChange(textView)
+            return false
+        }
+        return true
+    }
+
+    func textViewDidChange(_ textView: UITextView) {
+        enforceMaxLength()
+        updateComposerHeight()
+        updateSendEnabled()
+        // SDK throttles STARTED frames to ≤1/3s — safe to call on every keystroke.
+        // Mirrors README "Best practices > Trust the typing throttle".
+        if !textView.text.isEmpty {
+            Task { await session.sendTyping() }
+        }
+    }
+}
+
+// MARK: - UITableViewDelegate (scroll tracking for the New-messages pill)
+
+extension ChatViewController: UITableViewDelegate {
+    // F1: hide the "New messages" pill once the user scrolls back to the bottom.
+    func scrollViewDidScroll(_ scrollView: UIScrollView) {
+        if hasNewBelow && isNearBottom() {
+            hasNewBelow = false
+        }
     }
 }
 
