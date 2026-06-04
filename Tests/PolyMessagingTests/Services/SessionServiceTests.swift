@@ -39,7 +39,6 @@ final class SessionServiceTests: XCTestCase {
     }
 
     func testCreateSessionSendsEachDeviceType() async throws {
-        // Each device type propagates through the session-create flow to the API context.
         for deviceType in [DeviceType.mobile, .tablet, .desktop] {
             let api = MockRestApi()
             let config = Configuration(apiKey: "test_token", environment: .us)

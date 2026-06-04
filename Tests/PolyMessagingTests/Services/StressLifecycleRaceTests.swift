@@ -3,10 +3,8 @@
 import XCTest
 @testable import PolyMessaging
 
-/// Stress / robustness probes for lifecycle races around the typing-indicator
-/// timer (ChatService) and the heartbeat tick gate (Coordinator +
-/// HeartbeatService). These assert the CURRENT, intended behaviour under
-/// concurrent pressure — they must pass without any source change.
+/// Stress probes for lifecycle races around the typing-indicator timer and the
+/// heartbeat tick gate. Assert CURRENT intended behaviour; must pass unchanged.
 final class StressLifecycleRaceTests: XCTestCase {
 
     private func makeChatService() -> ChatService {
@@ -15,19 +13,15 @@ final class StressLifecycleRaceTests: XCTestCase {
 
     // MARK: - Collector actors (no data races on shared mutable state)
 
-    /// Counts `.agentMessage` events seen on a ChatService event stream from a
-    /// background drain Task. Actor-isolated so the test thread can read the
-    /// count safely while the drain Task keeps appending.
+    /// Actor-isolated so the test thread can read the count while a drain Task appends.
     private actor AgentMessageCounter {
         private(set) var count = 0
         func record() { count += 1 }
         func snapshot() -> Int { count }
     }
 
-    /// Counts heartbeat ticks observed on `HeartbeatService.tick` from a
-    /// background drain Task. Used as a *positive control*: it proves the
-    /// heartbeat timer actually fired during a window, so a "0 frames sent"
-    /// assertion is meaningful (the timer ticked but the gate suppressed).
+    /// Positive control: proves the heartbeat timer actually fired, so a
+    /// "0 frames sent" assertion is meaningful (timer ticked but gate suppressed).
     private actor TickCounter {
         private(set) var count = 0
         func record() { count += 1 }
@@ -36,36 +30,20 @@ final class StressLifecycleRaceTests: XCTestCase {
 
     // MARK: - Typing-indicator timeout racing message processing
 
-    /// The typing-indicator timer (10s) is armed by `agentThinking` and lives
-    /// on a detached `Task` that, when it fires, mutates `isAgentTyping` on the
-    /// actor. While that timer is in flight we hammer the actor with many
-    /// concurrent `handleMessage` calls (more `agentThinking`, then a
-    /// terminating `agentMessage`). Three things must hold:
-    ///   1. No crash / no data race — the actor serialises every mutation,
-    ///      including the timer's deferred write.
-    ///   2. The final state is deterministic: the last event each id processes
-    ///      is an `agentMessage`, which calls `stopTypingIndicator()` and
-    ///      cancels the timer, so `isAgentTyping` MUST settle to `false`.
-    ///   3. Every distinct agent message survives the global dedup and reaches
-    ///      consumers (see the dedup note below).
+    /// Arms the typing timer, then storms the actor with concurrent handleMessage
+    /// calls. Invariants: no data race (actor serialises every mutation incl. the
+    /// timer's deferred write); the final agentMessage settles isAgentTyping to
+    /// false; and every distinct message survives dedup.
     ///
-    /// Dedup note: ChatService de-duplicates by **envelope id** (only when the
-    /// envelope carries a non-nil sequence and a non-empty id). To make the
-    /// dedup-resistance real (not accidental), each `agentMessage` here uses a
-    /// *distinct id AND a distinct non-nil sequence* — so even with sequence
-    /// dedup in play every message is unique and none may be swallowed. We
-    /// assert that by counting the `.agentMessage` events emitted on the
-    /// ChatService stream: 200 storm messages + 1 final = 201, exactly.
-    ///
-    /// This reproduces the shape of "typing timeout fires while a message is
-    /// being processed": the armed timer and the concurrent message stream both
-    /// contend for `isAgentTyping`, and the actor must leave a consistent state.
+    /// Dedup contract: ChatService de-duplicates by envelope id (only when the
+    /// envelope has a non-nil sequence and non-empty id). Each agentMessage uses a
+    /// distinct id AND distinct non-nil sequence so neither dedup path can swallow
+    /// it — verified by counting emitted .agentMessage events (200 + 1 final).
     func testTypingIndicatorTimeoutFiresWhileMessageProcessing() async {
         let service = makeChatService()
 
-        // Attach the event-stream collector BEFORE emitting anything. The
-        // stream's Multicaster does not replay, so a late subscriber would
-        // miss emits — we never rely on a sleep to "let the subscriber attach".
+        // Subscribe BEFORE emitting: the Multicaster does not replay, so a late
+        // subscriber would miss emits.
         let counter = AgentMessageCounter()
         let stream = service.eventStream.subscribe()
         let drain = Task {
@@ -74,17 +52,14 @@ final class StressLifecycleRaceTests: XCTestCase {
             }
         }
 
-        // Arm the typing timer once up front (10s window — stays pending for
-        // the whole test) so a deferred timer write is genuinely in flight
-        // while the concurrent storm runs.
+        // Arm the typing timer (10s window stays pending) so a deferred timer
+        // write is genuinely in flight during the storm.
         _ = await service.handleMessage(.agentThinking(makeEnvelope(id: "warmup_think", sequence: nil)))
         let typingAfterArm = await service.isAgentTyping
         XCTAssertTrue(typingAfterArm, "agentThinking should set isAgentTyping")
 
-        // Concurrent storm: many tasks each re-arm typing then immediately
-        // terminate it with an agentMessage. Each agentMessage carries a
-        // distinct id AND a distinct non-nil sequence, so neither id-dedup nor
-        // sequence-dedup can swallow it.
+        // Concurrent storm: each task re-arms typing then terminates it with a
+        // uniquely-keyed agentMessage (distinct id + sequence, dedup-resistant).
         let stormCount = 200
         await withTaskGroup(of: Void.self) { group in
             for i in 0..<stormCount {
@@ -102,9 +77,8 @@ final class StressLifecycleRaceTests: XCTestCase {
             }
         }
 
-        // After the storm settles, drive one final terminating message so the
-        // last actor-serialised operation is unambiguously a typing-stop. Its
-        // sequence is past the storm range so it stays unique.
+        // Final terminating message so the last serialised op is unambiguously a
+        // typing-stop; sequence past the storm range stays unique.
         _ = await service.handleMessage(
             .agentMessage(
                 makeEnvelope(id: "msg_final", sequence: stormCount + 1),
@@ -123,9 +97,8 @@ final class StressLifecycleRaceTests: XCTestCase {
         let reArmed = await service.isAgentTyping
         XCTAssertTrue(reArmed, "Typing indicator must be re-armable after the race storm")
 
-        // Dedup-resistance, verified: drain the stream and assert every
-        // distinct agent message reached consumers. Finish the stream so the
-        // drain Task terminates deterministically, then poll the actor count.
+        // Finish the stream so the drain Task terminates, then assert every
+        // distinct agentMessage reached consumers.
         service.eventStream.finish()
         let expectedMessages = stormCount + 1  // storm + final
         let allDelivered = await waitUntil(timeout: 5) {
@@ -151,8 +124,7 @@ final class StressLifecycleRaceTests: XCTestCase {
     private func makeCoordinator(
         heartbeatInterval: Int
     ) async -> (Coordinator, MockRestApi, MockConnection, HeartbeatService) {
-        // Clear any persisted session so resume() doesn't short-circuit
-        // createSession (mirrors CoordinatorTests).
+        // Clear persisted session so resume() doesn't short-circuit createSession.
         SessionStore(apiKey: "test_token").clear()
 
         let api = MockRestApi()
@@ -184,28 +156,17 @@ final class StressLifecycleRaceTests: XCTestCase {
         }.count
     }
 
-    /// `Coordinator.handleHeartbeatTick` gates the actual `.heartbeat` send on
-    /// `connectionService.currentStatus() == .open`. We drive the heartbeat
-    /// service to tick fast (1s) while the transport is NOT open (it sits in
-    /// `.connecting` after `start()` because we never call `simulateOpen`).
-    ///
-    /// The hard part of this probe is making "0 frames sent" *meaningful*: a
-    /// timer that never ticked would also send 0. So we attach a positive
-    /// control — an independent subscriber to `HeartbeatService.tick` — and
-    /// require it to observe real ticks during the not-open window. Only once
-    /// the timer has demonstrably fired do we assert that the gate suppressed
-    /// every send (== 0). Then we open the socket and require heartbeats to
-    /// actually flow, proving the gate is open-only, not always-off.
-    ///
-    /// All reads of `connection.sentEvents` happen only after the heartbeat is
-    /// stopped (writer quiesced), so there is no concurrent-mutation race on
-    /// the mock's event array. The two tick counters are actor-isolated.
+    /// `Coordinator.handleHeartbeatTick` gates the `.heartbeat` send on
+    /// `currentStatus() == .open`. A positive-control tick subscriber proves the
+    /// timer actually fired during the not-open window (else "0 sent" is vacuous);
+    /// only then do we assert the gate suppressed every send. Opening the socket
+    /// must then let heartbeats flow — proving the gate is open-only, not always-off.
+    /// All `sentEvents` reads happen after stop() (writer quiesced) to avoid a race.
     func testHeartbeatSuppressedWhenNotOpen() async throws {
         let (coordinator, _, connection, heartbeat) = await makeCoordinator(heartbeatInterval: 1)
 
-        // Attach the positive-control tick observer BEFORE the timer starts.
-        // `HeartbeatService.tick` does not replay, so attaching after start()
-        // could miss ticks; attach first so every tick is counted.
+        // Attach the tick observer BEFORE start(): tick does not replay, so a
+        // late subscriber would miss ticks.
         let ticks = TickCounter()
         let tickStream = heartbeat.tick.subscribe()
         let tickDrain = Task {
@@ -214,9 +175,7 @@ final class StressLifecycleRaceTests: XCTestCase {
 
         try await coordinator.start()
 
-        // Poll until the Coordinator's observation tasks have attached and the
-        // transport has left .idle (start → connect → .connecting). No sleep:
-        // we wait on the real condition.
+        // Wait until the transport has left .idle (start → connect → .connecting).
         let leftIdle = await waitUntil(timeout: 5) {
             if case .idle = await connection.status { return false }
             return true
@@ -229,15 +188,12 @@ final class StressLifecycleRaceTests: XCTestCase {
             XCTFail("Precondition: transport must NOT be open yet")
         }
 
-        // Drive the heartbeat to tick repeatedly while NOT open. The
-        // Coordinator's tick subscriber runs handleHeartbeatTick, whose
-        // open-gate should suppress every send.
+        // Drive the heartbeat to tick repeatedly while NOT open; the open-gate
+        // in handleHeartbeatTick should suppress every send.
         await heartbeat.start(intervalSeconds: 1)
 
-        // POSITIVE CONTROL: wait until the timer has demonstrably ticked at
-        // least twice during the not-open window. If this never becomes true
-        // the timer didn't fire and the "0 sent" assertion below would be
-        // vacuous — so we fail loudly here instead.
+        // Positive control: require >=2 ticks while not-open, else the "0 sent"
+        // assertion below is vacuous.
         let timerTicked = await waitUntil(timeout: 5) {
             await ticks.snapshot() >= 2
         }
@@ -248,8 +204,8 @@ final class StressLifecycleRaceTests: XCTestCase {
             + "the suppression assertion is meaningful (saw \(ticksWhileClosed) ticks)"
         )
 
-        // Quiesce the writer before reading the mock's event array, then assert
-        // the gate suppressed every send despite the timer having fired.
+        // Quiesce the writer before reading the mock, then assert the gate
+        // suppressed every send despite the timer firing.
         await heartbeat.stop()
         let suppressedCount = heartbeatCount(connection)
         XCTAssertEqual(
@@ -258,8 +214,8 @@ final class StressLifecycleRaceTests: XCTestCase {
             + "(timer fired \(ticksWhileClosed)x but the open-gate suppressed all sends)"
         )
 
-        // Now open the socket. handleConnectionOpen restarts the heartbeat,
-        // and ticks should now produce real heartbeat sends.
+        // Open the socket: handleConnectionOpen restarts the heartbeat and ticks
+        // should now produce real sends.
         connection.simulateOpen()
         let openedUp = await waitUntil(timeout: 5) {
             if case .open = await connection.status { return true }
@@ -267,19 +223,16 @@ final class StressLifecycleRaceTests: XCTestCase {
         }
         XCTAssertTrue(openedUp, "Transport should be .open after simulateOpen")
 
-        // Wait until heartbeats actually flow now that the gate is satisfied.
-        // We watch the actor-isolated tick counter (race-free) rather than
-        // polling the mock's event array while the writer is live.
+        // Watch the actor-isolated tick counter (race-free) rather than polling
+        // the mock while the writer is live.
         let ticksAtOpen = await ticks.snapshot()
         let ticked = await waitUntil(timeout: 5) {
             await ticks.snapshot() >= ticksAtOpen + 2
         }
         XCTAssertTrue(ticked, "Heartbeat timer must keep ticking after open")
 
-        // Quiesce the writer, then read the final count. After stop() a tick
-        // emitted just beforehand may still have a handleHeartbeatTick in
-        // flight appending to the mock, so wait for the count to STABILISE
-        // (two equal consecutive reads) before asserting — no race on the read.
+        // After stop() an in-flight handleHeartbeatTick may still be appending,
+        // so wait for the count to stabilise (two equal reads) before asserting.
         await heartbeat.stop()
         var lastSeen = -1
         _ = await waitUntil(timeout: 5) {

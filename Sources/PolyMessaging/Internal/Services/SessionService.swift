@@ -9,9 +9,7 @@ actor SessionService {
     private let config: Configuration
     private let logger: PolyLogger
     private let store: SessionStore
-    /// Device class reported on session create. Resolved once at construction
-    /// (the form factor can't change mid-process). Injectable so tests can
-    /// assert phone/tablet/desktop passthrough deterministically.
+    /// Device class reported on session create; resolved once (form factor can't change mid-process), injectable for tests.
     private let deviceType: DeviceType
 
     private var accessToken: String?

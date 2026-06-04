@@ -3,19 +3,15 @@
 import XCTest
 @testable import PolyMessaging
 
-/// Robustness / stress probes for the streaming-chunk assembly path in
-/// `ChatService` (and its private `StreamingBuffer`). These focus on the
-/// edges that an unreliable backend / lossy transport can produce: a
-/// replayed (duplicate) chunk index, and assembled payloads that sit right
-/// on the `maxMessageSize` boundary.
+/// Stress probes for `ChatService` streaming-chunk assembly: replayed chunk
+/// index and payloads on the `maxMessageSize` boundary.
 final class StressStreamingTests: XCTestCase {
 
     private func makeService() -> ChatService {
         ChatService(logger: NoopLogger())
     }
 
-    /// Drains every event ChatService emits for `body`, synchronously
-    /// subscribing first so the non-replaying stream can't drop the emits.
+    /// Subscribes before running `body` so the non-replaying stream can't drop emits.
     private func drain(
         _ service: ChatService,
         _ body: () async -> Void
@@ -37,25 +33,14 @@ final class StressStreamingTests: XCTestCase {
 
     // MARK: - Duplicate / replayed chunk index
 
-    /// A duplicate (replayed) chunk index must not REORDER the assembled text:
-    /// the surrounding chunks must keep their index ordering and the replayed
-    /// chunk's index must land in its proper slot, never shuffled to the front
-    /// or end.
-    ///
-    /// NOTE on duplication: `StreamingBuffer` appends every chunk and only
-    /// sorts by `chunkIndex` at `finalize()` — it does NOT dedup by index.
-    /// So a replayed chunk's text appears TWICE in the assembled string. The
-    /// probe intent ("must not duplicate") is therefore NOT met by the current
-    /// implementation; we assert the ACTUAL current behaviour (the replayed
-    /// text is duplicated, in order) and record the mismatch in suspectedBugs
-    /// rather than weakening the test. The ordering guarantee — the load-bearing
-    /// safety property — IS upheld and is asserted strictly.
+    /// A replayed chunk index must not reorder the assembled text. Documents
+    /// CURRENT (suspected-buggy) behaviour: `StreamingBuffer` only sorts by
+    /// `chunkIndex` at `finalize()` and does NOT dedup, so the replayed text
+    /// appears twice; the ordering guarantee is upheld and asserted strictly.
     func testStreamingChunksWithDuplicateIndexNotReordered() async {
         let service = makeService()
 
         let events = await drain(service) {
-            // Ordered chunks 0,1,2 then a REPLAY of index 1 ("beta"),
-            // then the completing chunk at index 3.
             _ = await service.handleMessage(.agentMessageChunk(
                 makeEnvelope(id: "e0"),
                 makeChunkPayload(messageId: "m1", chunkIndex: 0, text: "alpha")
@@ -87,9 +72,7 @@ final class StressStreamingTests: XCTestCase {
 
         let tokens = text.split(separator: " ").map(String.init)
 
-        // Ordering invariant: stable sort by chunkIndex keeps lower indices
-        // ahead of higher ones, and the replayed index-1 token sits in its
-        // index-1 slot — never reordered before "alpha" or after "gamma".
+        // Ordering invariant: stable sort by chunkIndex keeps lower indices ahead.
         let firstBeta = tokens.firstIndex(of: "beta")
         let lastBeta = tokens.lastIndex(of: "beta")
         let alpha = tokens.firstIndex(of: "alpha")
@@ -106,14 +89,12 @@ final class StressStreamingTests: XCTestCase {
             XCTAssertLessThan(alpha, firstBeta, "alpha (idx0) must precede beta (idx1)")
             XCTAssertLessThan(lastBeta, gamma, "all beta (idx1) must precede gamma (idx2)")
             XCTAssertLessThan(gamma, delta, "gamma (idx2) must precede delta (idx3)")
-            // The two beta tokens must be adjacent — proves the replayed index
-            // landed in its proper slot and did not scatter the ordering.
+            // Two beta tokens adjacent proves the replayed index landed in its slot.
             XCTAssertEqual(lastBeta - firstBeta, 1, "replayed index-1 token must sit adjacent in its slot")
         }
 
-        // Documented current behaviour: NOT deduped — "beta" appears twice.
-        // If StreamingBuffer ever starts deduping by chunkIndex this assertion
-        // must be revisited (and the suspectedBug closed).
+        // Documents CURRENT behaviour: NOT deduped — "beta" appears twice.
+        // Revisit if StreamingBuffer ever dedups by chunkIndex.
         XCTAssertEqual(
             tokens.filter { $0 == "beta" }.count, 2,
             "ACTUAL current behaviour: replayed chunk index is NOT deduped (suspected bug)"
@@ -123,18 +104,13 @@ final class StressStreamingTests: XCTestCase {
 
     // MARK: - Chunk size at the max-message-size boundary
 
-    /// Assembling a streamed agent message whose utf8 length is exactly
-    /// `maxMessageSize`, and exactly `maxMessageSize + 1`, must NOT silently
-    /// truncate the assembled text. `maxMessageSize` gates only OUTGOING user
-    /// messages (`prepareUserMessage`); the inbound streaming-assembly path
-    /// applies no cap, so both boundary sizes survive intact.
+    /// Assembling a stream at exactly `maxMessageSize` (and +1) must not truncate:
+    /// `maxMessageSize` gates only OUTGOING user messages, not inbound assembly.
     func testStreamingChunkSizeAtBoundary() async {
         let maxSize = 1024
 
         for delta in [0, 1] {
             let service = makeService()
-            // Establish the capability so maxMessageSize is the value under test
-            // (also proves the inbound path ignores it).
             _ = await service.handleMessage(.sessionStart(
                 makeEnvelope(id: "boot"),
                 makeSessionStartPayload(maxMessageSize: maxSize)
@@ -143,8 +119,7 @@ final class StressStreamingTests: XCTestCase {
             let configured = await service.maxMessageSize
             XCTAssertEqual(configured, maxSize)
 
-            // Single-chunk stream so there is no joining separator to perturb
-            // the byte count — the assembled utf8 length equals the chunk's.
+            // Single-chunk stream so no joining separator perturbs the byte count.
             let length = maxSize + delta
             let body = String(repeating: "x", count: length)
             XCTAssertEqual(body.utf8.count, length, "fixture must be exactly \(length) bytes")

@@ -12,12 +12,8 @@ final class StressInboundSizeTests: XCTestCase {
 
     // MARK: - Oversized inbound text
 
-    /// A very large agent text must be delivered through the decoder intact —
-    /// the inbound path does not (and should not) truncate. The
-    /// `max_message_size_bytes` capability is an *outbound* guard
-    /// (`prepareUserMessage`), never applied to decoded inbound payloads.
+    /// `max_message_size_bytes` is an outbound guard (`prepareUserMessage`); inbound is never truncated.
     func testAgentMessageWithOversizedTextPassesThroughUntruncated() {
-        // ~512 KiB of text — far larger than any UI bubble would normally hold.
         let bigText = String(repeating: "A", count: 512 * 1024)
 
         let payloadJSON: [String: Any] = [
@@ -40,18 +36,14 @@ final class StressInboundSizeTests: XCTestCase {
         }
         XCTAssertEqual(env.id, "evt_big")
         XCTAssertEqual(p.messageId, "msg_big")
-        // Byte-for-byte intact: same length and same content, no truncation.
         XCTAssertEqual(p.text.count, 524_288)
         XCTAssertEqual(p.text, bigText)
     }
 
     // MARK: - Content-only message (call actions, no text)
 
-    /// An agent message that carries ONLY call actions (empty text, no
-    /// attachments, no suggestions) still counts as content and must surface
-    /// to the consumer. `ChatService.handleAgentMessage` treats a non-empty
-    /// `chatCallActions` array as content (mirroring web `hasContent`), so the
-    /// `.agentMessage` event is emitted rather than silently dropped.
+    /// `handleAgentMessage` counts a non-empty `chatCallActions` as content (web `hasContent` parity),
+    /// so a call-actions-only message must surface rather than be dropped.
     func testAgentMessageWithOnlyCallActionsEmitted() async {
         let service = makeService()
 
@@ -69,8 +61,7 @@ final class StressInboundSizeTests: XCTestCase {
         )
         let event = MessagingEvent.agentMessage(makeEnvelope(id: "evt_calls"), payload)
 
-        // Subscribe synchronously, then handle + finish + drain to avoid the
-        // deferred-Task attach race documented in ChatServiceTests.
+        // Subscribe before handling to avoid the deferred-Task attach race (see ChatServiceTests).
         let stream = service.eventStream.subscribe()
         _ = await service.handleMessage(event)
         service.eventStream.finish()

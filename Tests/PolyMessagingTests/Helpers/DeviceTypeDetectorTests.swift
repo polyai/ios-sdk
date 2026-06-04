@@ -28,8 +28,7 @@ final class DeviceTypeDetectorTests: XCTestCase {
     // MARK: - Live detection
 
     func testDetectReturnsAValidDeviceType() {
-        // No UIKit idiom on the macOS test host, so this resolves to `.desktop`;
-        // either way it must be one of the three known classes.
+        // No UIKit idiom on the macOS test host, so this resolves to `.desktop`.
         let detected = DeviceTypeDetector.detect()
         XCTAssertTrue([.mobile, .tablet, .desktop].contains(detected))
     }

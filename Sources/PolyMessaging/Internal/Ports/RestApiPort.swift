@@ -4,8 +4,7 @@ import Foundation
 
 struct SessionContext: Sendable {
     let platform: String
-    /// Device class (`mobile`/`tablet`/`desktop`) for analytics segmentation.
-    /// Orthogonal to `platform` — see ``DeviceType``.
+    /// Device class (`mobile`/`tablet`/`desktop`), orthogonal to `platform` — see ``DeviceType``.
     let deviceType: String
     let streamingEnabled: Bool
 
