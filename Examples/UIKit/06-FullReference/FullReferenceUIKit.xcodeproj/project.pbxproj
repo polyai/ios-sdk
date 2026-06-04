@@ -18,12 +18,14 @@
 		62D4D92F702386C6B3EA4DF3 /* LoadingViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4B0CDB46684DA7484686854A /* LoadingViewController.swift */; };
 		725789502306536FB139AF13 /* FullReferenceUIKitFlowTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0291DC5216F3FA69BA81F36D /* FullReferenceUIKitFlowTests.swift */; };
 		73B823F10E78E94DB4A21D0D /* OfflineBanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = DE741364FE9716AF1484C05D /* OfflineBanner.swift */; };
+		7B8D7F15113BA24EB2977066 /* NotificationBannerUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 534733E696F46F5BF2FBAEE4 /* NotificationBannerUITests.swift */; };
 		7FBD49C0A1E8422C826AEF43 /* NetworkMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 28F060C80B3BD0378C06A217 /* NetworkMonitor.swift */; };
 		8830F684E0CEDAF8D3A0DCD0 /* README.md in Resources */ = {isa = PBXBuildFile; fileRef = C4DEAC78E9EA526B9AB3F5AA /* README.md */; };
 		8FB6E7CE5A684517D41FD59C /* CallActionsRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 56E0E9A70E54ED207A2CEF43 /* CallActionsRow.swift */; };
 		9C300193C8EA40A10D5695FC /* RetryableImageView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9F4FFB52D588280AE380BFCC /* RetryableImageView.swift */; };
 		A7D43D3F0B0FD5680EA947A6 /* AttachmentCarouselView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A220A9073DCD8F008BCDB2C3 /* AttachmentCarouselView.swift */; };
 		D39A4C5C4D3E674646608B46 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1AA9BCE047DEB13E531C52BF /* AppDelegate.swift */; };
+		D6B7DBCF3B1AB64AE2E244B7 /* NewMessageNotifier.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1BFCF7413F54F859DB008660 /* NewMessageNotifier.swift */; };
 		E6119C71A7C6F066471596EB /* MessageCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5E03A8B4D1D2AB284BA9DC3F /* MessageCell.swift */; };
 		FC7045AFB81DBF9A339E1FFC /* ChatViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = E4379AF933B2756A818DF3D9 /* ChatViewController.swift */; };
 /* End PBXBuildFile section */
@@ -41,14 +43,16 @@
 /* Begin PBXFileReference section */
 		0291DC5216F3FA69BA81F36D /* FullReferenceUIKitFlowTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FullReferenceUIKitFlowTests.swift; sourceTree = "<group>"; };
 		1AA9BCE047DEB13E531C52BF /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
+		1BFCF7413F54F859DB008660 /* NewMessageNotifier.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NewMessageNotifier.swift; sourceTree = "<group>"; };
 		21B2A1B7F2F2580EF1F8375F /* SceneDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SceneDelegate.swift; sourceTree = "<group>"; };
 		23F7BE9EC6C7030F5AD75802 /* SuggestionsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SuggestionsView.swift; sourceTree = "<group>"; };
-		26C47D7A07752778D008E61F /* FullReferenceUIKit.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = FullReferenceUIKit.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		26C47D7A07752778D008E61F /* FullReferenceUIKit.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = FullReferenceUIKit.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		28F060C80B3BD0378C06A217 /* NetworkMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NetworkMonitor.swift; sourceTree = "<group>"; };
-		43638E7199A8FB83B30DD1E7 /* poly-messaging-ios */ = {isa = PBXFileReference; lastKnownFileType = folder; name = "poly-messaging-ios"; path = ../../..; sourceTree = SOURCE_ROOT; };
+		31B05580B20C7FC2305DA602 /* ios-sdk */ = {isa = PBXFileReference; lastKnownFileType = folder; name = "ios-sdk"; path = ../../..; sourceTree = SOURCE_ROOT; };
 		4B0CDB46684DA7484686854A /* LoadingViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoadingViewController.swift; sourceTree = "<group>"; };
 		4EF763A7FAA53FDB4CBDD1F3 /* FullReferenceUIKitUITests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = FullReferenceUIKitUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		4F21ED0532245E86AFB25B0A /* ConnectViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectViewController.swift; sourceTree = "<group>"; };
+		534733E696F46F5BF2FBAEE4 /* NotificationBannerUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationBannerUITests.swift; sourceTree = "<group>"; };
 		56E0E9A70E54ED207A2CEF43 /* CallActionsRow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CallActionsRow.swift; sourceTree = "<group>"; };
 		5E03A8B4D1D2AB284BA9DC3F /* MessageCell.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MessageCell.swift; sourceTree = "<group>"; };
 		6318EEE102FA18CCEE4ECD0B /* URLCardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = URLCardView.swift; sourceTree = "<group>"; };
@@ -77,7 +81,7 @@
 		32DDFF09438168DC0666E02C /* Packages */ = {
 			isa = PBXGroup;
 			children = (
-				43638E7199A8FB83B30DD1E7 /* poly-messaging-ios */,
+				31B05580B20C7FC2305DA602 /* ios-sdk */,
 			);
 			name = Packages;
 			sourceTree = "<group>";
@@ -97,6 +101,7 @@
 				56E0E9A70E54ED207A2CEF43 /* CallActionsRow.swift */,
 				B08861D49B0D951C509CA1C9 /* LoadingSkeleton.swift */,
 				5E03A8B4D1D2AB284BA9DC3F /* MessageCell.swift */,
+				1BFCF7413F54F859DB008660 /* NewMessageNotifier.swift */,
 				DE741364FE9716AF1484C05D /* OfflineBanner.swift */,
 				9F4FFB52D588280AE380BFCC /* RetryableImageView.swift */,
 				23F7BE9EC6C7030F5AD75802 /* SuggestionsView.swift */,
@@ -109,10 +114,6 @@
 			isa = PBXGroup;
 			children = (
 				C4DEAC78E9EA526B9AB3F5AA /* README.md */,
-				CDECC00AD048119E8D10F600 /* App */,
-				7E2C0771EA73D2A2FCA14E10 /* Components */,
-				6A1684EA4150B9A0CD5E5808 /* Helpers */,
-				B2F3B380D4ADC008E7FC3B14 /* Views */,
 			);
 			name = FullReferenceUIKit;
 			path = .;
@@ -148,6 +149,7 @@
 			isa = PBXGroup;
 			children = (
 				0291DC5216F3FA69BA81F36D /* FullReferenceUIKitFlowTests.swift */,
+				534733E696F46F5BF2FBAEE4 /* NotificationBannerUITests.swift */,
 			);
 			path = UITests;
 			sourceTree = "<group>";
@@ -274,6 +276,7 @@
 				62D4D92F702386C6B3EA4DF3 /* LoadingViewController.swift in Sources */,
 				E6119C71A7C6F066471596EB /* MessageCell.swift in Sources */,
 				7FBD49C0A1E8422C826AEF43 /* NetworkMonitor.swift in Sources */,
+				D6B7DBCF3B1AB64AE2E244B7 /* NewMessageNotifier.swift in Sources */,
 				73B823F10E78E94DB4A21D0D /* OfflineBanner.swift in Sources */,
 				9C300193C8EA40A10D5695FC /* RetryableImageView.swift in Sources */,
 				3135336DE3E48F915AF90042 /* RootViewController.swift in Sources */,
@@ -288,6 +291,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				725789502306536FB139AF13 /* FullReferenceUIKitFlowTests.swift in Sources */,
+				7B8D7F15113BA24EB2977066 /* NotificationBannerUITests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -370,6 +374,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
+				DEVELOPMENT_TEAM = H54KAQUV9D;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = Generated/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -444,6 +449,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
+				DEVELOPMENT_TEAM = H54KAQUV9D;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = Generated/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
