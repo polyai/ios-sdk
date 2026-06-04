@@ -4,6 +4,14 @@ All notable changes to the PolyMessaging iOS SDK are documented here.
 This project adheres to [Semantic Versioning](https://semver.org). While the SDK
 is pre-1.0, breaking changes bump the **minor** version.
 
+## [0.8.0] - 2026-06-04
+
+Add a `device_type` dimension (`mobile` / `tablet` / `desktop`) sent on session
+create so analytics can segment traffic by form factor. It is detected
+automatically from the device idiom (iPhone → mobile, iPad → tablet, Mac →
+desktop) and is orthogonal to `platform` (`ios`), not a replacement. No action
+required by integrators; no breaking changes.
+
 ## [0.7.0] - 2026-06-01
 
 Add CocoaPods as a distribution channel. The SDK can now be installed with
