@@ -20,18 +20,28 @@ import XCTest
 @MainActor
 final class LiveMessagingProbeTests: XCTestCase {
 
-    /// API key for the live probe. Supply it via the `POLY_LIVE_TOKEN`
-    /// environment variable when running; defaults to empty otherwise.
-    private let devToken = ""
-
     func test_liveConversation_agentGreetsAndReplies() async throws {
+        let env = ProcessInfo.processInfo.environment
+        let token = env["POLY_CONNECTOR_TOKEN"] ?? env["POLY_LIVE_TOKEN"] ?? ""
         try XCTSkipUnless(
-            ProcessInfo.processInfo.environment["POLY_LIVE"] == "1",
-            "Set POLY_LIVE=1 to run the live messaging probe"
+            !token.isEmpty,
+            "Set POLY_CONNECTOR_TOKEN (or POLY_LIVE_TOKEN) to run the live messaging probe"
         )
 
-        let token = ProcessInfo.processInfo.environment["POLY_LIVE_TOKEN"] ?? devToken
-        let session = PolyMessaging.start(.init(apiKey: token, environment: .us))
+        // A connector token is cluster-scoped, so the Configuration environment
+        // must match the token's cluster. When a host identifier is supplied we
+        // target that named cluster (default "dev"); otherwise prod US.
+        let config: Configuration
+        if let host = env["POLY_HOST_IDENTIFIER"] {
+            config = .init(
+                apiKey: token,
+                environment: .cluster(env["POLY_CLUSTER"] ?? "dev"),
+                hostIdentifier: host
+            )
+        } else {
+            config = .init(apiKey: token, environment: .us)
+        }
+        let session = PolyMessaging.start(config)
 
         // 1) Agent greets on join.
         let greeted = await waitUntil(session, timeout: 45) { $0.agentMessages.isEmpty == false }
