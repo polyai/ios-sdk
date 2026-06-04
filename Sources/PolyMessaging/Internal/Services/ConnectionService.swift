@@ -16,6 +16,10 @@ actor ConnectionService {
     private var invalidSessionReconnects: Int = 0
     private var shouldReconnect: Bool = true
     private var lastCloseWasNetwork: Bool = false
+    /// When set, replaces the computed reconnect backoff with a fixed delay.
+    /// Injectable so tests drive reconnect cycles deterministically without
+    /// depending on wall-clock exponential backoff (nil = production behaviour).
+    private let reconnectBackoffOverrideSeconds: Double?
     private var currentAttemptOpened: Bool = false
     private var preserveBudgetOnNextConnect: Bool = false
     private var reconnectTask: Task<Void, Never>?
@@ -35,10 +39,16 @@ actor ConnectionService {
     private static let maxBackoffSeconds: Double = 30
     private static let maxInvalidSessionAttempts = 3
 
-    init(transport: any Connection, wsBaseURL: URL, logger: PolyLogger) {
+    init(
+        transport: any Connection,
+        wsBaseURL: URL,
+        logger: PolyLogger,
+        reconnectBackoffOverrideSeconds: Double? = nil
+    ) {
         self.transport = transport
         self.wsBaseURL = wsBaseURL
         self.logger = logger
+        self.reconnectBackoffOverrideSeconds = reconnectBackoffOverrideSeconds
     }
 
     // MARK: - Connect
@@ -291,7 +301,9 @@ actor ConnectionService {
 
         // Exponential backoff with ±20% jitter so a fleet-wide disconnect
         let delay: Double
-        if lastCloseWasNetwork {
+        if let override = reconnectBackoffOverrideSeconds {
+            delay = override
+        } else if lastCloseWasNetwork {
             delay = Self.networkPollSeconds
         } else {
             let base = min(Self.maxBackoffSeconds, pow(2.0, Double(reconnectAttempt)))
