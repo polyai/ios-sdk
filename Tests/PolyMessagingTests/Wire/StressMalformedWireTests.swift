@@ -21,7 +21,12 @@ final class StressMalformedWireTests: XCTestCase {
         """.data(using: .utf8)!
 
         let events = WireDecoder.decode(json)
-        XCTAssertTrue(events.isEmpty, "Null batch payload should drop to empty, not crash")
+        // Concrete outcome: the batch guard (`dict("payload")` is an `as? WireJSON`
+        // cast that returns nil for NSNull) bails, so the frame decodes to EXACTLY
+        // zero events — not "some" events, and not a crash. Assert the precise
+        // count rather than `isEmpty` (which would also pass on any single decoded
+        // event slipping through, hiding a regression).
+        XCTAssertEqual(events.count, 0, "Null batch payload must drop to exactly zero events, not crash")
     }
 
     // MARK: - Empty id + nil sequence on a single event
@@ -67,22 +72,26 @@ final class StressMalformedWireTests: XCTestCase {
         """.data(using: .utf8)!
 
         let events = WireDecoder.decode(json)
-        XCTAssertTrue(events.isEmpty, "Wrong-case event type must not match a known type")
+        XCTAssertEqual(events.count, 0, "Wrong-case event type must not match a known type; drops to exactly zero events")
     }
 
     // MARK: - Primitive element inside a batch's events array
 
-    func testDecodeBatchWithPrimitiveInEventsArraySkipped() {
-        // The events array mixes valid event objects with a bare primitive
-        // (a string). The decoder reads `events` via `array(_:)`, which is an
-        // `as? [WireJSON]` cast; a single non-object element makes the WHOLE
-        // cast fail, so `array("events")` is nil and the entire batch is
-        // dropped to an empty result rather than skipping just the bad element.
-        //
-        // NOTE: The probe's intent was "the primitive is skipped, the rest
-        // survive". The decoder does NOT do per-element tolerance here — one
-        // primitive poisons the whole batch. Asserting the ACTUAL behaviour;
-        // see suspectedBugs.
+    /// CHANGE-DETECTOR — pins the CURRENT (suspected-buggy) behaviour.
+    ///
+    /// The events array mixes valid event objects with a bare primitive
+    /// (a string). The decoder reads `events` via `array(_:)`, which is an
+    /// `as? [WireJSON]` cast; a single non-object element makes the WHOLE
+    /// cast fail, so `array("events")` is nil and the ENTIRE batch is dropped
+    /// to zero events rather than skipping just the bad element.
+    ///
+    /// The probe's original intent was "the primitive is skipped, the two valid
+    /// events survive" (expected count == 2). The decoder does NOT do per-element
+    /// tolerance today — one primitive poisons the whole batch (actual count == 0).
+    /// This test deliberately asserts the ACTUAL behaviour so it FAILS loudly the
+    /// day `WireDecoder` gains per-element tolerance; update the expected count to
+    /// 2 (and assert the two surviving events) when that bug is fixed.
+    func testDecodeBatchWithPrimitiveInEventsArray_pinsCurrentWholeBatchDrop() {
         let json = """
         {
             "type": "EVENT_TYPE_EVENT_BATCH",
@@ -109,9 +118,12 @@ final class StressMalformedWireTests: XCTestCase {
         """.data(using: .utf8)!
 
         let events = WireDecoder.decode(json)
-        XCTAssertTrue(
-            events.isEmpty,
-            "A primitive in the events array fails the [WireJSON] cast and drops the whole batch"
+        // CURRENT behaviour: whole batch dropped → exactly 0 events.
+        // When per-element tolerance lands this becomes 2 (the two valid events);
+        // assert the exact count so the change-detector trips precisely.
+        XCTAssertEqual(
+            events.count, 0,
+            "Pins CURRENT behaviour: a primitive in the events array fails the [WireJSON] cast and drops the WHOLE batch (expected 2 once per-element tolerance is added)"
         )
     }
 }

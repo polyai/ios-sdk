@@ -19,7 +19,6 @@ final class StressInboundSizeTests: XCTestCase {
     func testAgentMessageWithOversizedTextPassesThroughUntruncated() {
         // ~512 KiB of text — far larger than any UI bubble would normally hold.
         let bigText = String(repeating: "A", count: 512 * 1024)
-        XCTAssertEqual(bigText.count, 524_288)
 
         let payloadJSON: [String: Any] = [
             "id": "evt_big",

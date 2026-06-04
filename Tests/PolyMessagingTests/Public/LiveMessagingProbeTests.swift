@@ -21,27 +21,7 @@ import XCTest
 final class LiveMessagingProbeTests: XCTestCase {
 
     func test_liveConversation_agentGreetsAndReplies() async throws {
-        let env = ProcessInfo.processInfo.environment
-        let token = env["POLY_CONNECTOR_TOKEN"] ?? env["POLY_LIVE_TOKEN"] ?? ""
-        try XCTSkipUnless(
-            !token.isEmpty,
-            "Set POLY_CONNECTOR_TOKEN (or POLY_LIVE_TOKEN) to run the live messaging probe"
-        )
-
-        // A connector token is cluster-scoped, so the Configuration environment
-        // must match the token's cluster. When a host identifier is supplied we
-        // target that named cluster (default "dev"); otherwise prod US.
-        let config: Configuration
-        if let host = env["POLY_HOST_IDENTIFIER"] {
-            config = .init(
-                apiKey: token,
-                environment: .cluster(env["POLY_CLUSTER"] ?? "dev"),
-                hostIdentifier: host
-            )
-        } else {
-            config = .init(apiKey: token, environment: .us)
-        }
-        let session = PolyMessaging.start(config)
+        let session = PolyMessaging.start(try liveConfigOrSkip())
 
         // 1) Agent greets on join.
         let greeted = await waitUntil(session, timeout: 45) { $0.agentMessages.isEmpty == false }
@@ -58,6 +38,74 @@ final class LiveMessagingProbeTests: XCTestCase {
         XCTAssertTrue(replied, "agent should reply to the user message")
 
         await session.client.shutdown()
+    }
+
+    /// A longer multi-turn conversation that exercises rich content over the
+    /// live socket: greeting (with suggestion pills + an image-attachment
+    /// carousel), a link reply, and ending the conversation. Drives the dev
+    /// "WebbyChat" agent's reliable triggers (the same ones the FullReference
+    /// XCUITests rely on): "send me a link to google" and "end the convo".
+    func test_liveRichConversation_carouselLinkAndEnd() async throws {
+        let session = PolyMessaging.start(try liveConfigOrSkip())
+
+        // 1) Greeting arrives with suggestion pills and an image attachment
+        //    (the carousel). The greeting reliably carries both.
+        let greeted = await waitUntil(session, timeout: 45) { $0.agentMessages.isEmpty == false }
+        XCTAssertTrue(greeted, "agent should greet on join")
+        let greeting = session.agentMessages.first
+        print("LIVE rich — greeting: \(greeting?.text ?? "<none>")")
+        print("LIVE rich — greeting suggestions=\(greeting?.suggestions.count ?? 0) attachments=\(greeting?.attachments.count ?? 0)")
+
+        XCTAssertFalse(greeting?.suggestions.isEmpty ?? true,
+                       "greeting should carry response-suggestion pills")
+        // Give the greeting's attachment a beat to attach if it lands a frame late.
+        let hasCarousel = await waitUntil(session, timeout: 10) {
+            $0.agentMessages.contains { !$0.attachments.isEmpty }
+        }
+        XCTAssertTrue(hasCarousel, "greeting should carry an attachment (the carousel)")
+        if let att = session.agentMessages.flatMap({ $0.attachments }).first {
+            print("LIVE rich — attachment type=\(att.contentType.rawValue) url=\(att.contentUrl?.absoluteString ?? "nil")")
+        }
+
+        // 2) Ask for a link → reply contains a URL (rendered from markdown).
+        var count = session.agentMessages.count
+        try await session.send("send me a link to google")
+        let gotLink = await waitUntil(session, timeout: 60) {
+            $0.agentMessages.count > count &&
+            ($0.agentMessages.last?.text.lowercased().contains("http") ?? false)
+        }
+        print("LIVE rich — link reply: \(session.agentMessages.last?.text ?? "<none>")")
+        XCTAssertTrue(gotLink, "asking for a link should return a reply containing a URL")
+
+        // 3) Ask the agent to end the conversation → server SESSION_END flips hasEnded.
+        count = session.agentMessages.count
+        try await session.send("end the convo")
+        let ended = await waitUntil(session, timeout: 60) { $0.hasEnded }
+        print("LIVE rich — hasEnded=\(session.hasEnded) connection=\(session.connection)")
+        XCTAssertTrue(ended, "asking the agent to end should end the conversation (hasEnded == true)")
+
+        await session.client.shutdown()
+    }
+
+    /// Builds a live Configuration from the environment, or skips the test when
+    /// no token is set. A connector token is cluster-scoped, so the environment
+    /// must match: when a host identifier is supplied we target that named
+    /// cluster (default "dev"); otherwise prod US.
+    private func liveConfigOrSkip() throws -> Configuration {
+        let env = ProcessInfo.processInfo.environment
+        let token = env["POLY_CONNECTOR_TOKEN"] ?? env["POLY_LIVE_TOKEN"] ?? ""
+        try XCTSkipUnless(
+            !token.isEmpty,
+            "Set POLY_CONNECTOR_TOKEN (or POLY_LIVE_TOKEN) to run the live messaging probe"
+        )
+        if let host = env["POLY_HOST_IDENTIFIER"] {
+            return .init(
+                apiKey: token,
+                environment: .cluster(env["POLY_CLUSTER"] ?? "dev"),
+                hostIdentifier: host
+            )
+        }
+        return .init(apiKey: token, environment: .us)
     }
 
     private func waitUntil(_ s: ChatSession, timeout: TimeInterval, _ cond: (ChatSession) -> Bool) async -> Bool {

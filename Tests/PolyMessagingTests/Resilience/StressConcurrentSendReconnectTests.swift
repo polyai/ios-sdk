@@ -41,7 +41,8 @@ final class StressConcurrentSendReconnectTests: XCTestCase {
     /// NOT silently dropped — after the retry budget is exhausted the consumer
     /// receives exactly one `.messageFailed` for that draft. Each retry must
     /// also have consulted the wait hook (so reconnect-aware backoff is honored
-    /// rather than the retry blindly firing into a dead socket).
+    /// rather than the retry blindly firing into a dead socket), and the full
+    /// retry budget (`maxRetries == 3`) must be spent before giving up.
     func testRetrySendWhileReconnectBackoffTimesOutGracefully() async throws {
         let service = await makeStartedService()
 
@@ -72,23 +73,19 @@ final class StressConcurrentSendReconnectTests: XCTestCase {
         let result = await service.prepareUserMessage(text: "msg during reconnect")
         let draftId = try XCTUnwrap(result?.draftId, "enqueue should succeed on a started chat")
 
-        // Collect events until we see the terminal .messageFailed for our draft.
-        // Production timing: retry fires every 3s, budget is 3 retries, so the
-        // failure latch trips on the 4th retry tick (~12s). Give generous
-        // headroom; if it never arrives the message is hung -> test fails.
-        var sawPendingForDraft = false
-        var sawConfirmedForDraft = false
-        var failedDraftIds: [String] = []
-
+        // Collect events into an actor — the collector runs on a background
+        // Task and the test body reads the same state, so all access must be
+        // synchronized to avoid a data race.
+        let log = DraftEventLog(draftId: draftId)
         let collector = Task {
             for await event in stream {
                 switch event {
                 case .messagePending(let id, _):
-                    if id == draftId { sawPendingForDraft = true }
+                    await log.recordPending(id)
                 case .messageConfirmed(let id, _):
-                    if id == draftId { sawConfirmedForDraft = true }
+                    await log.recordConfirmed(id)
                 case .messageFailed(let id):
-                    failedDraftIds.append(id)
+                    await log.recordFailed(id)
                     if id == draftId { return }
                 default:
                     break
@@ -96,21 +93,30 @@ final class StressConcurrentSendReconnectTests: XCTestCase {
             }
         }
 
-        let deadline = Date().addingTimeInterval(20)
-        while failedDraftIds.first(where: { $0 == draftId }) == nil, Date() < deadline {
-            try await Task.sleep(nanoseconds: 100_000_000)
+        // Wait for the terminal `.messageFailed` rather than sleeping a fixed
+        // span. Production timing: retry fires every 3s, budget is 3 retries,
+        // so the failure latch trips on the 4th retry tick (~12s). Poll on the
+        // real condition with generous headroom; if it never arrives the
+        // message is hung -> the wait returns false and the assertion below
+        // fails.
+        let reachedTerminal = await waitUntil(timeout: 20) {
+            await log.sawFailedForDraft()
         }
         collector.cancel()
         service.eventStream.finish()
 
+        let failedCount = await log.failedCountForDraft()
+        let sawPendingForDraft = await log.sawPendingForDraft()
+        let sawConfirmedForDraft = await log.sawConfirmedForDraft()
+
         // Terminal outcome reached: the draft is FAILED, not hung.
         XCTAssertTrue(
-            failedDraftIds.contains(draftId),
+            reachedTerminal,
             "a send stuck across a never-recovering reconnect must end as .messageFailed, not hang"
         )
         // Exactly one terminal failure for the draft — not a storm of them.
         XCTAssertEqual(
-            failedDraftIds.filter { $0 == draftId }.count, 1,
+            failedCount, 1,
             "draft must fail exactly once"
         )
         // It was genuinely pending first (optimistic bubble shown), and never
@@ -119,17 +125,20 @@ final class StressConcurrentSendReconnectTests: XCTestCase {
         XCTAssertFalse(sawConfirmedForDraft, "a send that never delivered must not be reported confirmed")
 
         // Every retry consulted the reconnect-aware wait hook, and the retry
-        // budget (maxRetries = 3) was actually exercised before giving up —
-        // proving the send wasn't silently dropped on the first stumble.
+        // budget (`ChatService.maxRetries == 3`) was spent in full before
+        // giving up — proving the send wasn't silently dropped on the first
+        // stumble. The 4th retry tick observes the budget exhausted and emits
+        // `.messageFailed` without scheduling another send, so both counters
+        // land on exactly 3.
         let hooks = await hookCalls.value
         let attempts = await sendAttempts.value
-        XCTAssertGreaterThanOrEqual(
-            hooks, 1,
-            "each retry must wait on the transport-open hook before sending"
+        XCTAssertEqual(
+            hooks, 3,
+            "every retry in the budget (3) must wait on the transport-open hook before sending"
         )
-        XCTAssertGreaterThanOrEqual(
-            attempts, 1,
-            "the retry must reach the send path even while the socket is down"
+        XCTAssertEqual(
+            attempts, 3,
+            "every retry in the budget (3) must reach the send path even while the socket is down"
         )
         XCTAssertEqual(
             hooks, attempts,
@@ -146,4 +155,35 @@ final class StressConcurrentSendReconnectTests: XCTestCase {
 private actor CounterBox {
     private(set) var value: Int = 0
     func increment() { value += 1 }
+}
+
+/// Synchronizes the event-collector state that is written from a background
+/// `Task` and read from the test body. Tracks per-draft pending / confirmed /
+/// failed observations behind actor isolation so there is no data race.
+private actor DraftEventLog {
+    private let draftId: String
+    private var sawPending = false
+    private var sawConfirmed = false
+    private var failedIds: [String] = []
+
+    init(draftId: String) {
+        self.draftId = draftId
+    }
+
+    func recordPending(_ id: String) {
+        if id == draftId { sawPending = true }
+    }
+
+    func recordConfirmed(_ id: String) {
+        if id == draftId { sawConfirmed = true }
+    }
+
+    func recordFailed(_ id: String) {
+        failedIds.append(id)
+    }
+
+    func sawPendingForDraft() -> Bool { sawPending }
+    func sawConfirmedForDraft() -> Bool { sawConfirmed }
+    func sawFailedForDraft() -> Bool { failedIds.contains(draftId) }
+    func failedCountForDraft() -> Int { failedIds.filter { $0 == draftId }.count }
 }
