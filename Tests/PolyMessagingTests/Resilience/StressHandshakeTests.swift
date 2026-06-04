@@ -27,7 +27,13 @@ final class StressHandshakeTests: XCTestCase {
         let session = SessionService(api: api, config: config, logger: logger,
                                      sessionTimeoutSeconds: sessionTimeoutSeconds)
         let wsURL = URL(string: "wss://messaging.poly.ai/ws")!
-        let connService = ConnectionService(transport: connection, wsBaseURL: wsURL, logger: logger)
+        // Near-instant, fixed reconnect backoff so the refetch/reconnect cycles
+        // are deterministic and fast — the test asserts the invalid-session
+        // count/anti-stacking invariants, not the wall-clock backoff schedule.
+        // (Without this, jittered exponential backoff under CI load made the
+        // per-cycle waits race; see ConnectionService.reconnectBackoffOverrideSeconds.)
+        let connService = ConnectionService(transport: connection, wsBaseURL: wsURL, logger: logger,
+                                            reconnectBackoffOverrideSeconds: 0.01)
         let chat = ChatService(logger: logger)
         let heartbeat = HeartbeatService(intervalSeconds: 30)
         let coordinator = Coordinator(
@@ -99,19 +105,16 @@ final class StressHandshakeTests: XCTestCase {
 
         // Never simulateOpen, so currentAttemptOpened stays false and each 1006
         // is classified as a handshake failure → invalid-session refetch path.
-        // Stay within the budget of 3, polling each cycle's reconnect before the
-        // next close so the chain is deterministic without a fixed grace window.
-        // Reconnect backoff is jittered exponential (~1s, ~2s, ~4.8s per cycle,
-        // wall-clock), so the per-cycle waits use a generous timeout that clears
-        // the worst-case backoff on a slow/contended CI runner; waitUntil polls
-        // and returns the instant the count lands, so healthy runs stay fast.
+        // The injected fixed backoff makes each cycle's reconnect fire near-
+        // instantly, so polling each cycle's reconnect before the next close is
+        // deterministic and fast regardless of host speed.
         let cyclesWithinBudget = 3
         for cycle in 1...cyclesWithinBudget {
             connection.simulateClose(code: 1006, reason: "handshake timeout", wasClean: false)
-            let reconnected = await waitUntil(timeoutMs: 20000) { connection.connectCalls.count == 1 + cycle }
+            let reconnected = await waitUntil { connection.connectCalls.count == 1 + cycle }
             XCTAssertTrue(reconnected,
                           "handshake-failure cycle \(cycle) must reconnect exactly once; got \(connection.connectCalls.count)")
-            let refetched = await waitUntil(timeoutMs: 20000) { api.createSessionCallCount == 1 + cycle }
+            let refetched = await waitUntil { api.createSessionCallCount == 1 + cycle }
             XCTAssertTrue(refetched,
                           "handshake-failure cycle \(cycle) must refetch a fresh session; got \(api.createSessionCallCount)")
         }
@@ -194,14 +197,14 @@ final class StressHandshakeTests: XCTestCase {
         // Three in-budget 4001s. No simulateOpen after this point, so handleOpen()
         // never resets the counter and it accumulates across the chain. Wait for
         // each reconnect before the next close to keep the chain deterministic.
-        // Generous per-cycle timeout for the same jittered exponential backoff
-        // reason as the test above (~1s/2s/4.8s per cycle, wall-clock).
+        // Injected fixed backoff → each reconnect fires near-instantly; poll each
+        // cycle's reconnect before the next close to keep the chain deterministic.
         for cycle in 1...3 {
             connection.simulateClose(code: 4001, reason: "unknown session", wasClean: false)
-            let reconnected = await waitUntil(timeoutMs: 20000) { connection.connectCalls.count == 1 + cycle }
+            let reconnected = await waitUntil { connection.connectCalls.count == 1 + cycle }
             XCTAssertTrue(reconnected,
                           "in-budget 4001 cycle \(cycle) must reconnect once; got \(connection.connectCalls.count)")
-            let refetched = await waitUntil(timeoutMs: 20000) { api.createSessionCallCount == 1 + cycle }
+            let refetched = await waitUntil { api.createSessionCallCount == 1 + cycle }
             XCTAssertTrue(refetched,
                           "in-budget 4001 cycle \(cycle) must refetch a fresh session; got \(api.createSessionCallCount)")
         }
