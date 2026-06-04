@@ -24,6 +24,47 @@ final class SessionServiceTests: XCTestCase {
         XCTAssertEqual(sessionCalls, 1)
     }
 
+    func testCreateSessionSendsPlatformAndInjectedDeviceType() async throws {
+        let api = MockRestApi()
+        let config = Configuration(apiKey: "test_token", environment: .us)
+        let service = SessionService(
+            api: api, config: config, logger: NoopLogger(), deviceType: .tablet
+        )
+        try await service.createSession()
+
+        let context = api.lastSessionContext
+        XCTAssertEqual(context?.platform, "ios")
+        // device_type is orthogonal to platform — both are sent.
+        XCTAssertEqual(context?.deviceType, "tablet")
+    }
+
+    func testCreateSessionSendsEachDeviceType() async throws {
+        // Exercise the full enum through the session-create flow, not just the
+        // pure mapping — phone/tablet/desktop each propagate to the API context.
+        for deviceType in [DeviceType.mobile, .tablet, .desktop] {
+            let api = MockRestApi()
+            let config = Configuration(apiKey: "test_token", environment: .us)
+            let service = SessionService(
+                api: api, config: config, logger: NoopLogger(), deviceType: deviceType
+            )
+            try await service.createSession()
+
+            XCTAssertEqual(api.lastSessionContext?.deviceType, deviceType.rawValue)
+        }
+    }
+
+    func testCreateSessionDefaultsDeviceTypeToDetectedClass() async throws {
+        // No injected override → uses DeviceTypeDetector.detect(), which on the
+        // macOS test host resolves to "desktop". Asserts the field is always
+        // populated with a known class rather than left empty.
+        let (service, api) = makeService()
+        try await service.createSession()
+
+        let deviceType = api.lastSessionContext?.deviceType
+        XCTAssertNotNil(deviceType)
+        XCTAssertTrue(["mobile", "tablet", "desktop"].contains(deviceType ?? ""))
+    }
+
     func testCreateSessionSetsActiveState() async throws {
         let (service, _) = makeService()
         try await service.createSession()

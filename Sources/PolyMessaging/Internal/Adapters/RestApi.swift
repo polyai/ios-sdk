@@ -85,6 +85,7 @@ actor RestApi: RestApiPort {
         let body: [String: Any] = [
             "streaming_enabled": context.streamingEnabled,
             "platform": context.platform,
+            "device_type": context.deviceType,
         ]
         request.httpBody = try? JSONSerialization.data(withJSONObject: body)
 
