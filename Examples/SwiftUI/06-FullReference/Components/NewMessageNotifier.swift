@@ -8,12 +8,27 @@
 //  Dedupes on the server `messageId` (persisted) so replays on resume/relaunch
 //  don't re-notify. Full walkthrough: README § "In-app new-message alerts".
 //
-//  Attach with `.newMessageNotifications(for: session)`.
+//  Attach with `.newMessageNotifications(for: session)` — the default policy stays
+//  quiet while you're looking at the chat (see `NotificationPolicy`).
 
 import SwiftUI
 import UIKit
 import UserNotifications
 import PolyMessaging
+
+/// Controls *when* `newMessageNotifications` raises a banner for a new agent
+/// message. Flip it at the call site to suit your app.
+enum NotificationPolicy {
+    /// Only while the chat isn't on screen (default) — no banner while you're
+    /// reading the conversation; it still fires in the background grace window.
+    case whenBackgrounded
+
+    /// On every new agent message, even while the chat is open in the foreground.
+    case always
+
+    /// Never post a banner.
+    case never
+}
 
 /// Opts the foreground app into banners — iOS suppresses them for the active app otherwise.
 private final class ForegroundBannerPresenter: NSObject, UNUserNotificationCenterDelegate {
@@ -83,14 +98,22 @@ struct NotifiedMessageStore {
 @MainActor
 private struct NewMessageNotifierModifier: ViewModifier {
     let session: ChatSession
+    let policy: NotificationPolicy
     @State private var store = NotifiedMessageStore()
     @State private var grace = BackgroundGraceKeeper()
     // SwiftUI-qualified: the SDK also exports an `Environment` type.
     @SwiftUI.Environment(\.scenePhase) private var scenePhase
 
+    // UITest hook: `-uiTestNotifyAlways` exercises the foreground banner even
+    // though the default policy stays quiet while the chat is on screen.
+    private var effectivePolicy: NotificationPolicy {
+        CommandLine.arguments.contains("-uiTestNotifyAlways") ? .always : policy
+    }
+
     func body(content: Content) -> some View {
         content
             .onAppear {
+                guard effectivePolicy != .never else { return }
                 let center = UNUserNotificationCenter.current()
                 center.delegate = ForegroundBannerPresenter.shared
                 center.requestAuthorization(options: [.alert, .sound]) { _, _ in }
@@ -107,6 +130,7 @@ private struct NewMessageNotifierModifier: ViewModifier {
 
     // `events` is multicast, so observing it doesn't disturb the ChatSession UI.
     private func observe() async {
+        guard effectivePolicy != .never else { return }
         for await event in session.client.events {
             // Completed messages only — full text + stable messageId (chunks ignored).
             let message: (id: String, title: String, body: String)?
@@ -118,12 +142,17 @@ private struct NewMessageNotifierModifier: ViewModifier {
             guard let message else { continue }
 
             guard !store.contains(message.id) else { continue }   // skip replays
-            // Foreground or grace window only. Read live app state, not the captured
-            // scenePhase (which goes stale in this long-running loop).
+            // The modifier lives on the chat surface, so foreground == viewing this
+            // chat. `.whenBackgrounded` stays quiet then; `.always` always banners.
+            // Read live app state, not the captured scenePhase (stale in this loop).
             let active = UIApplication.shared.applicationState == .active
-            guard active || grace.isActive else { continue }
-
-            present(id: message.id, title: message.title, body: message.body)
+            let wantBanner = effectivePolicy == .always || !active
+            let canDeliver = active || grace.isActive   // foreground, or the grace window
+            if wantBanner && canDeliver {
+                present(id: message.id, title: message.title, body: message.body)
+            }
+            // Mark every new message handled — so one suppressed on screen can't
+            // re-notify when the SDK replays it on resume/relaunch.
             store.markShown(message.id)
         }
     }
@@ -140,10 +169,14 @@ private struct NewMessageNotifierModifier: ViewModifier {
 }
 
 extension View {
-    /// Banner the full agent reply for each new message (foreground + grace window);
-    /// persisted dedupe so resume/relaunch never re-notifies. A workaround, not
-    /// remote push — see the file header.
-    func newMessageNotifications(for session: ChatSession) -> some View {
-        modifier(NewMessageNotifierModifier(session: session))
+    /// Banner the full agent reply for each new message; persisted dedupe so
+    /// resume/relaunch never re-notifies. A workaround, not remote push — see the
+    /// file header. `policy` decides when it fires — default `.whenBackgrounded`
+    /// stays quiet while the chat is on screen.
+    func newMessageNotifications(
+        for session: ChatSession,
+        policy: NotificationPolicy = .whenBackgrounded
+    ) -> some View {
+        modifier(NewMessageNotifierModifier(session: session, policy: policy))
     }
 }

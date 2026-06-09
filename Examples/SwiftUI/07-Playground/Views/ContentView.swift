@@ -394,8 +394,8 @@ private struct ChatScreen: View {
             )
         }
         .onReceive(session.$messages) { syncSendingLabels($0) }
-        // New-message banners (foreground + grace window) — see NewMessageNotifier.swift
-        .newMessageNotifications(for: session)
+        // In-app new-message banners; the default policy stays quiet while on the chat. See NewMessageNotifier.swift
+        .newMessageNotifications(for: session, policy: .whenBackgrounded)
         .onAppear {
             if wasResumed {
                 showResumeBanner = true

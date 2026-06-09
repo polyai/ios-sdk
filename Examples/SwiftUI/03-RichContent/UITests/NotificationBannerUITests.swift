@@ -18,7 +18,7 @@ final class NotificationBannerUITests: XCTestCase {
     override func setUp() {
         continueAfterFailure = true
         app = XCUIApplication()
-        app.launchArguments += ["-uiTestFreshStart"]
+        app.launchArguments += ["-uiTestFreshStart", "-uiTestNotifyAlways"]
         app.launch()
     }
 

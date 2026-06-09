@@ -9,11 +9,26 @@
 //  don't re-notify. Full walkthrough: README § "In-app new-message alerts".
 //
 //  Own one per chat surface; call `start(observing: session)` once the session
-//  exists (e.g. in viewDidLoad).
+//  exists (e.g. in viewDidLoad). The default policy stays quiet while you're
+//  looking at the chat (see `NotificationPolicy`).
 
 import UIKit
 import UserNotifications
 import PolyMessaging
+
+/// Controls *when* `NewMessageNotifier` raises a banner for a new agent message.
+/// Pass it to `start(observing:policy:)` to suit your app.
+enum NotificationPolicy {
+    /// Only while the chat isn't on screen (default) — no banner while you're
+    /// reading the conversation; it still fires in the background grace window.
+    case whenBackgrounded
+
+    /// On every new agent message, even while the chat is open in the foreground.
+    case always
+
+    /// Never post a banner.
+    case never
+}
 
 /// Persisted, bounded set of already-notified `messageId`s — survives relaunch so
 /// the SDK's replay-on-resume doesn't re-fire old banners.
@@ -51,8 +66,18 @@ final class NewMessageNotifier: NSObject, UNUserNotificationCenterDelegate {
     private var task: Task<Void, Never>?
     private var store = NotifiedMessageStore()
     private var bgTask: UIBackgroundTaskIdentifier = .invalid   // held while backgrounded (grace window)
+    private var policy: NotificationPolicy = .whenBackgrounded
 
-    func start(observing session: ChatSession) {
+    // UITest hook: `-uiTestNotifyAlways` exercises the foreground banner even
+    // though the default policy stays quiet while the chat is on screen.
+    private var effectivePolicy: NotificationPolicy {
+        CommandLine.arguments.contains("-uiTestNotifyAlways") ? .always : policy
+    }
+
+    func start(observing session: ChatSession, policy: NotificationPolicy = .whenBackgrounded) {
+        self.policy = policy
+        guard effectivePolicy != .never else { return }
+
         let center = UNUserNotificationCenter.current()
         center.delegate = self
         center.requestAuthorization(options: [.alert, .sound]) { _, _ in }
@@ -111,11 +136,16 @@ final class NewMessageNotifier: NSObject, UNUserNotificationCenterDelegate {
         guard let message else { return }
 
         guard !store.contains(message.id) else { return }   // skip replays
-        // Foreground or grace window only — once suspended, no events arrive anyway.
+        // This notifier is owned by the on-screen chat, so foreground == viewing
+        // this chat. `.whenBackgrounded` stays quiet then; `.always` always banners.
         let active = UIApplication.shared.applicationState == .active
-        guard active || bgTask != .invalid else { return }
-
-        present(id: message.id, title: message.title, body: message.body)
+        let wantBanner = effectivePolicy == .always || !active
+        let canDeliver = active || bgTask != .invalid   // foreground, or the grace window
+        if wantBanner && canDeliver {
+            present(id: message.id, title: message.title, body: message.body)
+        }
+        // Mark every new message handled — so one suppressed on screen can't
+        // re-notify when the SDK replays it on resume/relaunch.
         store.markShown(message.id)
     }
 

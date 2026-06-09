@@ -108,7 +108,7 @@ final class ChatViewController: UIViewController {
         layoutUI()
         configureDataSource()
         bind()
-        messageNotifier.start(observing: session)
+        messageNotifier.start(observing: session, policy: .whenBackgrounded)
     }
 
     override func viewDidAppear(_ animated: Bool) {
