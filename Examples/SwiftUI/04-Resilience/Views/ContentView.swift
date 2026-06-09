@@ -32,6 +32,10 @@ struct ContentView: View {
     @State private var hasNewBelow = false
     @State private var autoFollow = true
     @State private var userIsDragging = false
+    // Timestamp of our last programmatic follow-scroll. A "far from bottom"
+    // reading within a brief window after one is our own animation/streaming
+    // lag; outside it, the only thing that can have moved the list is the user.
+    @State private var lastFollowScrollAt = Date.distantPast
 
     private var sendDisabled: Bool {
         input.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || session.hasEnded
@@ -138,9 +142,12 @@ struct ContentView: View {
                             // resume following and clear the pill.
                             if !autoFollow { autoFollow = true }
                             if hasNewBelow { hasNewBelow = false }
-                        } else if userIsDragging {
-                            // Only a real drag away from the bottom stops following —
-                            // not transient lag while streaming or auto-scrolling.
+                        } else if userIsDragging
+                                    || Date().timeIntervalSince(lastFollowScrollAt) > 0.3 {
+                            // The user pulled up away from the bottom — either an
+                            // active drag, or a "far" reading with no recent
+                            // follow-scroll behind it. Transient lag while
+                            // streaming/auto-scrolling stays inside the window.
                             if autoFollow { autoFollow = false }
                         }
                     }
@@ -197,7 +204,10 @@ struct ContentView: View {
     /// Keep the newest message pinned to the bottom. Re-runs after a short delay
     /// so it catches the layout settling as a streaming bubble grows taller.
     private func scrollToBottom(_ proxy: ScrollViewProxy) {
-        let doScroll = { withAnimation { proxy.scrollTo("bottom", anchor: .bottom) } }
+        let doScroll = {
+            lastFollowScrollAt = Date()
+            withAnimation { proxy.scrollTo("bottom", anchor: .bottom) }
+        }
         doScroll()
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { doScroll() }
     }

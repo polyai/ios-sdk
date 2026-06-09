@@ -28,6 +28,10 @@ struct ContentView: View {
     @State private var hasNewBelow = false
     @State private var autoFollow = true
     @State private var userIsDragging = false
+    // Timestamp of our last programmatic follow-scroll. A "far from bottom"
+    // reading within a brief window after one is our own animation/streaming
+    // lag; outside it, the only thing that can have moved the list is the user.
+    @State private var lastFollowScrollAt = Date.distantPast
 
     private var sendDisabled: Bool {
         input.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || session.hasEnded
@@ -85,9 +89,12 @@ struct ContentView: View {
                             // resume following and clear the pill.
                             if !autoFollow { autoFollow = true }
                             if hasNewBelow { hasNewBelow = false }
-                        } else if userIsDragging {
-                            // Only a real drag away from the bottom stops following —
-                            // not transient lag while streaming or auto-scrolling.
+                        } else if userIsDragging
+                                    || Date().timeIntervalSince(lastFollowScrollAt) > 0.3 {
+                            // The user pulled up away from the bottom — either an
+                            // active drag, or a "far" reading with no recent
+                            // follow-scroll behind it. Transient lag while
+                            // streaming/auto-scrolling stays inside the window.
                             if autoFollow { autoFollow = false }
                         }
                     }
@@ -189,6 +196,7 @@ struct ContentView: View {
     }
 
     private func scrollToBottom(proxy: ScrollViewProxy) {
+        lastFollowScrollAt = Date()
         withAnimation { proxy.scrollTo("bottom", anchor: .bottom) }
     }
 
