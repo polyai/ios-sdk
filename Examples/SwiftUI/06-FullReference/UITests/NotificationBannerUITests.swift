@@ -18,7 +18,9 @@ final class NotificationBannerUITests: XCTestCase {
     override func setUp() {
         continueAfterFailure = true
         app = XCUIApplication()
-        app.launchArguments += ["-uiTestFreshStart"]
+        // Force .always so the foreground-banner assertions exercise the banner
+        // mechanism (the default .whenBackgrounded stays quiet while on the chat).
+        app.launchArguments += ["-uiTestFreshStart", "-uiTestNotifyAlways"]
         app.launch()
     }
 

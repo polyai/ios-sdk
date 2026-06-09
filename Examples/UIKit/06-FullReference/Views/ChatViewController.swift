@@ -107,7 +107,9 @@ final class ChatViewController: UIViewController {
         layoutUI()
         configureDataSource()
         bind()
-        messageNotifier.start(observing: session)
+        // Default policy stays quiet while you're on the chat; switch to .always
+        // or .never to taste — see Components/NewMessageNotifier.swift.
+        messageNotifier.start(observing: session, policy: .whenBackgrounded)
     }
 
     override func viewDidAppear(_ animated: Bool) {

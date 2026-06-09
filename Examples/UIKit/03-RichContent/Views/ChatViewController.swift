@@ -100,7 +100,7 @@ final class ChatViewController: UIViewController {
         configureDataSource()
         bind()
         updateSendEnabled()
-        messageNotifier.start(observing: session)
+        messageNotifier.start(observing: session, policy: .whenBackgrounded)
     }
 
     // MARK: - Layout

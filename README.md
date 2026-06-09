@@ -1277,6 +1277,16 @@ A common ask: pop a notification banner when the agent replies. ⚠️ **This is
 | **Background — brief grace window (~30s)** | ⚠️ yes, *if* you hold a `beginBackgroundTask` (the example `NewMessageNotifier` does) |
 | **Suspended / locked / force-quit** | ❌ never — iOS has torn the socket down |
 
+**Choosing *when* it fires — `NotificationPolicy`.** A banner shouldn't interrupt you while you're *reading* the conversation, so the example `NewMessageNotifier` takes a policy (default: quiet while the chat is on screen):
+
+| Policy | Behaviour |
+|---|---|
+| `.whenBackgrounded` *(default)* | No banner while the chat is on screen — only when it isn't (the background grace window). |
+| `.always` | Banner on every new agent message, even with the chat open in the foreground. |
+| `.never` | Off. |
+
+Flip it at the call site: SwiftUI `.newMessageNotifications(for: session, policy: .whenBackgrounded)`; UIKit `messageNotifier.start(observing: session, policy: .whenBackgrounded)`. (The table above is about *deliverability* — whether a banner can show at all; the policy is *your choice* of when to, within that.)
+
 **Real lock-screen delivery when the app is closed needs APNs + a server-side push integration** — device-token registration plus a backend that pushes on each new message. That isn't built yet (**coming soon**), and there's no client-only substitute: `BGAppRefreshTask` can poll-and-notify when iOS *opportunistically* wakes the app, but it's best-effort and iOS-timed, not instant.
 
 **How it works — the gist.** Become the notification-center delegate (so iOS shows the banner even while you're *in* the app), watch `client.events` for *completed* agent messages, skip any you've already shown, and post an immediate **local** notification while the app is foreground or inside the grace window.
@@ -1334,11 +1344,14 @@ struct NotifiedMessageStore {
 guard !store.contains(msg.id) else { continue }      // skip a message we've already shown
 ```
 
-**4. Gate on app state.** Post only when the app is `.active` **or** the background grace window is open — a `beginBackgroundTask` you hold from `didEnterBackground` until foreground (or until iOS expires it). Outside both, the app is suspended and no events arrive anyway.
+**4. Gate on app state *and* policy.** A banner can only show when the app is `.active` **or** the background grace window is open — a `beginBackgroundTask` you hold from `didEnterBackground` until foreground (or until iOS expires it). On top of that, the policy decides *whether* to: the default `.whenBackgrounded` stays quiet while the chat is on screen (foreground), so a reply you're already watching arrive doesn't also banner. Either way, mark it shown so a later resume-replay can't re-notify.
 
 ```swift
-let active = UIApplication.shared.applicationState == .active
-guard active || graceWindowIsOpen else { continue }  // graceWindowIsOpen: a held beginBackgroundTask
+let active = UIApplication.shared.applicationState == .active   // foreground == viewing this chat
+let wantBanner = policy == .always || !active                   // .whenBackgrounded: quiet on screen
+let canDeliver = active || graceWindowIsOpen                    // graceWindowIsOpen: a held beginBackgroundTask
+if wantBanner && canDeliver { /* step 5: post */ }
+store.markShown(msg.id)                                         // mark every message, posted or not
 ```
 
 **5. Post immediately.** Build the content and add a request with `trigger: nil` (deliver now) — **never** a time-based trigger, which could fire long after suspension — then mark it shown.
@@ -1398,7 +1411,7 @@ override func viewDidLoad() {
 @objc private func willForeground() { graceTask.end() }
 ```
 
-Subscribe *before* sending — `events` is lazy-start. Runnable in the **03 Rich Content**, **06 Full reference**, and **07 Playground** examples — `Components/NewMessageNotifier.swift` packages all of the above (loop + grace window) into one drop-in type. Still a **local-only workaround** — no remote push yet (**coming soon**).
+Subscribe *before* sending — `events` is lazy-start. Runnable in the **03 Rich Content**, **06 Full reference**, and **07 Playground** examples — `Components/NewMessageNotifier.swift` packages all of the above (loop + grace window + `NotificationPolicy`) into one drop-in type, defaulting to `.whenBackgrounded` so it stays quiet while you're on the chat. Still a **local-only workaround** — no remote push yet (**coming soon**).
 
 ---
 
