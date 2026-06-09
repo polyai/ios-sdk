@@ -65,13 +65,22 @@ final class ChatViewController: UIViewController {
     private static let composerMinHeight: CGFloat = 36
     private static let composerMaxHeight: CGFloat = 120
 
-    // F1: "New messages" pill — shown when new content arrives while the user is
-    // scrolled up, instead of yanking the table to the bottom.
+    // F1: WhatsApp-style follow. `autoFollow` is sticky — new content scrolls to
+    // the bottom while it's true, and shows the "New messages" pill instead while
+    // it's false. ONLY the user's own scrolling flips it (see the table delegate):
+    // drag up away from the bottom turns following off; scroll back (or tap the
+    // pill, or send) turns it on. Decoupling from instantaneous geometry is what
+    // keeps a streaming reply or an in-flight scroll animation from being misread
+    // as "the user scrolled up".
     private let newMessagesPill = UIButton(type: .system)
     private var newMessagesPillBottom: NSLayoutConstraint!
     private var hasNewBelow = false {
         didSet { setPillVisible(hasNewBelow) }
     }
+    private var autoFollow = true
+    // True only between a user touch starting and the scroll settling, so
+    // programmatic follow-scrolls don't get mistaken for the user scrolling away.
+    private var isUserScrolling = false
     // True while the local user just sent — forces a follow-scroll even if they
     // had scrolled up a bit.
     private var pendingUserSendScroll = false
@@ -196,6 +205,7 @@ final class ChatViewController: UIViewController {
     }
 
     @objc private func newMessagesPillTapped() {
+        autoFollow = true
         hasNewBelow = false
         scrollTableToBottom(animated: true)
     }
@@ -260,6 +270,7 @@ final class ChatViewController: UIViewController {
         tableView.estimatedRowHeight = 80
         tableView.register(MessageCell.self, forCellReuseIdentifier: MessageCell.reuseID)
         tableView.register(SuggestionsCell.self, forCellReuseIdentifier: SuggestionsCell.reuseID)
+        tableView.delegate = self   // F1: track the user's scrolling for autoFollow
         skeleton.isHidden = true
     }
 
@@ -640,7 +651,7 @@ final class ChatViewController: UIViewController {
     private func setTypingIndicatorVisible(_ visible: Bool) {
         if visible {
             // F1: capture position before adding the footer changes contentSize.
-            let near = isNearBottom()
+            let near = autoFollow
             updateTypingFooterFrame()
             tableView.tableFooterView = typingFooter
             typingIndicator.start()
@@ -667,7 +678,7 @@ final class ChatViewController: UIViewController {
         // F1: decide whether to follow the new content BEFORE applying the
         // snapshot, from the current scroll geometry. Follow only if the user is
         // already near the bottom, or if they just sent a message themselves.
-        let near = isNearBottom() || pendingUserSendScroll
+        let near = autoFollow || pendingUserSendScroll
         let forceScroll = pendingUserSendScroll
         pendingUserSendScroll = false
 
@@ -692,6 +703,7 @@ final class ChatViewController: UIViewController {
     /// there, or just sent) or surface the "New messages" pill.
     private func followOrNotify(wasNearBottom: Bool, animated: Bool, force: Bool = false) {
         if wasNearBottom || force {
+            autoFollow = true
             hasNewBelow = false
             scrollTableToBottom(animated: animated)
         } else {
@@ -738,6 +750,7 @@ final class ChatViewController: UIViewController {
         updateComposerHeight()
         updateSendEnabled()
         // F1: the local user just sent — always follow to the bottom on the next render.
+        autoFollow = true
         pendingUserSendScroll = true
         Task { try? await self.session.send(text) }
     }
@@ -795,6 +808,38 @@ extension ChatViewController: UITextViewDelegate {
         if !textView.text.isEmpty {
             Task { await session.sendTyping() }
         }
+    }
+}
+
+// MARK: - UITableViewDelegate (F1: user-driven autoFollow)
+
+extension ChatViewController: UITableViewDelegate {
+    // Only a user drag changes the follow intent. Programmatic follow-scrolls
+    // never call scrollViewWillBeginDragging, so they leave autoFollow untouched.
+    func scrollViewWillBeginDragging(_ scrollView: UIScrollView) {
+        isUserScrolling = true
+    }
+
+    func scrollViewDidScroll(_ scrollView: UIScrollView) {
+        guard isUserScrolling else { return }
+        updateAutoFollow()
+    }
+
+    func scrollViewDidEndDragging(_ scrollView: UIScrollView, willDecelerate decelerate: Bool) {
+        if !decelerate { isUserScrolling = false }
+        updateAutoFollow()
+    }
+
+    func scrollViewDidEndDecelerating(_ scrollView: UIScrollView) {
+        isUserScrolling = false
+        updateAutoFollow()
+    }
+
+    /// Stick to the bottom (and clear the pill) when the user is parked near it;
+    /// stop following the moment they pull up into history.
+    private func updateAutoFollow() {
+        autoFollow = isNearBottom()
+        if autoFollow, hasNewBelow { hasNewBelow = false }
     }
 }
 

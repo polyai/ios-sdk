@@ -22,10 +22,16 @@ struct ContentView: View {
     @State private var input = ""
     @FocusState private var isInputFocused: Bool
 
-    // F1: only auto-scroll when the user is already near the bottom; otherwise
-    // surface a "New messages" pill instead of yanking them away from history.
+    // F1: WhatsApp-style follow. `autoFollow` is sticky — new content scrolls to
+    // the bottom while it's true, and surfaces a "New messages" pill instead while
+    // it's false. ONLY the user's own dragging flips it: pulling up away from the
+    // bottom stops following; scrolling back (or tapping the pill, or sending)
+    // resumes it. Keeping it sticky stops a streaming reply or an in-flight scroll
+    // from being misread as "the user scrolled up".
     @State private var isNearBottom = true
     @State private var hasNewBelow = false
+    @State private var autoFollow = true
+    @State private var userIsDragging = false
 
     private var sendDisabled: Bool {
         input.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || session.hasEnded
@@ -127,8 +133,24 @@ struct ContentView: View {
                     .onPreferenceChange(BottomVisibleKey.self) { bottomMaxY in
                         let near = bottomMaxY <= outer.size.height + 80
                         if near != isNearBottom { isNearBottom = near }
-                        if near, hasNewBelow { hasNewBelow = false }
+                        if near {
+                            // Parked at the bottom (scrolled back, or our follow landed):
+                            // resume following and clear the pill.
+                            if !autoFollow { autoFollow = true }
+                            if hasNewBelow { hasNewBelow = false }
+                        } else if userIsDragging {
+                            // Only a real drag away from the bottom stops following —
+                            // not transient lag while streaming or auto-scrolling.
+                            if autoFollow { autoFollow = false }
+                        }
                     }
+                    // The SwiftUI equivalent of scrollViewWillBeginDragging: a
+                    // non-consuming drag that just tells us the user is scrolling.
+                    .simultaneousGesture(
+                        DragGesture(minimumDistance: 8)
+                            .onChanged { _ in userIsDragging = true }
+                            .onEnded { _ in userIsDragging = false }
+                    )
                     .modifier(InteractiveKeyboardDismiss())
                     .overlay(alignment: .bottom) {
                         if hasNewBelow {
@@ -165,7 +187,7 @@ struct ContentView: View {
     /// New content arrived: follow it only if the user is already at the bottom;
     /// otherwise leave them where they are and show the pill (F1).
     private func onNewContent(_ proxy: ScrollViewProxy) {
-        if isNearBottom {
+        if autoFollow {
             scrollToBottom(proxy)
         } else {
             hasNewBelow = true
@@ -185,6 +207,7 @@ struct ContentView: View {
             withAnimation { proxy.scrollTo("bottom", anchor: .bottom) }
             hasNewBelow = false
             isNearBottom = true
+            autoFollow = true
         } label: {
             Label("New messages", systemImage: "arrow.down")
                 .font(.caption.bold())
@@ -200,7 +223,10 @@ struct ContentView: View {
     private func send() {
         let text = input.trimmingCharacters(in: .whitespacesAndNewlines)
         input = ""
-        if !session.hasEnded, !text.isEmpty { Task { try? await session.send(text) } }
+        if !session.hasEnded, !text.isEmpty {
+            autoFollow = true   // follow the agent's reply while we wait
+            Task { try? await session.send(text) }
+        }
         isInputFocused = true
     }
 

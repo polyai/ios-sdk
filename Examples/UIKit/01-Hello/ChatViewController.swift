@@ -28,12 +28,21 @@ final class ChatViewController: UIViewController {
     // Diffable data source keyed by ChatMessage.id (UUID).
     private var dataSource: UITableViewDiffableDataSource<Int, UUID>!
 
-    // F1: "New messages" pill — shown when new content arrives while the user is
-    // scrolled up, instead of yanking the table to the bottom.
+    // F1: WhatsApp-style follow. `autoFollow` is sticky — new content scrolls to
+    // the bottom while it's true, and shows the "New messages" pill instead while
+    // it's false. ONLY the user's own scrolling flips it (see the table delegate):
+    // drag up away from the bottom turns following off; scroll back (or tap the
+    // pill, or send) turns it on. Decoupling from instantaneous geometry is what
+    // keeps a streaming reply or an in-flight scroll animation from being misread
+    // as "the user scrolled up".
     private let newMessagesPill = UIButton(type: .system)
     private var hasNewBelow = false {
         didSet { setPillVisible(hasNewBelow) }
     }
+    private var autoFollow = true
+    // True only between a user touch starting and the scroll settling, so
+    // programmatic follow-scrolls don't get mistaken for the user scrolling away.
+    private var isUserScrolling = false
     // True while the local user just sent — forces a follow-scroll even if they
     // had scrolled up a bit.
     private var pendingUserSendScroll = false
@@ -90,6 +99,7 @@ final class ChatViewController: UIViewController {
     }
 
     @objc private func newMessagesPillTapped() {
+        autoFollow = true
         hasNewBelow = false
         scrollToBottom(animated: true)
     }
@@ -207,10 +217,10 @@ final class ChatViewController: UIViewController {
     }
 
     private func render(_ messages: [ChatMessage]) {
-        // F1: decide whether to follow the new content BEFORE applying the
-        // snapshot, from the current scroll geometry. Follow only if the user is
-        // already near the bottom, or if they just sent a message themselves.
-        let near = isNearBottom() || pendingUserSendScroll
+        // F1: follow the new content if we're sticking to the bottom (autoFollow),
+        // or if the user just sent a message themselves. Otherwise the snapshot
+        // lands silently and the "New messages" pill appears.
+        let near = autoFollow || pendingUserSendScroll
         let forceScroll = pendingUserSendScroll
         pendingUserSendScroll = false
 
@@ -234,6 +244,7 @@ final class ChatViewController: UIViewController {
     /// there, or just sent) or surface the "New messages" pill.
     private func followOrNotify(wasNearBottom: Bool, animated: Bool, force: Bool = false) {
         if wasNearBottom || force {
+            autoFollow = true
             hasNewBelow = false
             scrollToBottom(animated: animated)
         } else {
@@ -262,6 +273,7 @@ final class ChatViewController: UIViewController {
         inputField.text = ""
         updateSendEnabled()
         // F1: the local user just sent — always follow to the bottom on next render.
+        autoFollow = true
         pendingUserSendScroll = true
         Task { try? await self.session.send(text) }
     }
@@ -369,12 +381,34 @@ final class MessageCell: UITableViewCell {
     }
 }
 
-// MARK: - UITableViewDelegate (F1: hide pill when the user reaches the bottom)
+// MARK: - UITableViewDelegate (F1: user-driven autoFollow)
 
 extension ChatViewController: UITableViewDelegate {
+    // Only a user drag changes the follow intent. Programmatic follow-scrolls
+    // never call scrollViewWillBeginDragging, so they leave autoFollow untouched.
+    func scrollViewWillBeginDragging(_ scrollView: UIScrollView) {
+        isUserScrolling = true
+    }
+
     func scrollViewDidScroll(_ scrollView: UIScrollView) {
-        if hasNewBelow && isNearBottom() {
-            hasNewBelow = false
-        }
+        guard isUserScrolling else { return }
+        updateAutoFollow()
+    }
+
+    func scrollViewDidEndDragging(_ scrollView: UIScrollView, willDecelerate decelerate: Bool) {
+        if !decelerate { isUserScrolling = false }
+        updateAutoFollow()
+    }
+
+    func scrollViewDidEndDecelerating(_ scrollView: UIScrollView) {
+        isUserScrolling = false
+        updateAutoFollow()
+    }
+
+    /// Stick to the bottom (and clear the pill) when the user is parked near it;
+    /// stop following the moment they pull up into history.
+    private func updateAutoFollow() {
+        autoFollow = isNearBottom()
+        if autoFollow, hasNewBelow { hasNewBelow = false }
     }
 }
