@@ -18,10 +18,20 @@ struct ContentView: View {
     @StateObject var session = PolyMessaging.chat()
     @State private var input = ""
 
-    // F1: only auto-scroll when the user is already near the bottom; otherwise
-    // surface a "New messages" pill instead of yanking them away from history.
+    // F1: WhatsApp-style follow. `autoFollow` is sticky — new content scrolls to
+    // the bottom while it's true, and surfaces a "New messages" pill instead while
+    // it's false. ONLY the user's own dragging flips it: pulling up away from the
+    // bottom stops following; scrolling back (or tapping the pill, or sending)
+    // resumes it. Keeping it sticky stops a streaming reply or an in-flight scroll
+    // from being misread as "the user scrolled up".
     @State private var isNearBottom = true
     @State private var hasNewBelow = false
+    @State private var autoFollow = true
+    @State private var userIsDragging = false
+    // Timestamp of our last programmatic follow-scroll. A "far from bottom"
+    // reading within a brief window after one is our own animation/streaming
+    // lag; outside it, the only thing that can have moved the list is the user.
+    @State private var lastFollowScrollAt = Date.distantPast
 
     private var sendDisabled: Bool {
         input.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || session.hasEnded
@@ -74,8 +84,27 @@ struct ContentView: View {
                     .onPreferenceChange(BottomVisibleKey.self) { bottomMaxY in
                         let near = bottomMaxY <= outer.size.height + 80
                         if near != isNearBottom { isNearBottom = near }
-                        if near, hasNewBelow { hasNewBelow = false }
+                        if near {
+                            // Parked at the bottom (scrolled back, or our follow landed):
+                            // resume following and clear the pill.
+                            if !autoFollow { autoFollow = true }
+                            if hasNewBelow { hasNewBelow = false }
+                        } else if userIsDragging
+                                    || Date().timeIntervalSince(lastFollowScrollAt) > 0.3 {
+                            // The user pulled up away from the bottom — either an
+                            // active drag, or a "far" reading with no recent
+                            // follow-scroll behind it. Transient lag while
+                            // streaming/auto-scrolling stays inside the window.
+                            if autoFollow { autoFollow = false }
+                        }
                     }
+                    // The SwiftUI equivalent of scrollViewWillBeginDragging: a
+                    // non-consuming drag that just tells us the user is scrolling.
+                    .simultaneousGesture(
+                        DragGesture(minimumDistance: 8)
+                            .onChanged { _ in userIsDragging = true }
+                            .onEnded { _ in userIsDragging = false }
+                    )
                     .overlay(alignment: .bottom) {
                         if hasNewBelow {
                             newMessagesPill(proxy: proxy)
@@ -89,7 +118,7 @@ struct ContentView: View {
                     // Streaming grows the last agent message's text in place
                     // (messages.count doesn't change), so also follow its length.
                     .onChange(of: session.messages.last?.text ?? "") { _ in
-                        if isNearBottom { scrollToBottom(proxy: proxy) } else { hasNewBelow = true }
+                        if autoFollow { scrollToBottom(proxy: proxy) } else { hasNewBelow = true }
                     }
                 }
             }
@@ -159,7 +188,7 @@ struct ContentView: View {
     /// A new message/turn arrived: follow it only if the user is already at the
     /// bottom; otherwise leave them where they are and show the pill.
     private func onNewContent(proxy: ScrollViewProxy) {
-        if isNearBottom {
+        if autoFollow {
             scrollToBottom(proxy: proxy)
         } else {
             hasNewBelow = true
@@ -167,6 +196,7 @@ struct ContentView: View {
     }
 
     private func scrollToBottom(proxy: ScrollViewProxy) {
+        lastFollowScrollAt = Date()
         withAnimation { proxy.scrollTo("bottom", anchor: .bottom) }
     }
 
@@ -175,6 +205,7 @@ struct ContentView: View {
             withAnimation { proxy.scrollTo("bottom", anchor: .bottom) }
             hasNewBelow = false
             isNearBottom = true
+            autoFollow = true
         } label: {
             Label("New messages", systemImage: "arrow.down")
                 .font(.caption.bold())
@@ -191,6 +222,7 @@ struct ContentView: View {
         let text = input.trimmingCharacters(in: .whitespacesAndNewlines)
         input = ""
         guard !text.isEmpty else { return }
+        autoFollow = true   // follow the agent's reply while we wait
         Task { try? await session.send(text) }
     }
 }

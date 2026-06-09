@@ -28,10 +28,20 @@ struct ChatView: View {
     let onStartNewConversation: () -> Void
     let onTyping: () -> Void
 
-    // F1: only auto-scroll when the user is already near the bottom; otherwise
-    // surface a "New messages" pill instead of yanking them away from history.
+    // F1: WhatsApp-style follow. `autoFollow` is sticky — new content scrolls to
+    // the bottom while it's true, and surfaces a "New messages" pill instead while
+    // it's false. ONLY the user's own dragging flips it: pulling up away from the
+    // bottom stops following; scrolling back (or tapping the pill, or sending)
+    // resumes it. Keeping it sticky stops a streaming reply or an in-flight scroll
+    // from being misread as "the user scrolled up".
     @State private var isNearBottom = true
     @State private var hasNewBelow = false
+    @State private var autoFollow = true
+    @State private var userIsDragging = false
+    // Timestamp of our last programmatic follow-scroll. A "far from bottom"
+    // reading within a brief window after one is our own animation/streaming
+    // lag; outside it, the only thing that can have moved the list is the user.
+    @State private var lastFollowScrollAt = Date.distantPast
 
     private var inputDisabled: Bool {
         // Always allow composing while the conversation is live — offline,
@@ -116,8 +126,27 @@ struct ChatView: View {
                     // sits within the viewport, give or take a small threshold.
                     let near = bottomMaxY <= outer.size.height + 80
                     if near != isNearBottom { isNearBottom = near }
-                    if near, hasNewBelow { hasNewBelow = false }
+                    if near {
+                        // Parked at the bottom (scrolled back, or our follow landed):
+                        // resume following and clear the pill.
+                        if !autoFollow { autoFollow = true }
+                        if hasNewBelow { hasNewBelow = false }
+                    } else if userIsDragging
+                                || Date().timeIntervalSince(lastFollowScrollAt) > 0.3 {
+                        // The user pulled up away from the bottom — either an
+                        // active drag, or a "far" reading with no recent
+                        // follow-scroll behind it. Transient lag while
+                        // streaming/auto-scrolling stays inside the window.
+                        if autoFollow { autoFollow = false }
+                    }
                 }
+                // The SwiftUI equivalent of scrollViewWillBeginDragging: a
+                // non-consuming drag that just tells us the user is scrolling.
+                .simultaneousGesture(
+                    DragGesture(minimumDistance: 8)
+                        .onChanged { _ in userIsDragging = true }
+                        .onEnded { _ in userIsDragging = false }
+                )
                 .modifier(InteractiveKeyboardDismiss())
                 .accessibilityElement(children: .contain)
                 .accessibilityLabel("Chat conversation")
@@ -142,24 +171,24 @@ struct ChatView: View {
                     announceLastAgentMessage()
                 }
                 .onChange(of: sendingLabels) { _ in
-                    if isNearBottom { scrollToBottom(proxy: proxy, delay: true) }
+                    if autoFollow { scrollToBottom(proxy: proxy, delay: true) }
                 }
                 .onChange(of: isAgentTyping) { _ in
                     onNewContent(proxy: proxy)
                 }
                 .onChange(of: lastAgentSuggestionCount) { _ in
-                    if isNearBottom { scrollToBottom(proxy: proxy, delay: true) }
+                    if autoFollow { scrollToBottom(proxy: proxy, delay: true) }
                 }
                 .onChange(of: lastAgentAttachmentCount) { _ in
                     onNewContent(proxy: proxy)
                 }
                 // Progressive streaming updates text in-place without changing messages.count.
                 .onChange(of: lastAgentTextLength) { _ in
-                    if isNearBottom { scrollToBottom(proxy: proxy) } else { hasNewBelow = true }
+                    if autoFollow { scrollToBottom(proxy: proxy) } else { hasNewBelow = true }
                 }
                 .onChange(of: isInputFocused) { focused in
                     // Focusing to type only follows to the bottom if you were already there.
-                    if focused, isNearBottom { scrollToBottom(proxy: proxy, delay: true) }
+                    if focused, autoFollow { scrollToBottom(proxy: proxy, delay: true) }
                 }
             }
         }
@@ -168,7 +197,7 @@ struct ChatView: View {
     /// A new message/turn arrived: follow it only if the user is already at the
     /// bottom; otherwise leave them where they are and show the pill.
     private func onNewContent(proxy: ScrollViewProxy) {
-        if isNearBottom {
+        if autoFollow {
             scrollToBottom(proxy: proxy)
             scrollToBottom(proxy: proxy, delay: true)
         } else {
@@ -181,6 +210,7 @@ struct ChatView: View {
             withAnimation { proxy.scrollTo("bottom", anchor: .bottom) }
             hasNewBelow = false
             isNearBottom = true
+            autoFollow = true
         } label: {
             Label("New messages", systemImage: "arrow.down")
                 .font(.caption.bold())
@@ -274,7 +304,10 @@ struct ChatView: View {
             Button {
                 let trimmed = messageText.trimmingCharacters(in: .whitespacesAndNewlines)
                 messageText = ""
-                if !trimmed.isEmpty { onSend(trimmed) }
+                if !trimmed.isEmpty {
+                    autoFollow = true   // follow the agent's reply while we wait
+                    onSend(trimmed)
+                }
                 isInputFocused = true
             } label: {
                 Image(systemName: "arrow.up.circle.fill")
@@ -324,7 +357,10 @@ struct ChatView: View {
     private func submitFromReturn(raw: String? = nil) {
         let trimmed = (raw ?? messageText).trimmingCharacters(in: .whitespacesAndNewlines)
         messageText = ""
-        if !inputDisabled, !trimmed.isEmpty { onSend(trimmed) }
+        if !inputDisabled, !trimmed.isEmpty {
+            autoFollow = true   // follow the agent's reply while we wait
+            onSend(trimmed)
+        }
         DispatchQueue.main.async { isInputFocused = true }
     }
 
@@ -341,6 +377,7 @@ struct ChatView: View {
 
     private func scrollToBottom(proxy: ScrollViewProxy, delay: Bool = false) {
         let doScroll = {
+            lastFollowScrollAt = Date()
             withAnimation { proxy.scrollTo("bottom", anchor: .bottom) }
         }
         let initial = delay ? 0.15 : 0.05
