@@ -28,7 +28,9 @@ final class CallCoordinatorTests: XCTestCase {
             media: media,
             authToken: "tok",
             streamingEnabled: true,
-            logger: logger
+            logger: logger,
+            reconnectBaseNanos: 20_000_000,           // 20ms — fast reconnect backoff for tests
+            reconnectConnectTimeoutNanos: 400_000_000  // 400ms — fast connect wait for tests
         )
     }
 
@@ -158,20 +160,121 @@ final class CallCoordinatorTests: XCTestCase {
         XCTAssertTrue(ended, "a backend close frame ends the call cleanly")
     }
 
-    func test_signalingChannelClosed_failsCall() async throws {
+    func test_signalingClose_reconnectsAndSurvives() async throws {
         let conn = MockConnection()
         let channel = MockSignalingChannel()
-        let coord = makeCoordinator(conn: conn, channel: channel)
+        let media = StubMediaEngine()
+        let coord = makeCoordinator(conn: conn, channel: channel, media: media)
         try await arm(coord, conn: conn)
-
         channel.emit(.opened)
-        channel.emit(.closed(code: 1006, reason: "abnormal"))
+        media.driveState(.connected)
+        _ = await waitUntil { await self.callState(coord) == .connected }
 
-        let failed = await waitUntil {
-            if case .failed(.voice(.signalingFailed)) = await self.callState(coord) { return true }
+        // An unexpected close triggers a reconnect (the channel is re-opened).
+        channel.emit(.closed(code: 1006, reason: "abnormal"))
+        let reopened = await waitUntil { channel.openCount >= 2 }
+        XCTAssertTrue(reopened, "an unexpected close triggers a reconnect")
+
+        // The reconnect succeeds → the call survives (never transitions to failed).
+        channel.emit(.opened)
+        try? await Task.sleep(nanoseconds: 200_000_000)
+        if case .failed = await self.callState(coord) {
+            XCTFail("the call should survive a successful reconnect")
+        }
+    }
+
+    func test_signalingReconnectExhausted_failsDisconnected() async throws {
+        let conn = MockConnection()
+        let channel = MockSignalingChannel()
+        let media = StubMediaEngine()
+        let coord = makeCoordinator(conn: conn, channel: channel, media: media)
+        try await arm(coord, conn: conn)
+        channel.emit(.opened)
+        media.driveState(.connected)
+        _ = await waitUntil { await self.callState(coord) == .connected }
+
+        // The socket drops and never reconnects (no `.opened`) → after the retries
+        // are exhausted the call fails as a (retryable) `.disconnected`.
+        channel.emit(.closed(code: 1006, reason: "gone"))
+        let failed = await waitUntil(timeout: 8) {
+            if case .failed(.voice(.disconnected)) = await self.callState(coord) { return true }
             return false
         }
-        XCTAssertTrue(failed, "an unexpected signaling close fails the call")
+        XCTAssertTrue(failed, "exhausted reconnects fail the call as .disconnected")
+    }
+
+    func test_iceServers_passedToEngine() async throws {
+        let conn = MockConnection()
+        let media = StubMediaEngine()
+        let coord = makeCoordinator(conn: conn, media: media)
+        try await arm(coord, conn: conn)
+        // Default provider → the STUN fallback reaches the engine's createOffer.
+        XCTAssertEqual(media.lastIceServers, IceServer.default)
+    }
+
+    func test_mediaDropAfterConnect_failsDisconnected() async throws {
+        let conn = MockConnection()
+        let channel = MockSignalingChannel()
+        let media = StubMediaEngine()
+        let coord = makeCoordinator(conn: conn, channel: channel, media: media)
+        try await arm(coord, conn: conn)
+        channel.emit(.opened)
+        media.driveState(.connected)
+        _ = await waitUntil { await self.callState(coord) == .connected }
+
+        // A hard media failure AFTER connecting is a retryable disconnect (not .mediaFailed).
+        media.driveState(.failed)
+        let failed = await waitUntil {
+            if case .failed(.voice(.disconnected)) = await self.callState(coord) { return true }
+            return false
+        }
+        XCTAssertTrue(failed, "a drop after connecting surfaces .disconnected")
+        XCTAssertTrue(PolyError.voice(.disconnected).isRetryable, ".disconnected is retryable")
+    }
+
+    // MARK: - Interruptions
+
+    func test_interruption_transient_mutesThenRestores() async throws {
+        let conn = MockConnection()
+        let media = StubMediaEngine()
+        let coord = makeCoordinator(conn: conn, media: media)
+        try await arm(coord, conn: conn)
+
+        media.driveInterruption(.began)
+        let muted = await waitUntil { media.muted == true }
+        XCTAssertTrue(muted, "an interruption mutes the mic")
+
+        media.driveInterruption(.endedResume)
+        let unmuted = await waitUntil { media.muted == false }
+        XCTAssertTrue(unmuted, "a resumable end unmutes")
+    }
+
+    func test_interruption_preservesUserMute() async throws {
+        let conn = MockConnection()
+        let media = StubMediaEngine()
+        let coord = makeCoordinator(conn: conn, media: media)
+        try await arm(coord, conn: conn)
+
+        await coord.setMuted(true)              // user mutes
+        media.driveInterruption(.began)         // interruption also mutes
+        media.driveInterruption(.endedResume)   // interruption ends...
+        // ...the mic stays muted because the user muted it.
+        try? await Task.sleep(nanoseconds: 100_000_000)
+        XCTAssertEqual(media.muted, true, "the user's mute survives an interruption cycle")
+    }
+
+    func test_interruption_nonResumable_endsCall() async throws {
+        let conn = MockConnection()
+        let media = StubMediaEngine()
+        let coord = makeCoordinator(conn: conn, media: media)
+        try await arm(coord, conn: conn)
+
+        media.driveInterruption(.endedStop)
+        let failed = await waitUntil {
+            if case .failed(.voice(.interrupted)) = await self.callState(coord) { return true }
+            return false
+        }
+        XCTAssertTrue(failed, "a non-resumable interruption ends the call as .interrupted")
     }
 
     func test_mediaFailed_failsCall() async throws {

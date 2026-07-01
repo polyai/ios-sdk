@@ -69,6 +69,17 @@ The call is **accessory-aware** by default: a connected wired/Bluetooth headset 
 used automatically; otherwise it falls back to the loudspeaker (hands-free — set
 `VoiceOptions(speakerphone: false)` to fall back to the receiver instead).
 
+## Resilience
+
+- **Connectivity:** STUN/TURN servers are fetched from the gateway per call, so calls connect
+  behind symmetric NAT / CGNAT (falls back to public STUN if the fetch fails).
+- **Reconnect:** a dropped signaling socket reconnects automatically (backoff 1s / 2s / 4s) on
+  the same session and re-flushes buffered ICE before the call is failed.
+- **Interruptions:** an incoming phone call or Siri mutes the mic and restores it; a
+  non-resumable interruption ends the call as `PolyError.voice(.interrupted)`.
+- **Errors:** a post-connect drop surfaces as `PolyError.voice(.disconnected)`. Both it and
+  `.interrupted` are `isRetryable`, so you can offer a one-tap retry.
+
 ## Architecture
 
 `PolyVoice` provides a real `CallMediaEngine` (an `RTCPeerConnection` audio engine)

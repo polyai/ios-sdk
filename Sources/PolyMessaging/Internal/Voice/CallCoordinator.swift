@@ -21,6 +21,7 @@ actor CallCoordinator {
     private let linker: VoiceSessionLinker
     private let channel: SignalingChannel
     private let media: CallMediaEngine
+    private let iceServersProvider: IceServersProviding
     private let authToken: String
     private let streamingEnabled: Bool
     private let logger: PolyLogger
@@ -34,30 +35,45 @@ actor CallCoordinator {
     private var pendingOfferSDP: String?
     private var pendingLocalIce: [ICECandidate] = []
     private var lastMediaState: CallMediaState = .new
+    private var hasConnected = false
+    private var userMuted = false
+    private var interruptionMuted = false
 
     private var eventLoopTask: Task<Void, Never>?
     private var connectTimeoutTask: Task<Void, Never>?
     private var disconnectGraceTask: Task<Void, Never>?
+    private var reconnectTask: Task<Void, Never>?
+    private var signalingReconnecting = false
+    private var signalingConnected = false
 
     private static let connectionTimeoutNanos: UInt64 = 30_000_000_000
     private static let disconnectGraceNanos: UInt64 = 5_000_000_000
+    private static let maxSignalingReconnects = 3
+    private let signalingReconnectBaseNanos: UInt64
+    private let signalingConnectTimeoutNanos: UInt64
 
     init(
         api: RestApiPort,
         linker: VoiceSessionLinker,
         channel: SignalingChannel,
         media: CallMediaEngine,
+        iceServers: IceServersProviding = StaticIceServersProvider(),
         authToken: String,
         streamingEnabled: Bool,
-        logger: PolyLogger
+        logger: PolyLogger,
+        reconnectBaseNanos: UInt64 = 1_000_000_000,
+        reconnectConnectTimeoutNanos: UInt64 = 5_000_000_000
     ) {
         self.api = api
         self.linker = linker
         self.channel = channel
         self.media = media
+        self.iceServersProvider = iceServers
         self.authToken = authToken
         self.streamingEnabled = streamingEnabled
         self.logger = logger
+        self.signalingReconnectBaseNanos = reconnectBaseNanos
+        self.signalingConnectTimeoutNanos = reconnectConnectTimeoutNanos
     }
 
     /// Late subscribers receive the current state immediately.
@@ -75,6 +91,9 @@ actor CallCoordinator {
         }
         await media.setStateHandler { [weak self] mediaState in
             Task { await self?.handleMediaState(mediaState) }
+        }
+        await media.setInterruptionHandler { [weak self] interruption in
+            Task { await self?.handleInterruption(interruption) }
         }
 
         startConnectTimeout()
@@ -97,7 +116,12 @@ actor CallCoordinator {
             try await linker.open(accessToken: token, sessionId: session.sessionId, callSid: sid)
             try ensureActive()
 
-            let offer = try await media.createOffer()
+            // Fetch STUN/TURN from the gateway (best-effort → STUN fallback) so calls
+            // behind symmetric NAT / CGNAT get a relay candidate.
+            let iceServers = await iceServersProvider.fetch()
+            try ensureActive()
+
+            let offer = try await media.createOffer(iceServers: iceServers)
             try ensureActive()
             pendingOfferSDP = offer
 
@@ -122,7 +146,32 @@ actor CallCoordinator {
     }
 
     func setMuted(_ muted: Bool) async {
-        await media.setMuted(muted)
+        userMuted = muted
+        await applyMicState()
+    }
+
+    /// The mic is off when the user muted OR an interruption is muting it — so an
+    /// interruption never overrides (or is overridden by) the user's mute intent.
+    private func applyMicState() async {
+        await media.setMuted(userMuted || interruptionMuted)
+    }
+
+    /// React to an audio-session interruption (mirrors Android's `onInterruption`).
+    /// A transient loss mutes the mic; a resumable end restores it (respecting the
+    /// user's mute); a non-resumable end ends the call as `.interrupted`.
+    private func handleInterruption(_ interruption: CallInterruption) async {
+        guard active else { return }
+        switch interruption {
+        case .began:
+            interruptionMuted = true
+            await applyMicState()
+        case .endedResume:
+            interruptionMuted = false
+            await applyMicState()
+        case .endedStop:
+            logger.debug("Audio interrupted — ending call", metadata: nil)
+            fail(.voice(.interrupted))
+        }
     }
 
     // MARK: - Signaling
@@ -140,15 +189,68 @@ actor CallCoordinator {
     private func handleChannelEvent(_ event: SignalingChannelEvent) async {
         switch event {
         case .opened:
-            await sendPendingOffer()
+            signalingConnected = true
+            if signalingReconnecting {
+                // A reconnect succeeded — the gateway routes by sessionId, so re-flush
+                // any ICE buffered during the gap rather than re-offering.
+                await flushLocalIce()
+            } else {
+                await sendPendingOffer()
+            }
         case .message(let data):
             if let signal = SignalingProtocol.parse(data) { await handle(signal) }
         case .closed(let code, _):
-            if active { fail(.voice(.signalingFailed("Signaling connection closed (\(code))"))) }
+            logger.warn("Signaling connection closed (\(code))", metadata: nil)
+            signalingConnected = false
+            handleSignalingDrop()
         case .failed(let underlying):
             logger.error("Signaling channel failed", metadata: ["error": String(describing: underlying)])
-            if active { fail(.voice(.signalingFailed("Signaling connection lost"))) }
+            signalingConnected = false
+            handleSignalingDrop()
         }
+    }
+
+    /// The signaling socket dropped unexpectedly. Reconnect with exponential backoff
+    /// (1s/2s/4s, up to `maxSignalingReconnects`) on the same session, re-flushing any
+    /// ICE buffered during the gap. Only fail once every attempt is exhausted.
+    private func handleSignalingDrop() {
+        guard active, !signalingReconnecting else { return } // a drop mid-reconnect is the loop's job
+        signalingReconnecting = true
+        reconnectTask = Task { [weak self] in await self?.reconnectSignaling() }
+    }
+
+    private func reconnectSignaling() async {
+        for attempt in 1...Self.maxSignalingReconnects {
+            try? await Task.sleep(nanoseconds: signalingReconnectBaseNanos << (attempt - 1))
+            guard active else { signalingReconnecting = false; return }
+            logger.debug("Reconnecting signaling", metadata: ["attempt": "\(attempt)"])
+            await channel.open()
+            if await waitForSignalingConnect() {
+                logger.debug("Signaling reconnected", metadata: nil)
+                signalingReconnecting = false
+                return
+            }
+        }
+        signalingReconnecting = false
+        guard active else { return }
+        logger.error("Signaling reconnect exhausted", metadata: nil)
+        // Once connected, the media path is what was lost; before connect, the handshake
+        // never completed — surface the more precise error in each case.
+        fail(hasConnected ? .voice(.disconnected) : .voice(.signalingFailed("Signaling connection lost")))
+    }
+
+    /// Wait (up to ~5s) for the reconnected socket's `.opened` — handled on this actor,
+    /// so a `Task.sleep` here lets that event run and flip `signalingConnected`.
+    private func waitForSignalingConnect() async -> Bool {
+        let step: UInt64 = 100_000_000 // 100ms
+        var waited: UInt64 = 0
+        while waited < signalingConnectTimeoutNanos {
+            if !active { return false }
+            if signalingConnected { return true }
+            try? await Task.sleep(nanoseconds: step)
+            waited += step
+        }
+        return signalingConnected
     }
 
     private func sendPendingOffer() async {
@@ -217,12 +319,15 @@ actor CallCoordinator {
         lastMediaState = mediaState
         switch mediaState {
         case .connected:
+            hasConnected = true
             cancelConnectTimeout()
             disconnectGraceTask?.cancel()
             disconnectGraceTask = nil
             setState(.connected)
         case .failed:
-            fail(.voice(.mediaFailed("Peer connection failed")))
+            // A drop after connecting is a (retryable) disconnect; a failure before
+            // ever connecting is a hard media failure.
+            fail(hasConnected ? .voice(.disconnected) : .voice(.mediaFailed("Peer connection failed")))
         case .disconnected:
             startDisconnectGrace()
         case .new, .connecting, .closed:
@@ -241,7 +346,8 @@ actor CallCoordinator {
     private func failIfStillDisconnected() {
         guard active else { return }
         if lastMediaState == .disconnected || lastMediaState == .failed {
-            fail(.voice(.mediaFailed("Peer connection disconnected")))
+            // Grace only starts after the media had connected, so this is a drop.
+            fail(.voice(.disconnected))
         }
     }
 
@@ -281,6 +387,9 @@ actor CallCoordinator {
         disconnectGraceTask = nil
         eventLoopTask?.cancel()
         eventLoopTask = nil
+        reconnectTask?.cancel()
+        reconnectTask = nil
+        signalingReconnecting = false
 
         let sid = signalSessionId
         let channel = self.channel

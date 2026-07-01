@@ -124,8 +124,10 @@ public extension PolyCall {
             wsBaseURL: urls.wsBaseURL,
             logger: logger
         )
-        let channel = GatewaySignalingChannel(
-            url: VoiceEnvironment(environment: config.environment).signalingURL,
+        let voiceEnv = VoiceEnvironment(environment: config.environment)
+        let channel = GatewaySignalingChannel(url: voiceEnv.signalingURL, logger: logger)
+        let iceServers = GatewayIceServersFetcher(
+            url: voiceEnv.iceServersURL(token: webrtcToken),
             logger: logger
         )
         let coordinator = CallCoordinator(
@@ -133,6 +135,7 @@ public extension PolyCall {
             linker: linker,
             channel: channel,
             media: mediaEngine,
+            iceServers: iceServers,
             authToken: webrtcToken,
             streamingEnabled: config.streamingEnabled,
             logger: logger

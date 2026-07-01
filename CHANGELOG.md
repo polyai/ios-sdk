@@ -19,6 +19,15 @@ signaling pipeline.
 - Public media seam on `PolyMessaging`: `CallMediaEngine` / `CallMediaState` /
   `ICECandidate` are now public, plus `PolyCall.wired(config:webrtcToken:mediaEngine:)` —
   so `PolyVoice` injects the WebRTC engine while `PolyMessaging` stays source-only.
+- **Gateway ICE/TURN**: the call fetches STUN/TURN servers from the gateway per call, so it
+  connects behind symmetric NAT / CGNAT (falls back to public STUN if the fetch fails).
+- **Signaling auto-reconnect**: an unexpected signaling-socket drop reconnects with backoff
+  (1s / 2s / 4s) on the same session and re-flushes buffered ICE, instead of failing on the
+  first blip.
+- **Audio-session interruptions**: an incoming phone call / Siri mutes the mic and restores
+  it, or ends the call cleanly when the system won't let it resume.
+- **`PolyError.Voice.disconnected` / `.interrupted`** (both `isRetryable`); a post-connect
+  media drop now surfaces as the retryable `.disconnected` rather than `.mediaFailed`.
 - A SwiftUI + UIKit **Voice** example (tap-to-call).
 
 ## [0.8.0] - 2026-06-04

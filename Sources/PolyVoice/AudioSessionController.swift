@@ -4,6 +4,7 @@
 import Foundation
 import AVFoundation
 import WebRTC
+import PolyMessaging
 
 /// Configures the audio session for a live call — the iOS analog of Android's
 /// `AndroidAudioControl`. Accessory-aware: a connected headset/Bluetooth is used
@@ -17,8 +18,37 @@ final class AudioSessionController: @unchecked Sendable {
     // activated it (e.g. start() failed before createOffer) — mirrors Android's `activated` guard.
     private var activated = false
 
+    /// Sink for audio-session interruptions (phone call / Siri / another app), set by the engine.
+    var onInterruption: (@Sendable (CallInterruption) -> Void)?
+    private var interruptionObserver: NSObjectProtocol?
+
     init(defaultToSpeaker: Bool) {
         self.defaultToSpeaker = defaultToSpeaker
+        interruptionObserver = NotificationCenter.default.addObserver(
+            forName: AVAudioSession.interruptionNotification, object: nil, queue: nil
+        ) { [weak self] note in self?.handleInterruption(note) }
+    }
+
+    deinit {
+        if let observer = interruptionObserver { NotificationCenter.default.removeObserver(observer) }
+    }
+
+    /// Map an `AVAudioSession` interruption to the call's interruption vocabulary: a begin
+    /// mutes the mic; an end resumes if the system allows, otherwise ends the call.
+    private func handleInterruption(_ note: Notification) {
+        guard let info = note.userInfo,
+              let raw = info[AVAudioSessionInterruptionTypeKey] as? UInt,
+              let type = AVAudioSession.InterruptionType(rawValue: raw) else { return }
+        switch type {
+        case .began:
+            onInterruption?(.began)
+        case .ended:
+            let options = (info[AVAudioSessionInterruptionOptionKey] as? UInt)
+                .map(AVAudioSession.InterruptionOptions.init(rawValue:)) ?? []
+            onInterruption?(options.contains(.shouldResume) ? .endedResume : .endedStop)
+        @unknown default:
+            break
+        }
     }
 
     func activate() {

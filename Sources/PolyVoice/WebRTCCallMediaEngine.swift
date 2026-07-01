@@ -34,13 +34,20 @@ final class WebRTCCallMediaEngine: NSObject, CallMediaEngine, @unchecked Sendabl
 
     // MARK: - CallMediaEngine
 
-    func createOffer() async throws -> String {
+    func createOffer(iceServers: [IceServer]) async throws -> String {
         audio.activate() // route + configure the AVAudioSession for a call before capturing
 
         let config = RTCConfiguration()
         config.sdpSemantics = .unifiedPlan
         config.continualGatheringPolicy = .gatherContinually
-        config.iceServers = [RTCIceServer(urlStrings: ["stun:stun.l.google.com:19302"])]
+        // Gateway-provided STUN/TURN (falls back to public STUN when the fetch failed);
+        // TURN entries carry credentials, STUN entries don't.
+        config.iceServers = (iceServers.isEmpty ? IceServer.default : iceServers).map { server in
+            if let username = server.username, let credential = server.credential {
+                return RTCIceServer(urlStrings: server.urls, username: username, credential: credential)
+            }
+            return RTCIceServer(urlStrings: server.urls)
+        }
 
         let empty = RTCMediaConstraints(mandatoryConstraints: nil, optionalConstraints: nil)
         guard let peer = Self.factory.peerConnection(with: config, constraints: empty, delegate: self) else {
@@ -102,6 +109,11 @@ final class WebRTCCallMediaEngine: NSObject, CallMediaEngine, @unchecked Sendabl
 
     func setStateHandler(_ handler: @escaping @Sendable (CallMediaState) -> Void) async {
         lock.lock(); stateHandler = handler; lock.unlock()
+    }
+
+    func setInterruptionHandler(_ handler: @escaping @Sendable (CallInterruption) -> Void) async {
+        // The AVAudioSession interruption observer lives in the audio controller.
+        audio.onInterruption = handler
     }
 
     func setMuted(_ muted: Bool) async {

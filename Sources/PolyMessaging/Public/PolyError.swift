@@ -40,6 +40,12 @@ public enum PolyError: Error, Sendable, Equatable {
         case signalingFailed(String)
         case mediaFailed(String)
         case timedOut
+        /// The media connection dropped after connecting and didn't recover
+        /// within the grace window. Retryable — start a new call.
+        case disconnected
+        /// An audio-session interruption (an incoming phone call, or another app
+        /// taking exclusive audio) ended the call. Retryable once audio is free.
+        case interrupted
     }
 
     case auth(Auth)
@@ -76,6 +82,8 @@ public extension PolyError {
         case .transport:
             return true
         case .session(.unexpectedDisconnect), .session(.maxReconnectAttemptsExceeded):
+            return true
+        case .voice(.disconnected), .voice(.interrupted):
             return true
         default:
             return false
@@ -143,6 +151,10 @@ extension PolyError: CustomStringConvertible {
             return reason.isEmpty ? "Voice call audio failed." : "Voice call audio failed: \(reason)"
         case .voice(.timedOut):
             return "Voice call timed out."
+        case .voice(.disconnected):
+            return "The call disconnected. Please try again."
+        case .voice(.interrupted):
+            return "The call was interrupted. Please try again."
 
         case .invalidConfiguration(let reason):
             return reason.isEmpty ? "Invalid configuration." : "Invalid configuration: \(reason)"

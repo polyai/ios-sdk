@@ -45,6 +45,13 @@ final class GatewaySignalingChannel: SignalingChannel, @unchecked Sendable {
     var events: AsyncStream<SignalingChannelEvent> { caster.subscribe() }
 
     func open() async {
+        // Reset for a fresh connection so the same instance can be re-opened on
+        // reconnect: clear the terminal latch and cancel any prior socket.
+        lock.lock(); terminated = false; lock.unlock()
+        receiveTask?.cancel()
+        task?.cancel(with: .normalClosure, reason: nil)
+        urlSession?.invalidateAndCancel()
+
         logger.debug("Opening signaling WS", metadata: ["host": url.host ?? "unknown"])
         let del = SignalingSocketDelegate(
             onOpen: { [weak self] in self?.caster.emit(.opened) },
