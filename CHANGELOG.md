@@ -4,6 +4,23 @@ All notable changes to the PolyMessaging iOS SDK are documented here.
 This project adheres to [Semantic Versioning](https://semver.org). While the SDK
 is pre-1.0, breaking changes bump the **minor** version.
 
+## [0.9.0] - 2026-07-01
+
+Adds **PolyVoice** — live, two-way WebRTC voice calls to a PolyAI agent — as a
+**separate product/pod**, so chat-only apps never link the WebRTC binary (mirrors
+Android's `ai.poly:voice`). It supplies a real `RTCPeerConnection` audio engine +
+`AVAudioSession` control behind the existing, already-tested `CallCoordinator`
+signaling pipeline.
+
+### Added
+- **`PolyVoice.call(config:options:)`** → a `PolyCall` backed by a real WebRTC audio
+  engine (audio-only Opus, offer / answer / trickle ICE, mute). `VoiceOptions.webrtcToken`
+  is required — a distinct token from the API key.
+- Public media seam on `PolyMessaging`: `CallMediaEngine` / `CallMediaState` /
+  `ICECandidate` are now public, plus `PolyCall.wired(config:webrtcToken:mediaEngine:)` —
+  so `PolyVoice` injects the WebRTC engine while `PolyMessaging` stays source-only.
+- A SwiftUI + UIKit **Voice** example (tap-to-call).
+
 ## [0.8.0] - 2026-06-04
 
 Add a `device_type` dimension (`mobile` / `tablet` / `desktop`) sent on session

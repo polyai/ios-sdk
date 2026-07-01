@@ -1,0 +1,25 @@
+// Copyright PolyAI Limited
+
+import Foundation
+
+/// Options for ``PolyVoice/call(config:options:)``.
+///
+/// `webrtcToken` is **required** — every voice call needs the WebRTC gateway
+/// token, a distinct value from the API key (both come from Agent Studio ›
+/// Connector Settings). Mirrors Android's `VoiceOptions`.
+public struct VoiceOptions: Sendable {
+
+    /// The connector's WebRTC token — authenticates the signaling offer + the
+    /// ICE-servers fetch. Always distinct from `Configuration.apiKey`.
+    public let webrtcToken: String
+
+    /// The fallback route when no headset/Bluetooth is connected: the loudspeaker
+    /// (hands-free, the `true` default) or the earpiece (`false`). A connected
+    /// accessory is always preferred automatically.
+    public let speakerphone: Bool
+
+    public init(webrtcToken: String, speakerphone: Bool = true) {
+        self.webrtcToken = webrtcToken
+        self.speakerphone = speakerphone
+    }
+}

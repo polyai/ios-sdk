@@ -3,7 +3,7 @@
 import Foundation
 
 /// State of the underlying media (WebRTC peer) connection.
-enum CallMediaState: Sendable, Equatable {
+public enum CallMediaState: Sendable, Equatable {
     case new
     case connecting
     case connected
@@ -24,7 +24,9 @@ enum CallMediaState: Sendable, Equatable {
 /// gateway in the opt-in integration probe — by injecting an engine that
 /// produces a valid SDP offer. When a real engine is supplied, the same
 /// `CallCoordinator` carries audio with no further changes.
-protocol CallMediaEngine: Sendable {
+///
+/// Public so the PolyVoice product can supply a WebRTC-backed implementation.
+public protocol CallMediaEngine: Sendable {
     /// Acquire the microphone and produce the local SDP offer (audio).
     func createOffer() async throws -> String
     /// Apply the remote SDP answer returned by the gateway.

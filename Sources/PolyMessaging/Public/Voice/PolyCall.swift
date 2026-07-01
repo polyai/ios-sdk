@@ -97,3 +97,48 @@ public final class PolyCall: @unchecked Sendable {
         stateCaster.emit(newState)
     }
 }
+
+public extension PolyCall {
+
+    /// Build a fully-wired voice call driven by the supplied media engine.
+    ///
+    /// The base SDK ships no media engine, so `PolyMessaging.voice()` reports
+    /// `.voice(.notImplemented)`. The **PolyVoice** product calls this with a
+    /// WebRTC-backed ``CallMediaEngine`` to place real audio calls — it composes
+    /// the same internal REST/session/signaling pipeline the tests exercise.
+    ///
+    /// - Parameters:
+    ///   - config: the shared messaging `Configuration` (api key, environment, host).
+    ///   - webrtcToken: the WebRTC gateway token (the offer `authToken` + ICE-servers auth).
+    ///   - mediaEngine: the platform WebRTC engine that produces the SDP offer and carries audio.
+    static func wired(config: Configuration, webrtcToken: String, mediaEngine: CallMediaEngine) -> PolyCall {
+        let logger = OSLogLogger(level: config.logLevel)
+        let urls = EnvironmentURLs(environment: config.environment)
+        let hostId = config.hostIdentifier ?? Bundle.main.bundleIdentifier ?? ""
+        let api = RestApi(
+            baseURL: urls.restBaseURL,
+            apiKey: config.apiKey,
+            hostIdentifier: hostId,
+            logger: logger
+        )
+        let linker = VoiceSessionLinker(
+            connection: WebSocketTransport(logger: logger),
+            wsBaseURL: urls.wsBaseURL,
+            logger: logger
+        )
+        let channel = GatewaySignalingChannel(
+            url: VoiceEnvironment(environment: config.environment).signalingURL,
+            logger: logger
+        )
+        let coordinator = CallCoordinator(
+            api: api,
+            linker: linker,
+            channel: channel,
+            media: mediaEngine,
+            authToken: webrtcToken,
+            streamingEnabled: config.streamingEnabled,
+            logger: logger
+        )
+        return PolyCall(coordinator: coordinator)
+    }
+}

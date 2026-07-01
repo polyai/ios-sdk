@@ -3,10 +3,18 @@
 import Foundation
 
 /// An ICE candidate exchanged with the WebRTC signaling gateway.
-struct ICECandidate: Sendable, Equatable {
-    let candidate: String
-    let sdpMid: String?
-    let sdpMLineIndex: Int?
+///
+/// Public so the PolyVoice product's WebRTC engine can produce and consume them.
+public struct ICECandidate: Sendable, Equatable {
+    public let candidate: String
+    public let sdpMid: String?
+    public let sdpMLineIndex: Int?
+
+    public init(candidate: String, sdpMid: String?, sdpMLineIndex: Int?) {
+        self.candidate = candidate
+        self.sdpMid = sdpMid
+        self.sdpMLineIndex = sdpMLineIndex
+    }
 }
 
 /// A parsed inbound signal from the WebRTC signaling gateway

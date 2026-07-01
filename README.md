@@ -270,6 +270,28 @@ Full details in [Streaming](#streaming).
 
 The SDK is headless: it gives you one observable object — **`ChatSession`** — and your UI is *whatever you build by observing its state.*
 
+## Voice calling (`PolyVoice`)
+
+Live, two-way **WebRTC voice calls** to a PolyAI agent ship in a **separate** product/pod —
+[`PolyVoice`](docs/PolyVoice.md) — so chat-only apps never link the WebRTC binary (`PolyMessaging`
+stays source-only). It reuses the messaging `Configuration` and the same `CallState` / `PolyError` types.
+
+```swift
+import PolyMessaging
+import PolyVoice
+
+let call = PolyVoice.call(
+    config: Configuration(apiKey: "YOUR_API_KEY"),          // connector token
+    options: VoiceOptions(webrtcToken: "YOUR_WEBRTC_TOKEN")  // WebRTC token — distinct; both from Agent Studio
+)
+Task { for await state in call.states { render(state) } }   // .connecting → .connected → …
+try await call.start()   // after the microphone permission (NSMicrophoneUsageDescription) is granted
+```
+
+Add **`PolyVoice`** via SPM (`.product(name: "PolyVoice", package: "PolyMessaging")`) or CocoaPods
+(`pod 'PolyVoice'`). **📖 Full guide → [`docs/PolyVoice.md`](docs/PolyVoice.md)** — credentials, the
+microphone permission, accessory-aware audio routing, and the architecture.
+
 ## Meet `ChatSession`
 
 `PolyMessaging.chat()` (or `start()`) returns a `@MainActor` `ChatSession` — an `ObservableObject`. It assembles streaming, tracks delivery, manages typing, dedups resumes, and surfaces handoff — so your UI only ever reads state and calls methods. SwiftUI binds it with `@StateObject`; UIKit sinks its `@Published` properties with Combine.
@@ -1594,6 +1616,9 @@ Working apps mirrored across SwiftUI and UIKit — open any `.xcodeproj`, set yo
 | **05 Handoff** | full live-agent ladder | [SwiftUI](Examples/SwiftUI/05-Handoff/) · [UIKit](Examples/UIKit/05-Handoff/) |
 | **06 Full reference** | production resume + start-new flows | [SwiftUI](Examples/SwiftUI/06-FullReference/) · [UIKit](Examples/UIKit/06-FullReference/) |
 | **07 Playground** | diagnostics, runtime config, streaming toggle | [SwiftUI](Examples/SwiftUI/07-Playground/) · [UIKit](Examples/UIKit/07-Playground/) |
+
+**Voice** — a tap-to-call WebRTC demo on the separate [`PolyVoice`](docs/PolyVoice.md) product (needs a
+physical device): [SwiftUI](Examples/SwiftUI/Voice/) · [UIKit](Examples/UIKit/Voice/).
 
 ## Requirements
 
