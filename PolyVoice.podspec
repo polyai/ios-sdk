@@ -20,5 +20,5 @@ Pod::Spec.new do |s|
   s.source_files     = 'Sources/PolyVoice/**/*.swift'
 
   s.dependency 'PolyMessaging', "#{s.version}"
-  s.dependency 'WebRTC-SDK'  # the maintained WebRTC binary (same lineage as Android's libwebrtc)
+  s.dependency 'WebRTC-SDK', '~> 149.0'  # pinned to match the SPM `exact: 149.0.0` (same lineage as Android's libwebrtc)
 end

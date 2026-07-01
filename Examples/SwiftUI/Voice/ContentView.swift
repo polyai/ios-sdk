@@ -30,11 +30,6 @@ struct ContentView: View {
             }
         }
         .padding(32)
-        .task {
-            // Test affordance: `-autostart` launches straight into a call (used to
-            // verify the pipeline on the simulator). Mirrors the chat examples' flags.
-            if CommandLine.arguments.contains("-autostart") { startCall() }
-        }
     }
 
     // MARK: - Derived UI

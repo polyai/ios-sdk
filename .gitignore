@@ -12,3 +12,6 @@ DerivedData/
 
 # Dev verification artifacts
 /build-logs
+
+# Internal QA scratch (dev hostnames — never publish)
+/docs/robustness/

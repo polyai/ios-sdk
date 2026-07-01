@@ -12,8 +12,8 @@ artifact), and it reuses the messaging `Configuration` plus the same `CallState`
 
 ```swift
 .package(url: "https://github.com/polyai/ios-sdk.git", from: "0.9.0")
-// target dependency:
-.product(name: "PolyVoice", package: "PolyMessaging")
+// target dependency (the package identity is the repo name, `ios-sdk`):
+.product(name: "PolyVoice", package: "ios-sdk")
 ```
 
 `PolyVoice` transitively pulls the WebRTC xcframework; `PolyMessaging` stays

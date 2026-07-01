@@ -13,6 +13,9 @@ final class AudioSessionController: @unchecked Sendable {
 
     private let defaultToSpeaker: Bool
     private let session = RTCAudioSession.sharedInstance()
+    // Guards deactivate(): never touch the process-global audio session on a call that never
+    // activated it (e.g. start() failed before createOffer) — mirrors Android's `activated` guard.
+    private var activated = false
 
     init(defaultToSpeaker: Bool) {
         self.defaultToSpeaker = defaultToSpeaker
@@ -21,6 +24,7 @@ final class AudioSessionController: @unchecked Sendable {
     func activate() {
         session.lockForConfiguration()
         defer { session.unlockForConfiguration() }
+        activated = true
         let config = RTCAudioSessionConfiguration.webRTC()
         config.category = AVAudioSession.Category.playAndRecord.rawValue
         config.mode = AVAudioSession.Mode.voiceChat.rawValue
@@ -41,6 +45,8 @@ final class AudioSessionController: @unchecked Sendable {
     func deactivate() {
         session.lockForConfiguration()
         defer { session.unlockForConfiguration() }
+        guard activated else { return } // nothing was acquired — don't clobber the host app's audio
+        activated = false
         try? session.overrideOutputAudioPort(.none)
         try? session.setActive(false)
     }

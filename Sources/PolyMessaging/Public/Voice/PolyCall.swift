@@ -22,12 +22,10 @@ public extension CallState {
 
 /// A voice call.
 ///
-/// Created via ``PolyMessagingClient/voice()`` or ``PolyMessaging/voice()``.
-/// Voice calling is not yet available in the shipped SDK: there is no bundled
-/// media (WebRTC audio) engine, so ``start()`` surfaces
-/// `PolyError.voice(.notImplemented)`. The signaling pipeline behind it is
-/// fully implemented and exercised end-to-end in the test suite; only the
-/// on-device audio engine is outstanding.
+/// The base ``PolyMessaging/voice()`` factory ships **without** a media engine, so its
+/// ``start()`` surfaces `PolyError.voice(.notImplemented)`. The **PolyVoice** product supplies
+/// a real WebRTC audio engine — call `PolyVoice.call(config:options:)` to place audio calls
+/// (it builds this via ``wired(config:webrtcToken:mediaEngine:)``).
 public final class PolyCall: @unchecked Sendable {
 
     private let coordinator: CallCoordinator?
