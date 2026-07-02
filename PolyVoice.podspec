@@ -6,8 +6,8 @@ Pod::Spec.new do |s|
   s.description      = <<-DESC
     PolyVoice adds live, two-way WebRTC voice calls to a PolyAI agent — the
     companion to PolyMessaging. It ships as a SEPARATE pod so chat-only apps
-    never link the WebRTC binary, mirroring Android's ai.poly:voice artifact.
-    Reuses the messaging Configuration and the same CallState / PolyError types.
+    never link the WebRTC binary. Reuses the messaging Configuration and the
+    same CallState / PolyError types.
   DESC
   s.homepage         = 'https://github.com/polyai/ios-sdk'
   s.license          = { :type => 'Apache-2.0', :file => 'LICENSE' }
@@ -20,5 +20,5 @@ Pod::Spec.new do |s|
   s.source_files     = 'Sources/PolyVoice/**/*.swift'
 
   s.dependency 'PolyMessaging', "#{s.version}"
-  s.dependency 'WebRTC-SDK', '~> 149.0'  # pinned to match the SPM `exact: 149.0.0` (same lineage as Android's libwebrtc)
+  s.dependency 'WebRTC-SDK', '149.0.0'  # exact — matches the SPM pin (M149; M141 is broken for SPM)
 end

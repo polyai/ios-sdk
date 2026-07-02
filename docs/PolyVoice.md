@@ -2,9 +2,8 @@
 
 Live, two-way WebRTC voice calls to a PolyAI agent — the companion to
 [`PolyMessaging`](../README.md). It ships as a **separate product/pod** so chat-only
-apps never link the WebRTC binary (mirrors Android's separate `ai.poly:voice`
-artifact), and it reuses the messaging `Configuration` plus the same `CallState` /
-`PolyError` vocabulary — no new concepts.
+apps never link the WebRTC binary, and it reuses the messaging `Configuration` plus
+the same `CallState` / `PolyError` vocabulary — no new concepts.
 
 ## Install
 
@@ -52,6 +51,21 @@ A call needs the microphone. Add **`NSMicrophoneUsageDescription`** to your app'
 `Info.plist` (a call without it crashes on iOS). The system prompts on the first
 call; the SDK activates the `AVAudioSession` for you.
 
+## Backgrounding
+
+To keep a call running while your app is in the background (the norm for a voice call),
+enable the **`audio` background mode** — add `UIBackgroundModes` to your `Info.plist`:
+
+```xml
+<key>UIBackgroundModes</key>
+<array><string>audio</string></array>
+```
+
+The SDK holds a `playAndRecord` `AVAudioSession`, so with this mode the call keeps running
+when the app is backgrounded; without it, iOS suspends the app and the call drops. Both Voice
+examples set this. (There's no CallKit integration — a call is a normal app audio session, not
+a system phone call.)
+
 ## Credentials
 
 A voice call needs **two credentials**, both on your agent in
@@ -62,6 +76,10 @@ you use for chat):
 |---|---|---|
 | **API key** — `Configuration.apiKey` | your connector token | `X-Token` (authenticates the call) |
 | **WebRTC token** — `VoiceOptions.webrtcToken` | the gateway auth token — a **distinct** token from the API key | the offer `authToken` + ICE-servers fetch |
+
+> **Region:** calls default to the US gateway. For a UK / EUW / other-region (or dev) agent, set the
+> environment on the shared `Configuration` — e.g. `Configuration(apiKey: …, environment: .cluster("…"))`,
+> the same `Configuration` you use for chat. See the [messaging guide](../README.md#configuration).
 
 ## Audio routing
 

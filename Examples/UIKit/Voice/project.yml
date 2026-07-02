@@ -26,6 +26,7 @@ targets:
       path: Generated/Info.plist
       properties:
         NSMicrophoneUsageDescription: "Voice calls need the microphone to talk to the agent."
+        UIBackgroundModes: [audio]  # keep the call alive when the app is backgrounded
         UILaunchScreen: {}
         UIApplicationSceneManifest:
           UIApplicationSupportsMultipleScenes: false
