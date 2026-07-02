@@ -12,6 +12,8 @@ Each example is a runnable app that builds on the previous one. UIKit L*N* cover
 | **06-FullReference** | production-style Resume + Start-New flows (no developer diagnostics) | [`SwiftUI/06-FullReference/`](SwiftUI/06-FullReference/) | [`UIKit/06-FullReference/`](UIKit/06-FullReference/) |
 | **07-Playground** | streaming toggle, raw transport diagnostic tap, event log, runtime `Configuration` knobs, protocol simulations | [`SwiftUI/07-Playground/`](SwiftUI/07-Playground/) | [`UIKit/07-Playground/`](UIKit/07-Playground/) |
 
+Separate from the chat ladder, **Voice** is a tap-to-call WebRTC demo on the [`PolyVoice`](../docs/PolyVoice.md) product (needs a physical device — the simulator can't carry WebRTC media): [`SwiftUI/Voice/`](SwiftUI/Voice/) · [`UIKit/Voice/`](UIKit/Voice/).
+
 UIKit 06–07 are built programmatically (no storyboard) so their connect/loading/chat/error screens can swap a single container.
 
 The **03**, **06**, and **07** examples (SwiftUI and UIKit) also ship a foreground-only new-message notification banner — a local notification when the agent replies while the app is open, in `Components/NewMessageNotifier.swift`. There's deliberately no background path; see the root README's [In-app new-message alerts (foreground only)](../README.md#in-app-new-message-alerts-foreground-only).
