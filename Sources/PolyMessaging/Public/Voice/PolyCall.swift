@@ -45,6 +45,12 @@ public final class PolyCall: @unchecked Sendable {
     /// Call-state transitions. Late subscribers receive the current state.
     public var states: AsyncStream<CallState> { stateCaster.subscribe() }
 
+    /// Audio-routing snapshots (available outputs + the active one) — drive a device picker.
+    /// Empty until the call's audio is engaged (`start()`).
+    public var audioState: AsyncStream<AudioState> {
+        coordinator?.audioStream ?? AsyncStream { $0.finish() }
+    }
+
     /// Public (gated) initializer: no media engine is bundled, so this call
     /// cannot carry audio yet. `start()` reports `.voice(.notImplemented)`.
     init(config: Configuration) {
@@ -86,6 +92,17 @@ public final class PolyCall: @unchecked Sendable {
     /// Mute or unmute the local microphone.
     public func setMuted(_ muted: Bool) async {
         await coordinator?.setMuted(muted)
+    }
+
+    /// Whether the local microphone is currently muted.
+    public var isMuted: Bool {
+        get async { await coordinator?.isMuted ?? false }
+    }
+
+    /// Route call audio to `device` (an entry from ``audioState``'s `availableDevices`),
+    /// or `nil` to revert to automatic routing. Confirmed asynchronously via ``audioState``.
+    public func setAudioDevice(_ device: AudioDevice?) async {
+        await coordinator?.selectAudioDevice(device)
     }
 
     private func setState(_ newState: CallState) {

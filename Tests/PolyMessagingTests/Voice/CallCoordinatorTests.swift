@@ -334,6 +334,52 @@ final class CallCoordinatorTests: XCTestCase {
         XCTAssertEqual(media.muted, false)
     }
 
+    // MARK: - Audio device API
+
+    func test_isMuted_reflectsSetMuted() async throws {
+        let conn = MockConnection()
+        let coord = makeCoordinator(conn: conn)
+        try await arm(coord, conn: conn)
+        await coord.setMuted(true)
+        var muted = await coord.isMuted
+        XCTAssertTrue(muted)
+        await coord.setMuted(false)
+        muted = await coord.isMuted
+        XCTAssertFalse(muted)
+    }
+
+    func test_selectAudioDevice_forwardsToEngine() async throws {
+        let conn = MockConnection()
+        let media = StubMediaEngine()
+        let coord = makeCoordinator(conn: conn, media: media)
+        try await arm(coord, conn: conn)
+        let speaker = AudioDevice(type: .speakerphone, name: "Speaker", id: "builtin.speaker")
+        await coord.selectAudioDevice(speaker)
+        await coord.selectAudioDevice(nil) // revert to automatic
+        XCTAssertEqual(media.audioDeviceSelections.count, 2)
+        XCTAssertEqual(media.audioDeviceSelections.first ?? nil, speaker)
+        XCTAssertNil(media.audioDeviceSelections.last!)
+    }
+
+    func test_audioState_relayedToStream() async throws {
+        let conn = MockConnection()
+        let media = StubMediaEngine()
+        let coord = makeCoordinator(conn: conn, media: media)
+        try await arm(coord, conn: conn) // sets the audio-state handler
+        let device = AudioDevice(type: .bluetooth, name: "Buds", id: "bt1")
+        let state = AudioState(availableDevices: [device], selectedDevice: device)
+
+        let stream = coord.audioStream
+        media.driveAudioState(state)
+        var received: AudioState?
+        let deadline = Date().addingTimeInterval(2)
+        for await snapshot in stream {
+            received = snapshot
+            if snapshot == state || Date() > deadline { break }
+        }
+        XCTAssertEqual(received, state, "engine audio-state snapshots reach PolyCall's audio stream")
+    }
+
     // MARK: - Timeout / grace / inbound buffering / graceful close
 
     func test_connectionTimeout_failsTimedOut() async throws {

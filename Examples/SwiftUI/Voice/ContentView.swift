@@ -8,7 +8,9 @@ struct ContentView: View {
     @State private var call: PolyCall?
     @State private var state: CallState = .idle
     @State private var muted = false
+    @State private var audioState: AudioState = .empty
     @State private var observer: Task<Void, Never>?
+    @State private var audioObserver: Task<Void, Never>?
 
     var body: some View {
         VStack(spacing: 24) {
@@ -27,6 +29,25 @@ struct ContentView: View {
             if isConnected {
                 Button(muted ? "Unmute" : "Mute") { toggleMute() }
                     .buttonStyle(.bordered)
+
+                if !audioState.availableDevices.isEmpty {
+                    VStack(spacing: 6) {
+                        Text("Audio output").font(.caption).foregroundStyle(.secondary)
+                        ForEach(audioState.availableDevices) { device in
+                            Button {
+                                Task { await call?.setAudioDevice(device) }
+                            } label: {
+                                HStack {
+                                    Text(device.name)
+                                    Spacer()
+                                    if device == audioState.selectedDevice { Image(systemName: "checkmark") }
+                                }
+                                .frame(maxWidth: .infinity)
+                            }
+                            .buttonStyle(.bordered)
+                        }
+                    }
+                }
             }
         }
         .padding(32)
@@ -91,10 +112,17 @@ struct ContentView: View {
         call = newCall
 
         observer?.cancel()
+        audioObserver?.cancel()
         let states = newCall.states
         observer = Task {
             for await newState in states {
                 await MainActor.run { self.state = newState }
+            }
+        }
+        let audioStates = newCall.audioState
+        audioObserver = Task {
+            for await snapshot in audioStates {
+                await MainActor.run { self.audioState = snapshot }
             }
         }
         Task { try? await newCall.start() }

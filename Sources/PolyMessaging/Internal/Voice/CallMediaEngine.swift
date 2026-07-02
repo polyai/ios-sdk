@@ -51,6 +51,10 @@ public protocol CallMediaEngine: Sendable {
     func setStateHandler(_ handler: @escaping @Sendable (CallMediaState) -> Void) async
     /// Register the sink for audio-session interruptions (phone calls, Siri, etc.).
     func setInterruptionHandler(_ handler: @escaping @Sendable (CallInterruption) -> Void) async
+    /// Register the sink for audio-routing snapshots (available outputs + the active one).
+    func setAudioStateHandler(_ handler: @escaping @Sendable (AudioState) -> Void) async
+    /// Route call audio to `device`, or `nil` to revert to automatic routing.
+    func selectAudioDevice(_ device: AudioDevice?) async
     /// Mute / unmute the local microphone track.
     func setMuted(_ muted: Bool) async
     /// Tear down the peer connection and release the microphone.

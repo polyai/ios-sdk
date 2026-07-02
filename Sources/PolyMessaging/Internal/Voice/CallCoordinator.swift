@@ -27,6 +27,7 @@ actor CallCoordinator {
     private let logger: PolyLogger
 
     private let stateCaster = Multicaster<CallState>(replayLastValue: true)
+    private let audioCaster = Multicaster<AudioState>(replayLastValue: true)
     private(set) var state: CallState = .idle
 
     private var active = false
@@ -84,6 +85,7 @@ actor CallCoordinator {
 
     /// Late subscribers receive the current state immediately.
     nonisolated var stateStream: AsyncStream<CallState> { stateCaster.subscribe() }
+    nonisolated var audioStream: AsyncStream<AudioState> { audioCaster.subscribe() }
 
     // MARK: - Lifecycle
 
@@ -100,6 +102,9 @@ actor CallCoordinator {
         }
         await media.setInterruptionHandler { [weak self] interruption in
             Task { await self?.handleInterruption(interruption) }
+        }
+        await media.setAudioStateHandler { [weak self] audioState in
+            Task { await self?.emitAudioState(audioState) }
         }
 
         startConnectTimeout()
@@ -154,6 +159,17 @@ actor CallCoordinator {
     func setMuted(_ muted: Bool) async {
         userMuted = muted
         await applyMicState()
+    }
+
+    var isMuted: Bool { userMuted }
+
+    /// Route call audio to `device`, or `nil` for automatic routing.
+    func selectAudioDevice(_ device: AudioDevice?) async {
+        await media.selectAudioDevice(device)
+    }
+
+    private func emitAudioState(_ state: AudioState) {
+        audioCaster.emit(state)
     }
 
     /// The mic is off when the user muted OR an interruption is muting it — so an

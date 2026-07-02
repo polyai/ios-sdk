@@ -116,6 +116,14 @@ final class WebRTCCallMediaEngine: NSObject, CallMediaEngine, @unchecked Sendabl
         audio.onInterruption = handler
     }
 
+    func setAudioStateHandler(_ handler: @escaping @Sendable (AudioState) -> Void) async {
+        audio.onAudioState = handler
+    }
+
+    func selectAudioDevice(_ device: AudioDevice?) async {
+        audio.select(device)
+    }
+
     func setMuted(_ muted: Bool) async {
         lock.lock(); let track = audioTrack; lock.unlock()
         track?.isEnabled = !muted

@@ -33,7 +33,9 @@ signaling pipeline.
   `apiKey`/`webrtcToken` or a `.custom` environment without a `signalingHost`.
 - Mid-call audio **re-routing**: connecting/removing a headset or Bluetooth during a call now
   follows the route instead of staying stuck on the speaker.
-- A SwiftUI + UIKit **Voice** example (tap-to-call).
+- **Audio-output device selection**: `PolyCall.audioState` (available outputs + the active one),
+  `setAudioDevice(_:)`, and `isMuted` — enough to drive an in-app device picker (both examples ship one).
+- A SwiftUI + UIKit **Voice** example (tap-to-call, with mute + an audio-output picker).
 
 ## [0.8.0] - 2026-06-04
 

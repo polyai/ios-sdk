@@ -12,11 +12,14 @@ final class CallViewController: UIViewController {
     private let statusLabel = UILabel()
     private let callButton = UIButton(type: .system)
     private let muteButton = UIButton(type: .system)
+    private let audioControl = UISegmentedControl()
 
     private var call: PolyCall?
     private var observer: Task<Void, Never>?
+    private var audioObserver: Task<Void, Never>?
     private var muted = false
     private var state: CallState = .idle { didSet { render() } }
+    private var audioState: AudioState = .empty { didSet { renderAudio() } }
 
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -38,7 +41,10 @@ final class CallViewController: UIViewController {
         muteButton.addTarget(self, action: #selector(toggleMute), for: .touchUpInside)
         muteButton.isHidden = true
 
-        let stack = UIStackView(arrangedSubviews: [titleLabel, statusLabel, callButton, muteButton])
+        audioControl.addTarget(self, action: #selector(selectAudio), for: .valueChanged)
+        audioControl.isHidden = true
+
+        let stack = UIStackView(arrangedSubviews: [titleLabel, statusLabel, callButton, muteButton, audioControl])
         stack.axis = .vertical
         stack.spacing = 20
         stack.alignment = .fill
@@ -77,10 +83,17 @@ final class CallViewController: UIViewController {
         call = newCall
 
         observer?.cancel()
+        audioObserver?.cancel()
         let states = newCall.states
         observer = Task { [weak self] in
             for await newState in states {
                 await MainActor.run { self?.state = newState }
+            }
+        }
+        let audioStates = newCall.audioState
+        audioObserver = Task { [weak self] in
+            for await snapshot in audioStates {
+                await MainActor.run { self?.audioState = snapshot }
             }
         }
         Task { try? await newCall.start() }
@@ -90,6 +103,22 @@ final class CallViewController: UIViewController {
         muted.toggle()
         muteButton.setTitle(muted ? "Unmute" : "Mute", for: .normal)
         Task { await call?.setMuted(muted) }
+    }
+
+    @objc private func selectAudio() {
+        let index = audioControl.selectedSegmentIndex
+        guard index >= 0, index < audioState.availableDevices.count else { return }
+        let device = audioState.availableDevices[index]
+        Task { await call?.setAudioDevice(device) }
+    }
+
+    private func renderAudio() {
+        audioControl.isHidden = audioState.availableDevices.isEmpty
+        audioControl.removeAllSegments()
+        for (i, device) in audioState.availableDevices.enumerated() {
+            audioControl.insertSegment(withTitle: device.name, at: i, animated: false)
+            if device == audioState.selectedDevice { audioControl.selectedSegmentIndex = i }
+        }
     }
 
     private func render() {

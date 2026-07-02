@@ -86,9 +86,24 @@ you use for chat):
 
 ## Audio routing
 
-The call is **accessory-aware** by default: a connected wired/Bluetooth headset is
-used automatically; otherwise it falls back to the loudspeaker (hands-free — set
-`VoiceOptions(speakerphone: false)` to fall back to the receiver instead).
+The call is **accessory-aware** by default: a connected wired/Bluetooth headset is used
+automatically; otherwise it falls back to the loudspeaker (hands-free — set
+`VoiceOptions(speakerphone: false)` to fall back to the receiver instead), and it follows a
+headset connected or removed **mid-call**.
+
+To build an in-app **device picker**, observe `call.audioState` and switch with `call.setAudioDevice(_:)`:
+
+```swift
+Task { for await snapshot in call.audioState {   // AudioState: availableDevices + selectedDevice
+    render(snapshot.availableDevices, selected: snapshot.selectedDevice)
+} }
+
+await call.setAudioDevice(device)   // an AudioDevice from availableDevices — or nil for automatic
+let muted = await call.isMuted
+```
+
+`AudioDevice.type` is `.earpiece / .speakerphone / .wiredHeadset / .bluetooth`. Both example apps
+ship a working picker.
 
 ## Resilience
 

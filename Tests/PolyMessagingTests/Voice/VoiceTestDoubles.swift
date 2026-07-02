@@ -83,6 +83,9 @@ final class StubMediaEngine: CallMediaEngine, @unchecked Sendable {
     private var localHandler: (@Sendable (ICECandidate) -> Void)?
     private var stateHandler: (@Sendable (CallMediaState) -> Void)?
     private var interruptionHandler: (@Sendable (CallInterruption) -> Void)?
+    private var audioStateHandler: (@Sendable (AudioState) -> Void)?
+    private var _audioDeviceSelections: [AudioDevice?] = []
+    var audioDeviceSelections: [AudioDevice?] { lock.lock(); defer { lock.unlock() }; return _audioDeviceSelections }
 
     init(offerSDP: String = StubMediaEngine.minimalOffer) {
         self.offerSDP = offerSDP
@@ -123,6 +126,14 @@ final class StubMediaEngine: CallMediaEngine, @unchecked Sendable {
         lock.lock(); interruptionHandler = handler; lock.unlock()
     }
 
+    func setAudioStateHandler(_ handler: @escaping @Sendable (AudioState) -> Void) async {
+        lock.lock(); audioStateHandler = handler; lock.unlock()
+    }
+
+    func selectAudioDevice(_ device: AudioDevice?) async {
+        lock.lock(); _audioDeviceSelections.append(device); lock.unlock()
+    }
+
     func setMuted(_ muted: Bool) async {
         lock.lock(); _muted = muted; lock.unlock()
     }
@@ -145,6 +156,11 @@ final class StubMediaEngine: CallMediaEngine, @unchecked Sendable {
     func driveInterruption(_ interruption: CallInterruption) {
         lock.lock(); let h = interruptionHandler; lock.unlock()
         h?(interruption)
+    }
+
+    func driveAudioState(_ state: AudioState) {
+        lock.lock(); let h = audioStateHandler; lock.unlock()
+        h?(state)
     }
 
     /// A syntactically valid audio (Opus) offer. Enough for the gateway to
