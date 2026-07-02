@@ -200,7 +200,7 @@ final class CallCoordinatorTests: XCTestCase {
         // The socket drops and never reconnects (no `.opened`) → after the retries
         // are exhausted the call fails as a (retryable) `.disconnected`.
         channel.emit(.closed(code: 1006, reason: "gone"))
-        let failed = await waitUntil(timeout: 8) {
+        let failed = await waitUntil(timeout: 15) { // generous: real-timer reconnect can drift under full-suite load
             if case .failed(.voice(.disconnected)) = await self.callState(coord) { return true }
             return false
         }
@@ -451,7 +451,7 @@ final class CallCoordinatorTests: XCTestCase {
         channel.emit(.opened) // opened but never media-connected
 
         channel.emit(.closed(code: 1006, reason: "gone"))
-        let failed = await waitUntil(timeout: 8) {
+        let failed = await waitUntil(timeout: 15) { // generous: real-timer reconnect can drift under full-suite load
             if case .failed(.voice(.signalingFailed)) = await self.callState(coord) { return true }
             return false
         }

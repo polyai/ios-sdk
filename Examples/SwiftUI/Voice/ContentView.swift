@@ -30,23 +30,12 @@ struct ContentView: View {
                 Button(muted ? "Unmute" : "Mute") { toggleMute() }
                     .buttonStyle(.bordered)
 
-                if !audioState.availableDevices.isEmpty {
-                    VStack(spacing: 6) {
-                        Text("Audio output").font(.caption).foregroundStyle(.secondary)
-                        ForEach(audioState.availableDevices) { device in
-                            Button {
-                                Task { await call?.setAudioDevice(device) }
-                            } label: {
-                                HStack {
-                                    Text(device.name)
-                                    Spacer()
-                                    if device == audioState.selectedDevice { Image(systemName: "checkmark") }
-                                }
-                                .frame(maxWidth: .infinity)
-                            }
-                            .buttonStyle(.bordered)
-                        }
-                    }
+                // iOS keeps one active output + auto-routes accessories; the app's real
+                // control is speaker ↔ earpiece. Show the current route, toggle the speaker.
+                if let selected = audioState.selectedDevice {
+                    Text("Output: \(selected.name)").font(.caption).foregroundStyle(.secondary)
+                    Button(isSpeaker ? "Speaker: on" : "Speaker: off") { toggleSpeaker() }
+                        .buttonStyle(.bordered)
                 }
             }
         }
@@ -57,6 +46,7 @@ struct ContentView: View {
 
     private var isConnecting: Bool { if case .connecting = state { return true }; return false }
     private var isConnected: Bool { if case .connected = state { return true }; return false }
+    private var isSpeaker: Bool { audioState.selectedDevice?.type == .speakerphone }
 
     private var statusText: String {
         switch state {
@@ -131,5 +121,14 @@ struct ContentView: View {
     private func toggleMute() {
         muted.toggle()
         Task { await call?.setMuted(muted) }
+    }
+
+    /// Flip between the loudspeaker and the earpiece. Accessories (headset/Bluetooth) are
+    /// routed by the system automatically; this is the one output an app reliably controls.
+    private func toggleSpeaker() {
+        let target: AudioDevice.DeviceType = isSpeaker ? .earpiece : .speakerphone
+        if let device = audioState.availableDevices.first(where: { $0.type == target }) {
+            Task { await call?.setAudioDevice(device) }
+        }
     }
 }

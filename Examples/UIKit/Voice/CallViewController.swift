@@ -12,7 +12,8 @@ final class CallViewController: UIViewController {
     private let statusLabel = UILabel()
     private let callButton = UIButton(type: .system)
     private let muteButton = UIButton(type: .system)
-    private let audioControl = UISegmentedControl()
+    private let outputLabel = UILabel()
+    private let speakerButton = UIButton(type: .system)
 
     private var call: PolyCall?
     private var observer: Task<Void, Never>?
@@ -41,10 +42,15 @@ final class CallViewController: UIViewController {
         muteButton.addTarget(self, action: #selector(toggleMute), for: .touchUpInside)
         muteButton.isHidden = true
 
-        audioControl.addTarget(self, action: #selector(selectAudio), for: .valueChanged)
-        audioControl.isHidden = true
+        outputLabel.textAlignment = .center
+        outputLabel.font = .systemFont(ofSize: 13)
+        outputLabel.textColor = .secondaryLabel
+        outputLabel.isHidden = true
 
-        let stack = UIStackView(arrangedSubviews: [titleLabel, statusLabel, callButton, muteButton, audioControl])
+        speakerButton.addTarget(self, action: #selector(toggleSpeaker), for: .touchUpInside)
+        speakerButton.isHidden = true
+
+        let stack = UIStackView(arrangedSubviews: [titleLabel, statusLabel, callButton, muteButton, outputLabel, speakerButton])
         stack.axis = .vertical
         stack.spacing = 20
         stack.alignment = .fill
@@ -105,20 +111,23 @@ final class CallViewController: UIViewController {
         Task { await call?.setMuted(muted) }
     }
 
-    @objc private func selectAudio() {
-        let index = audioControl.selectedSegmentIndex
-        guard index >= 0, index < audioState.availableDevices.count else { return }
-        let device = audioState.availableDevices[index]
-        Task { await call?.setAudioDevice(device) }
+    // iOS keeps one active output + auto-routes accessories; speaker ↔ earpiece is the one
+    // output an app reliably controls.
+    @objc private func toggleSpeaker() {
+        let isSpeaker = audioState.selectedDevice?.type == .speakerphone
+        let target: AudioDevice.DeviceType = isSpeaker ? .earpiece : .speakerphone
+        if let device = audioState.availableDevices.first(where: { $0.type == target }) {
+            Task { await call?.setAudioDevice(device) }
+        }
     }
 
     private func renderAudio() {
-        audioControl.isHidden = audioState.availableDevices.isEmpty
-        audioControl.removeAllSegments()
-        for (i, device) in audioState.availableDevices.enumerated() {
-            audioControl.insertSegment(withTitle: device.name, at: i, animated: false)
-            if device == audioState.selectedDevice { audioControl.selectedSegmentIndex = i }
-        }
+        let hasAudio = !audioState.availableDevices.isEmpty
+        outputLabel.isHidden = !hasAudio
+        speakerButton.isHidden = !hasAudio
+        outputLabel.text = audioState.selectedDevice.map { "Output: \($0.name)" }
+        let isSpeaker = audioState.selectedDevice?.type == .speakerphone
+        speakerButton.setTitle(isSpeaker ? "Speaker: on" : "Speaker: off", for: .normal)
     }
 
     private func render() {

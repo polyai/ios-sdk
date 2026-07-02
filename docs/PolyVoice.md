@@ -87,23 +87,28 @@ you use for chat):
 ## Audio routing
 
 The call is **accessory-aware** by default: a connected wired/Bluetooth headset is used
-automatically; otherwise it falls back to the loudspeaker (hands-free — set
-`VoiceOptions(speakerphone: false)` to fall back to the receiver instead), and it follows a
-headset connected or removed **mid-call**.
+automatically (and followed if connected or removed **mid-call**); otherwise it falls back to the
+loudspeaker (hands-free — set `VoiceOptions(speakerphone: false)` for the earpiece instead).
 
-To build an in-app **device picker**, observe `call.audioState` and switch with `call.setAudioDevice(_:)`:
+iOS keeps **one** active output and routes accessories for you, so the output an app reliably
+controls is **speaker ↔ earpiece**. Observe the live route via `call.audioState` and flip the
+speaker with `call.setAudioDevice(_:)`:
 
 ```swift
-Task { for await snapshot in call.audioState {   // AudioState: availableDevices + selectedDevice
-    render(snapshot.availableDevices, selected: snapshot.selectedDevice)
+Task { for await snapshot in call.audioState {
+    show(current: snapshot.selectedDevice)      // e.g. "Output: AirPods"
 } }
 
-await call.setAudioDevice(device)   // an AudioDevice from availableDevices — or nil for automatic
+// speaker ↔ earpiece — the entries come from snapshot.availableDevices
+await call.setAudioDevice(speakerDevice)    // .type == .speakerphone
+await call.setAudioDevice(earpieceDevice)   // .type == .earpiece
 let muted = await call.isMuted
 ```
 
-`AudioDevice.type` is `.earpiece / .speakerphone / .wiredHeadset / .bluetooth`. Both example apps
-ship a working picker.
+`audioState.availableDevices` also lists connected headsets/Bluetooth (`.type` is
+`.earpiece / .speakerphone / .wiredHeadset / .bluetooth`) for display. To let users pick *among*
+connected outputs the iOS-standard way, drop in the system route picker (`AVRoutePickerView`).
+Both example apps ship a **speaker toggle**.
 
 ## Resilience
 
