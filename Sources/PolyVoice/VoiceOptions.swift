@@ -18,8 +18,14 @@ public struct VoiceOptions: Sendable {
     /// accessory is always preferred automatically.
     public let speakerphone: Bool
 
-    public init(webrtcToken: String, speakerphone: Bool = true) {
+    /// Override the WebRTC gateway host (e.g. a self-hosted or dev gateway). When
+    /// nil the host is derived from `Configuration.environment`. **Required** when
+    /// the environment is `.custom`. Mirrors Android's `VoiceOptions.signalingHost`.
+    public let signalingHost: String?
+
+    public init(webrtcToken: String, speakerphone: Bool = true, signalingHost: String? = nil) {
         self.webrtcToken = webrtcToken
         self.speakerphone = speakerphone
+        self.signalingHost = signalingHost
     }
 }

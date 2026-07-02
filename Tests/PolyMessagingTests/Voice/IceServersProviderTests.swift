@@ -40,8 +40,8 @@ final class IceServersProviderTests: XCTestCase {
 
     // MARK: - VoiceEnvironment endpoint construction
 
-    func test_iceServersURL_buildsGatewayEndpoint_encodingToken() {
-        let url = VoiceEnvironment(environment: .cluster("dev")).iceServersURL(token: "ab/cd ef")
+    func test_iceServersURL_buildsGatewayEndpoint_encodingToken() throws {
+        let url = try VoiceEnvironment(environment: .cluster("dev")).iceServersURL(token: "ab/cd ef")
         XCTAssertEqual(url?.scheme, "https")
         XCTAssertEqual(url?.host, "webrtc-gateway.dev.polyai.app")
         XCTAssertEqual(url?.path, "/api/v1/ice-servers")
@@ -50,11 +50,26 @@ final class IceServersProviderTests: XCTestCase {
         XCTAssertEqual(token, "ab/cd ef", "the token round-trips (percent-encoded on the wire)")
     }
 
-    func test_signalingURL_perRegion() {
+    func test_signalingURL_perRegion_usesPlatformSubdomain() throws {
+        // Prod regions live under `.platform`; only `dev` is standalone (mirrors Android's VoiceHosts).
         XCTAssertEqual(
-            VoiceEnvironment(environment: .us).signalingURL.absoluteString,
-            "wss://webrtc-gateway.us-1.polyai.app/api/v1/webrtc/signal"
+            try VoiceEnvironment(environment: .us).signalingURL.absoluteString,
+            "wss://webrtc-gateway.us-1.platform.polyai.app/api/v1/webrtc/signal"
         )
+        XCTAssertEqual(
+            try VoiceEnvironment(environment: .cluster("dev")).signalingURL.absoluteString,
+            "wss://webrtc-gateway.dev.polyai.app/api/v1/webrtc/signal"
+        )
+    }
+
+    func test_signalingHost_overrideTakesPrecedence() throws {
+        let env = try VoiceEnvironment(environment: .us, signalingHost: "gw.self-hosted.example")
+        XCTAssertEqual(env.signalingURL.host, "gw.self-hosted.example")
+        XCTAssertEqual(env.iceServersURL(token: "t")?.host, "gw.self-hosted.example")
+    }
+
+    func test_customEnvironment_withoutHost_throws() {
+        XCTAssertThrowsError(try VoiceEnvironment(environment: .custom(restBaseURL: URL(string: "https://x")!, wsBaseURL: URL(string: "wss://x")!)))
     }
 
     // MARK: - fetch() HTTP orchestration (STUN fallback)

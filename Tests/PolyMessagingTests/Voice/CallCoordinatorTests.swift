@@ -13,7 +13,9 @@ final class CallCoordinatorTests: XCTestCase {
         api: MockRestApi = MockRestApi(),
         conn: MockConnection = MockConnection(),
         channel: MockSignalingChannel = MockSignalingChannel(),
-        media: StubMediaEngine = StubMediaEngine()
+        media: StubMediaEngine = StubMediaEngine(),
+        connectionTimeoutNanos: UInt64 = 30_000_000_000, // long by default; per-test override
+        disconnectGraceNanos: UInt64 = 300_000_000       // 300ms grace for tests
     ) -> CallCoordinator {
         let logger = OSLogLogger(level: .none)
         let linker = VoiceSessionLinker(
@@ -29,6 +31,8 @@ final class CallCoordinatorTests: XCTestCase {
             authToken: "tok",
             streamingEnabled: true,
             logger: logger,
+            connectionTimeoutNanos: connectionTimeoutNanos,
+            disconnectGraceNanos: disconnectGraceNanos,
             reconnectBaseNanos: 20_000_000,           // 20ms — fast reconnect backoff for tests
             reconnectConnectTimeoutNanos: 400_000_000  // 400ms — fast connect wait for tests
         )
@@ -328,6 +332,84 @@ final class CallCoordinatorTests: XCTestCase {
         XCTAssertEqual(media.muted, true)
         await coord.setMuted(false)
         XCTAssertEqual(media.muted, false)
+    }
+
+    // MARK: - Timeout / grace / inbound buffering / graceful close
+
+    func test_connectionTimeout_failsTimedOut() async throws {
+        let conn = MockConnection()
+        let coord = makeCoordinator(conn: conn, connectionTimeoutNanos: 300_000_000)
+        try await arm(coord, conn: conn) // armed but never connects
+        let failed = await waitUntil(timeout: 3) {
+            if case .failed(.voice(.timedOut)) = await self.callState(coord) { return true }
+            return false
+        }
+        XCTAssertTrue(failed, "an un-connected call fails with .timedOut")
+    }
+
+    func test_disconnect_recoversWithinGrace_staysConnected() async throws {
+        let conn = MockConnection()
+        let channel = MockSignalingChannel()
+        let media = StubMediaEngine()
+        let coord = makeCoordinator(conn: conn, channel: channel, media: media, disconnectGraceNanos: 1_000_000_000)
+        try await arm(coord, conn: conn)
+        channel.emit(.opened)
+        media.driveState(.connected)
+        _ = await waitUntil { await self.callState(coord) == .connected }
+
+        media.driveState(.disconnected) // a transient blip…
+        media.driveState(.connected)    // …that recovers within the grace window
+        try? await Task.sleep(nanoseconds: 200_000_000)
+        let recovered = await self.callState(coord)
+        XCTAssertEqual(recovered, .connected, "a blip that recovers within grace stays connected")
+    }
+
+    func test_inboundIce_bufferedUntilAnswer() async throws {
+        let conn = MockConnection()
+        let channel = MockSignalingChannel()
+        let media = StubMediaEngine()
+        let coord = makeCoordinator(conn: conn, channel: channel, media: media)
+        try await arm(coord, conn: conn)
+        channel.emit(.opened)
+
+        // A remote candidate BEFORE the answer must be buffered, not added to the peer.
+        channel.emit(.message(iceFrame(candidate: "cand:early")))
+        try? await Task.sleep(nanoseconds: 100_000_000)
+        XCTAssertTrue(media.remoteCandidates.isEmpty, "remote ICE is buffered until the answer is applied")
+
+        // Answer applied → the buffered candidate is flushed to the peer.
+        channel.emit(.message(answerFrame(sessionId: "sig_1", sdp: "v=0")))
+        let flushed = await waitUntil { media.remoteCandidates.contains { $0.candidate == "cand:early" } }
+        XCTAssertTrue(flushed, "buffered remote ICE is added after the answer")
+    }
+
+    func test_failure_sendsGracefulCloseFrame() async throws {
+        let conn = MockConnection()
+        let channel = MockSignalingChannel()
+        let coord = makeCoordinator(conn: conn, channel: channel)
+        try await arm(coord, conn: conn)
+        channel.emit(.opened)
+        channel.emit(.message(answerFrame(sessionId: "sig_1", sdp: "v=0"))) // sets the session id
+        _ = await waitUntil { channel.sentFrames(ofType: "offer").count == 1 }
+
+        channel.emit(.message(errorFrame("boom"))) // fail the call
+        let closed = await waitUntil { channel.sentFrames(ofType: "close").count == 1 }
+        XCTAssertTrue(closed, "a failure sends a graceful close frame")
+    }
+
+    func test_signalingReconnectExhausted_beforeConnected_failsSignaling() async throws {
+        let conn = MockConnection()
+        let channel = MockSignalingChannel()
+        let coord = makeCoordinator(conn: conn, channel: channel)
+        try await arm(coord, conn: conn)
+        channel.emit(.opened) // opened but never media-connected
+
+        channel.emit(.closed(code: 1006, reason: "gone"))
+        let failed = await waitUntil(timeout: 8) {
+            if case .failed(.voice(.signalingFailed)) = await self.callState(coord) { return true }
+            return false
+        }
+        XCTAssertTrue(failed, "a pre-connect reconnect exhaustion fails as .signalingFailed")
     }
 
     // MARK: - Frame builders (return raw JSON Data wrapped at the call site)

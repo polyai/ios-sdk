@@ -74,8 +74,8 @@ enum SignalingProtocol {
             "mode": "end-to-end",
             "authToken": authToken,
             "callSid": callSid,
-            "caller": "PolyMessaging",
-            "callee": "PolyMessaging",
+            "caller": "Polyphone",
+            "callee": "Polyphone",
         ]
         // The web client sends an explicit JSON null when the session is new.
         if let sessionId { msg["sessionId"] = sessionId } else { msg["sessionId"] = NSNull() }
@@ -84,9 +84,12 @@ enum SignalingProtocol {
 
     /// An outbound local ICE candidate (sent once the session ID is known).
     static func iceCandidate(_ candidate: ICECandidate, sessionId: String) -> Data? {
-        var data: [String: Any] = ["candidate": candidate.candidate]
-        if let mid = candidate.sdpMid { data["sdpMid"] = mid }
-        if let idx = candidate.sdpMLineIndex { data["sdpMLineIndex"] = idx }
+        // Explicit JSON null when absent (matches the web/Android client's wire shape).
+        let data: [String: Any] = [
+            "candidate": candidate.candidate,
+            "sdpMid": candidate.sdpMid ?? NSNull(),
+            "sdpMLineIndex": candidate.sdpMLineIndex ?? NSNull(),
+        ]
         return try? JSONSerialization.data(withJSONObject: [
             "type": "ice-candidate",
             "sessionId": sessionId,

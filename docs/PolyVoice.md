@@ -30,10 +30,10 @@ pod 'PolyVoice', '~> 0.9.0'   # chat-only apps use `pod 'PolyMessaging'`
 import PolyMessaging
 import PolyVoice
 
-let call = PolyVoice.call(
+let call = try PolyVoice.call(
     config: Configuration(apiKey: "YOUR_API_KEY"),          // connector token — Agent Studio › Connector Settings
     options: VoiceOptions(webrtcToken: "YOUR_WEBRTC_TOKEN")  // WebRTC token — same place, a distinct value
-)
+)   // throws PolyError.invalidConfiguration on a blank token or a .custom env without signalingHost
 
 // Observe the lifecycle: .idle → .connecting → .connected → .ended / .failed
 Task { for await state in call.states { render(state) } }
@@ -80,6 +80,9 @@ you use for chat):
 > **Region:** calls default to the US gateway. For a UK / EUW / other-region (or dev) agent, set the
 > environment on the shared `Configuration` — e.g. `Configuration(apiKey: …, environment: .cluster("…"))`,
 > the same `Configuration` you use for chat. See the [messaging guide](../README.md#configuration).
+>
+> **Custom / self-hosted gateway:** pass `VoiceOptions(webrtcToken:, signalingHost:)` to point at a specific
+> gateway host (required when the environment is `.custom`).
 
 ## Audio routing
 

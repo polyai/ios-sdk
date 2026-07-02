@@ -28,6 +28,11 @@ signaling pipeline.
   it, or ends the call cleanly when the system won't let it resume.
 - **`PolyError.Voice.disconnected` / `.interrupted`** (both `isRetryable`); a post-connect
   media drop now surfaces as the retryable `.disconnected` rather than `.mediaFailed`.
+- **`VoiceOptions.signalingHost`** for a custom / self-hosted gateway. `PolyVoice.call(config:options:)`
+  now `throws` — it validates inputs and reports `PolyError.invalidConfiguration` on a blank
+  `apiKey`/`webrtcToken` or a `.custom` environment without a `signalingHost`.
+- Mid-call audio **re-routing**: connecting/removing a headset or Bluetooth during a call now
+  follows the route instead of staying stuck on the speaker.
 - A SwiftUI + UIKit **Voice** example (tap-to-call).
 
 ## [0.8.0] - 2026-06-04

@@ -34,6 +34,8 @@ actor CallCoordinator {
     private var signalSessionId: String?
     private var pendingOfferSDP: String?
     private var pendingLocalIce: [ICECandidate] = []
+    private var pendingRemoteIce: [ICECandidate] = []
+    private var remoteAnswerApplied = false
     private var lastMediaState: CallMediaState = .new
     private var hasConnected = false
     private var userMuted = false
@@ -46,8 +48,8 @@ actor CallCoordinator {
     private var signalingReconnecting = false
     private var signalingConnected = false
 
-    private static let connectionTimeoutNanos: UInt64 = 30_000_000_000
-    private static let disconnectGraceNanos: UInt64 = 5_000_000_000
+    private let connectionTimeoutNanos: UInt64
+    private let disconnectGraceNanos: UInt64
     private static let maxSignalingReconnects = 3
     private let signalingReconnectBaseNanos: UInt64
     private let signalingConnectTimeoutNanos: UInt64
@@ -61,6 +63,8 @@ actor CallCoordinator {
         authToken: String,
         streamingEnabled: Bool,
         logger: PolyLogger,
+        connectionTimeoutNanos: UInt64 = 30_000_000_000,
+        disconnectGraceNanos: UInt64 = 5_000_000_000,
         reconnectBaseNanos: UInt64 = 1_000_000_000,
         reconnectConnectTimeoutNanos: UInt64 = 5_000_000_000
     ) {
@@ -72,6 +76,8 @@ actor CallCoordinator {
         self.authToken = authToken
         self.streamingEnabled = streamingEnabled
         self.logger = logger
+        self.connectionTimeoutNanos = connectionTimeoutNanos
+        self.disconnectGraceNanos = disconnectGraceNanos
         self.signalingReconnectBaseNanos = reconnectBaseNanos
         self.signalingConnectTimeoutNanos = reconnectConnectTimeoutNanos
     }
@@ -275,11 +281,19 @@ actor CallCoordinator {
             }
             do {
                 try await media.acceptAnswer(sdp: sdp)
+                remoteAnswerApplied = true
+                await flushRemoteIce()
             } catch {
                 fail(.voice(.mediaFailed("Failed to apply answer: \(error.localizedDescription)")))
             }
         case .iceCandidate(let candidate):
-            try? await media.addRemoteCandidate(candidate)
+            // A remote candidate that arrives before the answer is applied can't be added
+            // yet (the peer has no remote description) — buffer it until acceptAnswer.
+            if remoteAnswerApplied {
+                try? await media.addRemoteCandidate(candidate)
+            } else {
+                pendingRemoteIce.append(candidate)
+            }
         case .error(let message):
             fail(.voice(.signalingFailed(message)))
         case .pong:
@@ -315,6 +329,16 @@ actor CallCoordinator {
         pendingLocalIce.removeAll()
     }
 
+    /// Add remote candidates buffered before the answer was applied, in arrival order.
+    private func flushRemoteIce() async {
+        guard !pendingRemoteIce.isEmpty else { return }
+        let buffered = pendingRemoteIce
+        pendingRemoteIce.removeAll()
+        for candidate in buffered {
+            try? await media.addRemoteCandidate(candidate)
+        }
+    }
+
     // MARK: - Media state
 
     private func handleMediaState(_ mediaState: CallMediaState) async {
@@ -341,7 +365,7 @@ actor CallCoordinator {
     private func startDisconnectGrace() {
         disconnectGraceTask?.cancel()
         disconnectGraceTask = Task { [weak self] in
-            try? await Task.sleep(nanoseconds: Self.disconnectGraceNanos)
+            try? await Task.sleep(nanoseconds: disconnectGraceNanos)
             await self?.failIfStillDisconnected()
         }
     }
@@ -358,7 +382,7 @@ actor CallCoordinator {
 
     private func startConnectTimeout() {
         connectTimeoutTask = Task { [weak self] in
-            try? await Task.sleep(nanoseconds: Self.connectionTimeoutNanos)
+            try? await Task.sleep(nanoseconds: connectionTimeoutNanos)
             await self?.failOnTimeout()
         }
     }
@@ -410,6 +434,8 @@ actor CallCoordinator {
         signalSessionId = nil
         pendingOfferSDP = nil
         pendingLocalIce.removeAll()
+        pendingRemoteIce.removeAll()
+        remoteAnswerApplied = false
     }
 
     // MARK: - Helpers

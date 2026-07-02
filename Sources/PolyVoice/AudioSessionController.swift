@@ -21,16 +21,23 @@ final class AudioSessionController: @unchecked Sendable {
     /// Sink for audio-session interruptions (phone call / Siri / another app), set by the engine.
     var onInterruption: (@Sendable (CallInterruption) -> Void)?
     private var interruptionObserver: NSObjectProtocol?
+    private var routeChangeObserver: NSObjectProtocol?
 
     init(defaultToSpeaker: Bool) {
         self.defaultToSpeaker = defaultToSpeaker
         interruptionObserver = NotificationCenter.default.addObserver(
             forName: AVAudioSession.interruptionNotification, object: nil, queue: nil
         ) { [weak self] note in self?.handleInterruption(note) }
+        // Re-route when a headset/Bluetooth is connected or removed mid-call (matches Android).
+        routeChangeObserver = NotificationCenter.default.addObserver(
+            forName: AVAudioSession.routeChangeNotification, object: nil, queue: nil
+        ) { [weak self] _ in self?.handleRouteChange() }
     }
 
     deinit {
-        if let observer = interruptionObserver { NotificationCenter.default.removeObserver(observer) }
+        for observer in [interruptionObserver, routeChangeObserver].compactMap({ $0 }) {
+            NotificationCenter.default.removeObserver(observer)
+        }
     }
 
     /// Map an `AVAudioSession` interruption to the call's interruption vocabulary: a begin
@@ -61,15 +68,25 @@ final class AudioSessionController: @unchecked Sendable {
         config.categoryOptions = [.allowBluetooth, .allowBluetoothA2DP]
         do {
             try session.setConfiguration(config, active: true)
-            // Accessory-aware default: only force the loudspeaker when nothing is plugged in.
-            if defaultToSpeaker && !hasExternalOutput() {
-                try session.overrideOutputAudioPort(.speaker)
-            } else {
-                try session.overrideOutputAudioPort(.none)
-            }
+            applyRoute()
         } catch {
             // Best-effort — WebRTC falls back to its own audio configuration.
         }
+    }
+
+    /// Re-evaluate the output route (accessory-aware). Must be called under `lockForConfiguration`.
+    /// Forcing the loudspeaker only when nothing external is connected — and clearing the override
+    /// (`.none`) otherwise — lets a headset/Bluetooth connected mid-call take over the sticky speaker.
+    private func applyRoute() {
+        try? session.overrideOutputAudioPort(defaultToSpeaker && !hasExternalOutput() ? .speaker : .none)
+    }
+
+    /// A mid-call route change (headset plugged/unplugged, Bluetooth connect/disconnect) → re-route.
+    private func handleRouteChange() {
+        session.lockForConfiguration()
+        defer { session.unlockForConfiguration() }
+        guard activated else { return }
+        applyRoute()
     }
 
     func deactivate() {

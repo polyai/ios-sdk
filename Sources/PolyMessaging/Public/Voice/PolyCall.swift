@@ -108,8 +108,15 @@ public extension PolyCall {
     /// - Parameters:
     ///   - config: the shared messaging `Configuration` (api key, environment, host).
     ///   - webrtcToken: the WebRTC gateway token (the offer `authToken` + ICE-servers auth).
+    ///   - signalingHost: optional gateway-host override (required for `.custom`).
     ///   - mediaEngine: the platform WebRTC engine that produces the SDP offer and carries audio.
-    static func wired(config: Configuration, webrtcToken: String, mediaEngine: CallMediaEngine) -> PolyCall {
+    /// - Throws: `PolyError.invalidConfiguration` for a `.custom` environment without a `signalingHost`.
+    static func wired(
+        config: Configuration,
+        webrtcToken: String,
+        signalingHost: String? = nil,
+        mediaEngine: CallMediaEngine
+    ) throws -> PolyCall {
         let logger = OSLogLogger(level: config.logLevel)
         let urls = EnvironmentURLs(environment: config.environment)
         let hostId = config.hostIdentifier ?? Bundle.main.bundleIdentifier ?? ""
@@ -124,7 +131,7 @@ public extension PolyCall {
             wsBaseURL: urls.wsBaseURL,
             logger: logger
         )
-        let voiceEnv = VoiceEnvironment(environment: config.environment)
+        let voiceEnv = try VoiceEnvironment(environment: config.environment, signalingHost: signalingHost)
         let channel = GatewaySignalingChannel(url: voiceEnv.signalingURL, logger: logger)
         let iceServers = GatewayIceServersFetcher(
             url: voiceEnv.iceServersURL(token: webrtcToken),

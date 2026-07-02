@@ -20,6 +20,10 @@
 	<string>1</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>Voice calls need the microphone to talk to the agent.</string>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>audio</string>
+	</array>
 	<key>UILaunchScreen</key>
 	<dict/>
 </dict>

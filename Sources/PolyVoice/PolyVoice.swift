@@ -10,7 +10,7 @@ import PolyMessaging
 /// `Configuration` and the same `CallState` / `PolyError` vocabulary.
 ///
 /// ```swift
-/// let call = PolyVoice.call(
+/// let call = try PolyVoice.call(
 ///     config: Configuration(apiKey: "…"),
 ///     options: VoiceOptions(webrtcToken: "…")
 /// )
@@ -26,10 +26,23 @@ public enum PolyVoice {
     /// - Parameters:
     ///   - config: the shared messaging `Configuration` (api key, environment, host).
     ///   - options: voice options — `VoiceOptions.webrtcToken` is required.
-    public static func call(config: Configuration, options: VoiceOptions) -> PolyCall {
+    /// - Throws: `PolyError.invalidConfiguration` if `apiKey`/`webrtcToken` is empty, or the
+    ///   environment is `.custom` without `VoiceOptions.signalingHost`.
+    public static func call(config: Configuration, options: VoiceOptions) throws -> PolyCall {
+        guard !config.apiKey.isEmpty else {
+            throw PolyError.invalidConfiguration("Configuration.apiKey must not be empty")
+        }
+        guard !options.webrtcToken.isEmpty else {
+            throw PolyError.invalidConfiguration("VoiceOptions.webrtcToken must not be empty")
+        }
         let audio = AudioSessionController(defaultToSpeaker: options.speakerphone)
         let engine = WebRTCCallMediaEngine(audio: audio)
-        return PolyCall.wired(config: config, webrtcToken: options.webrtcToken, mediaEngine: engine)
+        return try PolyCall.wired(
+            config: config,
+            webrtcToken: options.webrtcToken,
+            signalingHost: options.signalingHost,
+            mediaEngine: engine
+        )
     }
     #endif
 }

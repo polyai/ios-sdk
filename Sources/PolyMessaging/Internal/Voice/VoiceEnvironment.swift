@@ -6,18 +6,30 @@ struct VoiceEnvironment: Sendable {
     let signalingURL: URL
     private let gatewayHost: String
 
-    init(environment: Environment) {
+    /// - Parameter signalingHost: overrides the derived host (self-hosted / dev gateway);
+    ///   **required** for `.custom`. Mirrors Android's `VoiceHosts` rule: `dev` is standalone,
+    ///   every other region/cluster lives under the `.platform` subdomain.
+    init(environment: Environment, signalingHost: String? = nil) throws {
         let host: String
-        switch environment {
-        case .us:                host = "webrtc-gateway.us-1.polyai.app"
-        case .uk:                host = "webrtc-gateway.uk-1.polyai.app"
-        case .euw:               host = "webrtc-gateway.euw-1.polyai.app"
-        case .cluster(let name): host = "webrtc-gateway.\(name).polyai.app"
-        case .custom:            host = "webrtc-gateway.polyai.app"
+        if let signalingHost, !signalingHost.isEmpty {
+            host = signalingHost
+        } else {
+            switch environment {
+            case .us:  host = "webrtc-gateway.us-1.platform.polyai.app"
+            case .uk:  host = "webrtc-gateway.uk-1.platform.polyai.app"
+            case .euw: host = "webrtc-gateway.euw-1.platform.polyai.app"
+            case .cluster(let name):
+                host = name == "dev"
+                    ? "webrtc-gateway.dev.polyai.app"
+                    : "webrtc-gateway.\(name).platform.polyai.app"
+            case .custom:
+                throw PolyError.invalidConfiguration(
+                    "Voice on a .custom environment requires VoiceOptions.signalingHost")
+            }
         }
         gatewayHost = host
         guard let url = URL(string: "wss://\(host)/api/v1/webrtc/signal") else {
-            fatalError("PolyMessaging: failed to construct signaling URL for environment")
+            throw PolyError.invalidConfiguration("Invalid voice signaling host: \(host)")
         }
         signalingURL = url
     }
