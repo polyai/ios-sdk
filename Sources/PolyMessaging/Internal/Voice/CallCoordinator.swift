@@ -293,7 +293,10 @@ actor CallCoordinator {
 
     private func handleLocalCandidate(_ candidate: ICECandidate) async {
         guard active else { return }
-        if let sid = signalSessionId {
+        // Buffer until the session id is known, and also while the signaling socket is
+        // reconnecting — otherwise a candidate would be sent into a dead socket and lost.
+        // flushLocalIce() re-sends the buffer once the (re)connected socket is ready.
+        if let sid = signalSessionId, !signalingReconnecting {
             if let data = SignalingProtocol.iceCandidate(candidate, sessionId: sid) {
                 await channel.send(data)
             }

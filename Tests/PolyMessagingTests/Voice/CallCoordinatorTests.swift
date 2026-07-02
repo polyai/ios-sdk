@@ -203,6 +203,31 @@ final class CallCoordinatorTests: XCTestCase {
         XCTAssertTrue(failed, "exhausted reconnects fail the call as .disconnected")
     }
 
+    func test_reconnect_reflushesGapIce() async throws {
+        let conn = MockConnection()
+        let channel = MockSignalingChannel()
+        let media = StubMediaEngine()
+        let coord = makeCoordinator(conn: conn, channel: channel, media: media)
+        try await arm(coord, conn: conn)
+        channel.emit(.opened)
+        channel.emit(.message(answerFrame(sessionId: "sig_1", sdp: "v=0"))) // sets the signal session id
+        _ = await waitUntil { media.acceptedAnswer == "v=0" }
+        media.driveState(.connected)
+        _ = await waitUntil { await self.callState(coord) == .connected }
+
+        // Socket drops → reconnect. A candidate generated during the gap must not be lost.
+        channel.emit(.closed(code: 1006, reason: "gap"))
+        _ = await waitUntil { channel.openCount >= 2 }
+        media.emitLocalCandidate(ICECandidate(candidate: "cand:gap", sdpMid: "0", sdpMLineIndex: 0))
+        channel.emit(.opened) // reconnect succeeds → buffered ICE is flushed
+
+        let delivered = await waitUntil {
+            channel.sentFrames(ofType: "ice-candidate")
+                .contains { ($0["data"] as? [String: Any])?["candidate"] as? String == "cand:gap" }
+        }
+        XCTAssertTrue(delivered, "an ICE candidate from the reconnect gap is (re)sent after reconnect")
+    }
+
     func test_iceServers_passedToEngine() async throws {
         let conn = MockConnection()
         let media = StubMediaEngine()

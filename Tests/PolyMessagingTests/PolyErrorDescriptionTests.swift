@@ -28,6 +28,8 @@ final class PolyErrorDescriptionTests: XCTestCase {
         .voice(.signalingFailed("ICE failed")),
         .voice(.mediaFailed("no microphone")),
         .voice(.timedOut),
+        .voice(.disconnected),
+        .voice(.interrupted),
         .invalidConfiguration("token empty"),
     ]
 
@@ -102,5 +104,16 @@ final class PolyErrorDescriptionTests: XCTestCase {
         let s = PolyError.session(.sessionEnded(reason: nil)).description
         XCTAssertFalse(s.contains("nil"), "nil leaked into user-facing text: \(s)")
         XCTAssertFalse(s.contains("Optional"), "Optional leaked: \(s)")
+    }
+
+    func testVoiceRetryableClassification() {
+        // A dropped/interrupted call is retryable (offer a one-tap retry);
+        // a hard failure, a setup failure, a timeout, or notImplemented is not.
+        XCTAssertTrue(PolyError.voice(.disconnected).isRetryable)
+        XCTAssertTrue(PolyError.voice(.interrupted).isRetryable)
+        XCTAssertFalse(PolyError.voice(.mediaFailed("x")).isRetryable)
+        XCTAssertFalse(PolyError.voice(.signalingFailed("x")).isRetryable)
+        XCTAssertFalse(PolyError.voice(.timedOut).isRetryable)
+        XCTAssertFalse(PolyError.voice(.notImplemented).isRetryable)
     }
 }
