@@ -290,6 +290,11 @@ Task { for await state in call.states { render(state) } }   // .connecting → .
 try await call.start()   // after the microphone permission (NSMicrophoneUsageDescription) is granted
 ```
 
+A call needs **two credentials, both required and distinct**, from
+[Agent Studio](https://studio.poly.ai) › **Connector Settings** (the same connector you use for chat):
+the **API key** (`Configuration.apiKey`, authenticates the connector) and the **WebRTC token**
+(`VoiceOptions.webrtcToken`, authenticates the media gateway).
+
 Add **`PolyVoice`** via SPM (`.product(name: "PolyVoice", package: "ios-sdk")`) or CocoaPods
 (`pod 'PolyVoice'`). **📖 Full guide → [`docs/PolyVoice.md`](docs/PolyVoice.md)** — credentials, the
 microphone permission, accessory-aware audio routing, and the architecture.
