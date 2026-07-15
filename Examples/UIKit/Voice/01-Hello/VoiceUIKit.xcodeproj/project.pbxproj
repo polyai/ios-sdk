@@ -7,64 +7,67 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		1C6427D3468ECA72B1BFC5DA /* VoiceApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = C42892788DC0FBBA90D08025 /* VoiceApp.swift */; };
-		2C5332B5102AC8EC9C08C2FA /* PolyVoice in Frameworks */ = {isa = PBXBuildFile; productRef = 70FB631D9279A90E3A4B6EEB /* PolyVoice */; };
-		6E8A2DD768607F0ED9001C2D /* README.md in Resources */ = {isa = PBXBuildFile; fileRef = 3C5FB632B9A94C36A02C5517 /* README.md */; };
-		C2399CAD656EFC1D9EFDEE68 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D34ADEF4DEE48D897CD16BBF /* ContentView.swift */; };
+		0D724C05F7F65A41FC6BD7A3 /* PolyVoice in Frameworks */ = {isa = PBXBuildFile; productRef = 356CAE159EFB48822918635F /* PolyVoice */; };
+		21862ABDB00EB02DAA6D3AA8 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6969EADF499F61FD2D4E5D2B /* AppDelegate.swift */; };
+		37CB0D01652BB9BDA3AE89C9 /* SceneDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 831AFE47458B1471A82299DF /* SceneDelegate.swift */; };
+		93FFE7A937BC8787F24ADCA6 /* README.md in Resources */ = {isa = PBXBuildFile; fileRef = C9C158805E7AFB9222BF72B6 /* README.md */; };
+		B40CEA247B38343779BD7438 /* CallViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5CEA7CBE328A046536C9F83C /* CallViewController.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
-		2EA13C611B432C32F7957112 /* VoiceSwiftUI.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = VoiceSwiftUI.app; sourceTree = BUILT_PRODUCTS_DIR; };
-		3C5FB632B9A94C36A02C5517 /* README.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = README.md; sourceTree = "<group>"; };
-		C42892788DC0FBBA90D08025 /* VoiceApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoiceApp.swift; sourceTree = "<group>"; };
-		D34ADEF4DEE48D897CD16BBF /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
-		FD02DE74F510A5AD0A9C7FBC /* ios-sdk */ = {isa = PBXFileReference; lastKnownFileType = folder; name = "ios-sdk"; path = ../../..; sourceTree = SOURCE_ROOT; };
+		5CEA7CBE328A046536C9F83C /* CallViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CallViewController.swift; sourceTree = "<group>"; };
+		6969EADF499F61FD2D4E5D2B /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
+		817D80C6694D25C0D4CF11F8 /* ios-sdk */ = {isa = PBXFileReference; lastKnownFileType = folder; name = "ios-sdk"; path = ../../../..; sourceTree = SOURCE_ROOT; };
+		82636178D9CBB2C14BB8C026 /* VoiceUIKit.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = VoiceUIKit.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		831AFE47458B1471A82299DF /* SceneDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SceneDelegate.swift; sourceTree = "<group>"; };
+		C9C158805E7AFB9222BF72B6 /* README.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = README.md; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
-		D857428A12138BB084CAC381 /* Frameworks */ = {
+		FA0EC71D43A05690968BE7AB /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				2C5332B5102AC8EC9C08C2FA /* PolyVoice in Frameworks */,
+				0D724C05F7F65A41FC6BD7A3 /* PolyVoice in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
-		39BD3981C48572C8029D5FEB /* Packages */ = {
+		0DA435FCC5C918C651732C0D /* VoiceUIKit */ = {
 			isa = PBXGroup;
 			children = (
-				FD02DE74F510A5AD0A9C7FBC /* ios-sdk */,
+				6969EADF499F61FD2D4E5D2B /* AppDelegate.swift */,
+				5CEA7CBE328A046536C9F83C /* CallViewController.swift */,
+				C9C158805E7AFB9222BF72B6 /* README.md */,
+				831AFE47458B1471A82299DF /* SceneDelegate.swift */,
+			);
+			name = VoiceUIKit;
+			path = .;
+			sourceTree = "<group>";
+		};
+		A7908D8E5C5CE7C91F021F20 /* Packages */ = {
+			isa = PBXGroup;
+			children = (
+				817D80C6694D25C0D4CF11F8 /* ios-sdk */,
 			);
 			name = Packages;
 			sourceTree = "<group>";
 		};
-		6A528D3A955BFD53D7851B8D = {
+		AB1D5CCD77015E9C9AF23E75 = {
 			isa = PBXGroup;
 			children = (
-				39BD3981C48572C8029D5FEB /* Packages */,
-				6E2124F85673ED9EF9D87793 /* VoiceSwiftUI */,
-				7C9BE907E9A84F47FC3C5111 /* Products */,
+				A7908D8E5C5CE7C91F021F20 /* Packages */,
+				0DA435FCC5C918C651732C0D /* VoiceUIKit */,
+				AEEB94716B6DD1A3244449CC /* Products */,
 			);
 			sourceTree = "<group>";
 		};
-		6E2124F85673ED9EF9D87793 /* VoiceSwiftUI */ = {
+		AEEB94716B6DD1A3244449CC /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				D34ADEF4DEE48D897CD16BBF /* ContentView.swift */,
-				3C5FB632B9A94C36A02C5517 /* README.md */,
-				C42892788DC0FBBA90D08025 /* VoiceApp.swift */,
-			);
-			name = VoiceSwiftUI;
-			path = .;
-			sourceTree = "<group>";
-		};
-		7C9BE907E9A84F47FC3C5111 /* Products */ = {
-			isa = PBXGroup;
-			children = (
-				2EA13C611B432C32F7957112 /* VoiceSwiftUI.app */,
+				82636178D9CBB2C14BB8C026 /* VoiceUIKit.app */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -72,30 +75,30 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
-		4D6A6E84BF0FDEAE154AB16D /* VoiceSwiftUI */ = {
+		75A897E3F587F360C2555370 /* VoiceUIKit */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = B48E859C9CE1307C1C83762D /* Build configuration list for PBXNativeTarget "VoiceSwiftUI" */;
+			buildConfigurationList = 4CE35EE40A367695B7529498 /* Build configuration list for PBXNativeTarget "VoiceUIKit" */;
 			buildPhases = (
-				DBEE7FBFDEF93A172915AD36 /* Sources */,
-				49079568A22D026744805C7E /* Resources */,
-				D857428A12138BB084CAC381 /* Frameworks */,
+				F969264EADB4B700D62E479B /* Sources */,
+				71FB24D3DE1B8C013BA5B5F4 /* Resources */,
+				FA0EC71D43A05690968BE7AB /* Frameworks */,
 			);
 			buildRules = (
 			);
 			dependencies = (
 			);
-			name = VoiceSwiftUI;
+			name = VoiceUIKit;
 			packageProductDependencies = (
-				70FB631D9279A90E3A4B6EEB /* PolyVoice */,
+				356CAE159EFB48822918635F /* PolyVoice */,
 			);
-			productName = VoiceSwiftUI;
-			productReference = 2EA13C611B432C32F7957112 /* VoiceSwiftUI.app */;
+			productName = VoiceUIKit;
+			productReference = 82636178D9CBB2C14BB8C026 /* VoiceUIKit.app */;
 			productType = "com.apple.product-type.application";
 		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
-		69CC9089D4FE63FE53A3151B /* Project object */ = {
+		40561BC515CEB6F012670F4F /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
 				BuildIndependentTargetsInParallel = YES;
@@ -103,53 +106,54 @@
 				TargetAttributes = {
 				};
 			};
-			buildConfigurationList = 02C26F196A07B5FD1D5F9377 /* Build configuration list for PBXProject "VoiceSwiftUI" */;
+			buildConfigurationList = 04F65A8517BB6A092BBCF75F /* Build configuration list for PBXProject "VoiceUIKit" */;
 			developmentRegion = en;
 			hasScannedForEncodings = 0;
 			knownRegions = (
 				Base,
 				en,
 			);
-			mainGroup = 6A528D3A955BFD53D7851B8D;
+			mainGroup = AB1D5CCD77015E9C9AF23E75;
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
-				90A6589BE81336A814F57FC7 /* XCLocalSwiftPackageReference "../../.." */,
+				ED24A9C6EC96B5309BAA3C87 /* XCLocalSwiftPackageReference "../../../.." */,
 			);
 			preferredProjectObjectVersion = 77;
-			productRefGroup = 7C9BE907E9A84F47FC3C5111 /* Products */;
+			productRefGroup = AEEB94716B6DD1A3244449CC /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
-				4D6A6E84BF0FDEAE154AB16D /* VoiceSwiftUI */,
+				75A897E3F587F360C2555370 /* VoiceUIKit */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
-		49079568A22D026744805C7E /* Resources */ = {
+		71FB24D3DE1B8C013BA5B5F4 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				6E8A2DD768607F0ED9001C2D /* README.md in Resources */,
+				93FFE7A937BC8787F24ADCA6 /* README.md in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
-		DBEE7FBFDEF93A172915AD36 /* Sources */ = {
+		F969264EADB4B700D62E479B /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				C2399CAD656EFC1D9EFDEE68 /* ContentView.swift in Sources */,
-				1C6427D3468ECA72B1BFC5DA /* VoiceApp.swift in Sources */,
+				21862ABDB00EB02DAA6D3AA8 /* AppDelegate.swift in Sources */,
+				B40CEA247B38343779BD7438 /* CallViewController.swift in Sources */,
+				37CB0D01652BB9BDA3AE89C9 /* SceneDelegate.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin XCBuildConfiguration section */
-		19EDE17F8729D74FBC5B302F /* Debug */ = {
+		1F4D469773815EF099E380E8 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
@@ -160,14 +164,14 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = ai.poly.examples.VoiceSwiftUI;
+				PRODUCT_BUNDLE_IDENTIFIER = ai.poly.examples.VoiceUIKit;
 				SDKROOT = iphoneos;
 				SWIFT_VERSION = 5.9;
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};
-			name = Debug;
+			name = Release;
 		};
-		2CBDB48FF7189A017255C838 /* Release */ = {
+		967929F7ECA9FE3CBB7C1301 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
@@ -223,7 +227,7 @@
 			};
 			name = Release;
 		};
-		563BE8071A249607B7922FA2 /* Release */ = {
+		C1F6EB717FCD2B256FC2969E /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
@@ -234,14 +238,14 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = ai.poly.examples.VoiceSwiftUI;
+				PRODUCT_BUNDLE_IDENTIFIER = ai.poly.examples.VoiceUIKit;
 				SDKROOT = iphoneos;
 				SWIFT_VERSION = 5.9;
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};
-			name = Release;
+			name = Debug;
 		};
-		A0AAEC86BCAE34269F73DC24 /* Debug */ = {
+		DE277ECEF0F52235DAE7CE22 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
@@ -307,20 +311,20 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		02C26F196A07B5FD1D5F9377 /* Build configuration list for PBXProject "VoiceSwiftUI" */ = {
+		04F65A8517BB6A092BBCF75F /* Build configuration list for PBXProject "VoiceUIKit" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				A0AAEC86BCAE34269F73DC24 /* Debug */,
-				2CBDB48FF7189A017255C838 /* Release */,
+				DE277ECEF0F52235DAE7CE22 /* Debug */,
+				967929F7ECA9FE3CBB7C1301 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Debug;
 		};
-		B48E859C9CE1307C1C83762D /* Build configuration list for PBXNativeTarget "VoiceSwiftUI" */ = {
+		4CE35EE40A367695B7529498 /* Build configuration list for PBXNativeTarget "VoiceUIKit" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				19EDE17F8729D74FBC5B302F /* Debug */,
-				563BE8071A249607B7922FA2 /* Release */,
+				C1F6EB717FCD2B256FC2969E /* Debug */,
+				1F4D469773815EF099E380E8 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Debug;
@@ -328,18 +332,18 @@
 /* End XCConfigurationList section */
 
 /* Begin XCLocalSwiftPackageReference section */
-		90A6589BE81336A814F57FC7 /* XCLocalSwiftPackageReference "../../.." */ = {
+		ED24A9C6EC96B5309BAA3C87 /* XCLocalSwiftPackageReference "../../../.." */ = {
 			isa = XCLocalSwiftPackageReference;
-			relativePath = ../../..;
+			relativePath = ../../../..;
 		};
 /* End XCLocalSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
-		70FB631D9279A90E3A4B6EEB /* PolyVoice */ = {
+		356CAE159EFB48822918635F /* PolyVoice */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = PolyVoice;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};
-	rootObject = 69CC9089D4FE63FE53A3151B /* Project object */;
+	rootObject = 40561BC515CEB6F012670F4F /* Project object */;
 }

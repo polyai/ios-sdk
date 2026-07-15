@@ -132,6 +132,6 @@ signaling pipeline (auth → session → link → signaling → offer/answer/ICE
 ---
 
 **Example:** a one-screen tap-to-call demo in both toolkits —
-[`Examples/SwiftUI/Voice`](../Examples/SwiftUI/Voice) ·
-[`Examples/UIKit/Voice`](../Examples/UIKit/Voice). Drop your connector token +
+[`Examples/SwiftUI/Voice/01-Hello`](../Examples/SwiftUI/Voice/01-Hello) ·
+[`Examples/UIKit/Voice/01-Hello`](../Examples/UIKit/Voice/01-Hello). Drop your connector token +
 WebRTC token into the `PolyVoice.call(...)` block and run.

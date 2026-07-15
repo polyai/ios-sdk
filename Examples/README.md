@@ -12,7 +12,11 @@ Each example is a runnable app that builds on the previous one. UIKit L*N* cover
 | **06-FullReference** | production-style Resume + Start-New flows (no developer diagnostics) | [`SwiftUI/06-FullReference/`](SwiftUI/06-FullReference/) | [`UIKit/06-FullReference/`](UIKit/06-FullReference/) |
 | **07-Playground** | streaming toggle, raw transport diagnostic tap, event log, runtime `Configuration` knobs, protocol simulations | [`SwiftUI/07-Playground/`](SwiftUI/07-Playground/) | [`UIKit/07-Playground/`](UIKit/07-Playground/) |
 
-Separate from the chat ladder, **Voice** is a tap-to-call WebRTC demo on the [`PolyVoice`](../docs/PolyVoice.md) product (needs a physical device — the simulator can't carry WebRTC media): [`SwiftUI/Voice/`](SwiftUI/Voice/) · [`UIKit/Voice/`](UIKit/Voice/).
+Separate from the chat ladder, **Voice** has its own ladder on the [`PolyVoice`](../docs/PolyVoice.md) product (needs a physical device — the simulator can't carry WebRTC media):
+
+| Level | What it covers | SwiftUI | UIKit |
+|---|---|---|---|
+| **Voice 01-Hello** | `PolyVoice.call()`, observe `call.states`, start / mute / end, speaker toggle | [`SwiftUI/Voice/01-Hello/`](SwiftUI/Voice/01-Hello/) | [`UIKit/Voice/01-Hello/`](UIKit/Voice/01-Hello/) |
 
 UIKit 06–07 are built programmatically (no storyboard) so their connect/loading/chat/error screens can swap a single container.
 
