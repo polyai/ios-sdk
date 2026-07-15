@@ -7,10 +7,11 @@
 ![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)
 [![Develop with Claude Code](https://img.shields.io/badge/Develop%20with-Claude%20Code-DC9E63?logo=claude)](https://claude.ai/download)
 
-Add AI-powered chat to your iOS app. The SDK is **headless** — it handles token auth, the WebSocket, streaming, reconnection, delivery tracking, and live-agent handoff. You bring the UI.
+Add AI-powered **chat** and **voice** to your iOS app. The SDK is **headless** — it handles token auth, the WebSocket, streaming, reconnection, delivery tracking, and live-agent handoff. You bring the UI.
 
 - **[Quick start](#quick-start)** — paste a `ContentView` (SwiftUI) or `ViewController` (UIKit) into a fresh Xcode project and you have a working chat.
 - **[Integration guide](#integration-guide)** — observe one object (`ChatSession`) and render the chat however you like.
+- **[Voice calling](#voice-calling-polyvoice)** — live WebRTC voice calls with the separate `PolyVoice` product.
 
 Reference: [Configuration](#configuration) · [Error handling](#error-handling) · [How it works](#how-it-works) · [Raw transport](#advanced-raw-transport) · [Example apps](#example-apps).
 
@@ -27,6 +28,7 @@ Reference: [Configuration](#configuration) · [Error handling](#error-handling) 
 | 📎 | **Attachments** | Images, link cards, call-to-action phone buttons |
 | 📡 | **Delivery tracking** | Optimistic send → confirmed → failed, per message |
 | 🔧 | **Escape hatch** | Drop to the raw WebSocket transport for advanced use cases |
+| 📞 | **Voice calling** | Live two-way WebRTC calls + audio-output routing ([`PolyVoice`](#voice-calling-polyvoice)) |
 
 ## Install
 
@@ -291,6 +293,8 @@ try await call.start()   // after the microphone permission (NSMicrophoneUsageDe
 Add **`PolyVoice`** via SPM (`.product(name: "PolyVoice", package: "ios-sdk")`) or CocoaPods
 (`pod 'PolyVoice'`). **📖 Full guide → [`docs/PolyVoice.md`](docs/PolyVoice.md)** — credentials, the
 microphone permission, accessory-aware audio routing, and the architecture.
+Runnable demos: [`Examples/SwiftUI/Voice`](Examples/SwiftUI/Voice/01-Hello/) ·
+[`Examples/UIKit/Voice`](Examples/UIKit/Voice/01-Hello/).
 
 ## Meet `ChatSession`
 
@@ -1605,7 +1609,13 @@ For internal builds, `DevSettings` (a public `ObservableObject`) is a UserDefaul
 
 ## Example apps
 
-Working apps mirrored across SwiftUI and UIKit — open any `.xcodeproj`, set your `apiKey`, and Cmd+R. Each level builds on the previous one; see its README for what's new.
+Examples live under [`Examples/`](Examples/), split by product — **[`Chat/`](Examples/SwiftUI/Chat/)**
+(`PolyMessaging`) and **[`Voice/`](Examples/SwiftUI/Voice/)** (`PolyVoice`) — each mirrored across
+**SwiftUI** and **UIKit**. Open any `.xcodeproj`, set your `apiKey`, and Cmd+R.
+
+### Chat (`Examples/*/Chat`)
+
+A 7-rung ladder — each level builds on the previous one; see its README for what's new.
 
 | Level | What it adds | SwiftUI · UIKit |
 |---|---|---|
@@ -1617,8 +1627,16 @@ Working apps mirrored across SwiftUI and UIKit — open any `.xcodeproj`, set yo
 | **06 Full reference** | production resume + start-new flows | [SwiftUI](Examples/SwiftUI/Chat/06-FullReference/) · [UIKit](Examples/UIKit/Chat/06-FullReference/) |
 | **07 Playground** | diagnostics, runtime config, streaming toggle | [SwiftUI](Examples/SwiftUI/Chat/07-Playground/) · [UIKit](Examples/UIKit/Chat/07-Playground/) |
 
-**Voice** — a tap-to-call WebRTC demo on the separate [`PolyVoice`](docs/PolyVoice.md) product (needs a
-physical device): [SwiftUI](Examples/SwiftUI/Voice/) · [UIKit](Examples/UIKit/Voice/).
+### Voice (`Examples/*/Voice`)
+
+A one-screen **tap-to-call** demo on the separate [`PolyVoice`](docs/PolyVoice.md) product — build a
+`PolyCall`, observe its lifecycle, start / mute / end, with a speaker toggle. Set your connector token +
+WebRTC token in the `PolyVoice.call(...)` block. Needs a **physical device** (the simulator can't carry
+WebRTC media). See [Voice calling](#voice-calling-polyvoice).
+
+| Level | What it covers | SwiftUI · UIKit |
+|---|---|---|
+| **01 Hello** | `PolyVoice.call()`, `call.states`, start / mute / end, speaker toggle | [SwiftUI](Examples/SwiftUI/Voice/01-Hello/) · [UIKit](Examples/UIKit/Voice/01-Hello/) |
 
 ## Requirements
 
