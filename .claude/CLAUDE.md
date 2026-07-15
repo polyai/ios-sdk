@@ -9,8 +9,8 @@ tool-agnostic brief below — read it before helping a developer integrate the S
 
 - **Helping a developer integrate the SDK into their app?** Follow the integration brief (imported
   above): drive everything through `ChatSession`, copy components from
-  `Examples/SwiftUI/06-FullReference/Components/` or
-  `Examples/UIKit/06-FullReference/Components/`, and keep snippets consistent with `README.md`.
+  `Examples/SwiftUI/Chat/06-FullReference/Components/` or
+  `Examples/UIKit/Chat/06-FullReference/Components/`, and keep snippets consistent with `README.md`.
 - **Working ON the SDK itself** (editing `Sources/PolyMessaging/**`, the wire protocol,
   reconnection, the example ladder)? Follow the existing architecture and the correctness
   invariants the code comments call out, and mirror any change across the SwiftUI and

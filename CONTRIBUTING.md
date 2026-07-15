@@ -31,7 +31,7 @@ scripts/build-all.sh     # build every example app (slow — full ladder)
 To work on a single example:
 
 ```bash
-cd Examples/SwiftUI/06-FullReference
+cd Examples/SwiftUI/Chat/06-FullReference
 xcodegen generate
 open *.xcodeproj
 ```

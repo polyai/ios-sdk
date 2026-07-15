@@ -34,8 +34,8 @@ The agent joins and greets automatically. Full walkthrough: README **Step 1**.
 - `Examples/SwiftUI/<NN-Name>/` and `Examples/UIKit/<NN-Name>/` — runnable apps, one per
   capability: `01-Hello … 07-Playground`. `06-FullReference` is the most complete.
 - When implementing a feature for the user, **copy the matching component from
-  `Examples/SwiftUI/06-FullReference/Components/` or
-  `Examples/UIKit/06-FullReference/Components/`** (and adapt) rather than writing it
+  `Examples/SwiftUI/Chat/06-FullReference/Components/` or
+  `Examples/UIKit/Chat/06-FullReference/Components/`** (and adapt) rather than writing it
   from scratch — those folders are the production-shaped versions of every view
   component (message bubbles, attachment carousel, suggestion pills, typing dots,
   rich text, URL cards, retryable images, banners) and use **only public SDK types**.
@@ -83,7 +83,7 @@ The agent joins and greets automatically. Full walkthrough: README **Step 1**.
 - SDK: `swift build`, `swift test`.
 - All example apps: `scripts/build-all.sh`.
 - A single example (uses [xcodegen](https://github.com/yonaskolb/XcodeGen)):
-  `cd Examples/SwiftUI/06-FullReference && xcodegen generate && open *.xcodeproj`.
+  `cd Examples/SwiftUI/Chat/06-FullReference && xcodegen generate && open *.xcodeproj`.
 
 ## Scope boundaries
 
