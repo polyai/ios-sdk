@@ -64,10 +64,21 @@ jobs:
       - name: Test on an iOS simulator
         run: |
           set -o pipefail
-          DEVICE=$(xcrun simctl list devices available | grep -oE 'iPhone [0-9][^(]*' | head -1 | xargs)
-          echo "Using simulator: $DEVICE"
+          # Select by UDID, not name. A bare `name=` lets xcodebuild default to
+          # OS:latest, which fails when the first-listed iPhone has no simulator
+          # for the newest installed runtime (e.g. iPhone 15 Pro is 17.x-only,
+          # but Xcode's latest runtime is 18.x). A UDID pins device + runtime
+          # together, so any available iPhone works regardless of OS.
+          DEVICE_ID=$(xcrun simctl list devices available | grep 'iPhone' | grep -ioE '[0-9A-F]{8}-([0-9A-F]{4}-){3}[0-9A-F]{12}' | head -1)
+          if [ -z "$DEVICE_ID" ]; then
+            echo "::error::No available iPhone simulator found"
+            xcrun simctl list devices available
+            exit 1
+          fi
+          echo "Using simulator UDID: $DEVICE_ID"
+          xcrun simctl list devices available | grep -i "$DEVICE_ID"
           xcodebuild -scheme PolyMessaging-Package \
-            -destination "platform=iOS Simulator,name=$DEVICE" \
+            -destination "platform=iOS Simulator,id=$DEVICE_ID" \
             -skipPackagePluginValidation \
             test
 
