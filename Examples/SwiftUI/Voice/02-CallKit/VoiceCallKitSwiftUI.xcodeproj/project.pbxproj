@@ -1,0 +1,349 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		2B6A3E2DE5C7212BA9804E99 /* README.md in Resources */ = {isa = PBXBuildFile; fileRef = D9A7D28CFB98AC322AA6064B /* README.md */; };
+		2BB705C57BFD799210A6E2C0 /* PolyVoice in Frameworks */ = {isa = PBXBuildFile; productRef = 12DF6B52BFFAE0D9716602B6 /* PolyVoice */; };
+		4E9C6E31A0C9E8482417711E /* VoiceApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B9602292E72F973A10A3913 /* VoiceApp.swift */; };
+		6E21040F133831FF5C319B81 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 656A8942603FC8D6D409EF7D /* ContentView.swift */; };
+		FB8D582779E6B7A3E0E2EBA7 /* CallKitController.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5717EEB209A8D70BD5D1D58 /* CallKitController.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		0B9602292E72F973A10A3913 /* VoiceApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoiceApp.swift; sourceTree = "<group>"; };
+		656A8942603FC8D6D409EF7D /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
+		762B1E45723FAA3EBEA69149 /* VoiceCallKitSwiftUI.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = VoiceCallKitSwiftUI.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		865C10546E5B354125DF3316 /* ios-sdk */ = {isa = PBXFileReference; lastKnownFileType = folder; name = "ios-sdk"; path = ../../../..; sourceTree = SOURCE_ROOT; };
+		B5717EEB209A8D70BD5D1D58 /* CallKitController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CallKitController.swift; sourceTree = "<group>"; };
+		D9A7D28CFB98AC322AA6064B /* README.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = README.md; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		BE7F267ECDCF75650640B042 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				2BB705C57BFD799210A6E2C0 /* PolyVoice in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		277E275BB5E17F8D93438F19 /* VoiceCallKitSwiftUI */ = {
+			isa = PBXGroup;
+			children = (
+				B5717EEB209A8D70BD5D1D58 /* CallKitController.swift */,
+				656A8942603FC8D6D409EF7D /* ContentView.swift */,
+				D9A7D28CFB98AC322AA6064B /* README.md */,
+				0B9602292E72F973A10A3913 /* VoiceApp.swift */,
+			);
+			name = VoiceCallKitSwiftUI;
+			path = .;
+			sourceTree = "<group>";
+		};
+		8AEA61CFE612C03502C8575B = {
+			isa = PBXGroup;
+			children = (
+				9B915E4CFDD9EC1041085DA5 /* Packages */,
+				277E275BB5E17F8D93438F19 /* VoiceCallKitSwiftUI */,
+				FFA318CDFA9B7FD138C08E94 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		9B915E4CFDD9EC1041085DA5 /* Packages */ = {
+			isa = PBXGroup;
+			children = (
+				865C10546E5B354125DF3316 /* ios-sdk */,
+			);
+			name = Packages;
+			sourceTree = "<group>";
+		};
+		FFA318CDFA9B7FD138C08E94 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				762B1E45723FAA3EBEA69149 /* VoiceCallKitSwiftUI.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		131A91338EFA6E5D77118099 /* VoiceCallKitSwiftUI */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 3584D7DF2ADD5EFE896B6C1E /* Build configuration list for PBXNativeTarget "VoiceCallKitSwiftUI" */;
+			buildPhases = (
+				CDCACD070F251E1EE32535CC /* Sources */,
+				A3B68A9A1842C9E25DB990F4 /* Resources */,
+				BE7F267ECDCF75650640B042 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = VoiceCallKitSwiftUI;
+			packageProductDependencies = (
+				12DF6B52BFFAE0D9716602B6 /* PolyVoice */,
+			);
+			productName = VoiceCallKitSwiftUI;
+			productReference = 762B1E45723FAA3EBEA69149 /* VoiceCallKitSwiftUI.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		2289AC1B2243368980612791 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = YES;
+				LastUpgradeCheck = 1430;
+				TargetAttributes = {
+				};
+			};
+			buildConfigurationList = 85C09B95B007F59CA7B9C2C2 /* Build configuration list for PBXProject "VoiceCallKitSwiftUI" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				Base,
+				en,
+			);
+			mainGroup = 8AEA61CFE612C03502C8575B;
+			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				51B07FE85EB7C1B2111AD2D7 /* XCLocalSwiftPackageReference "../../../.." */,
+			);
+			preferredProjectObjectVersion = 77;
+			productRefGroup = FFA318CDFA9B7FD138C08E94 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				131A91338EFA6E5D77118099 /* VoiceCallKitSwiftUI */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		A3B68A9A1842C9E25DB990F4 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				2B6A3E2DE5C7212BA9804E99 /* README.md in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		CDCACD070F251E1EE32535CC /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				FB8D582779E6B7A3E0E2EBA7 /* CallKitController.swift in Sources */,
+				6E21040F133831FF5C319B81 /* ContentView.swift in Sources */,
+				4E9C6E31A0C9E8482417711E /* VoiceApp.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		299D890956B344011CBF1A8F /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = Generated/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = ai.poly.examples.VoiceCallKitSwiftUI;
+				SDKROOT = iphoneos;
+				SWIFT_VERSION = 5.9;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		6982918C815207B1E90DD891 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = Generated/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = ai.poly.examples.VoiceCallKitSwiftUI;
+				SDKROOT = iphoneos;
+				SWIFT_VERSION = 5.9;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		F06F5312CF928C4794B6DDFA /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					"DEBUG=1",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		F801F199B317773BB9BF5F5B /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		3584D7DF2ADD5EFE896B6C1E /* Build configuration list for PBXNativeTarget "VoiceCallKitSwiftUI" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				6982918C815207B1E90DD891 /* Debug */,
+				299D890956B344011CBF1A8F /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		85C09B95B007F59CA7B9C2C2 /* Build configuration list for PBXProject "VoiceCallKitSwiftUI" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				F06F5312CF928C4794B6DDFA /* Debug */,
+				F801F199B317773BB9BF5F5B /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+/* End XCConfigurationList section */
+
+/* Begin XCLocalSwiftPackageReference section */
+		51B07FE85EB7C1B2111AD2D7 /* XCLocalSwiftPackageReference "../../../.." */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = ../../../..;
+		};
+/* End XCLocalSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		12DF6B52BFFAE0D9716602B6 /* PolyVoice */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = PolyVoice;
+		};
+/* End XCSwiftPackageProductDependency section */
+	};
+	rootObject = 2289AC1B2243368980612791 /* Project object */;
+}

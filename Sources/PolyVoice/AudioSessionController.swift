@@ -13,6 +13,10 @@ import PolyMessaging
 final class AudioSessionController: @unchecked Sendable {
 
     private let defaultToSpeaker: Bool
+    /// CallKit drives the session lifecycle: the controller configures but never
+    /// activates/deactivates, and system interruptions are CallKit's to deliver
+    /// (via `didActivate`/`didDeactivate`/hold), not ours.
+    let callKitMode: Bool
     private let session = RTCAudioSession.sharedInstance()
     // Guards deactivate(): never touch the process-global audio session on a call that never
     // activated it (e.g. start() failed before createOffer).
@@ -26,8 +30,9 @@ final class AudioSessionController: @unchecked Sendable {
     private var interruptionObserver: NSObjectProtocol?
     private var routeChangeObserver: NSObjectProtocol?
 
-    init(defaultToSpeaker: Bool) {
+    init(defaultToSpeaker: Bool, callKitMode: Bool = false) {
         self.defaultToSpeaker = defaultToSpeaker
+        self.callKitMode = callKitMode
         interruptionObserver = NotificationCenter.default.addObserver(
             forName: AVAudioSession.interruptionNotification, object: nil, queue: nil
         ) { [weak self] note in self?.handleInterruption(note) }
@@ -46,6 +51,10 @@ final class AudioSessionController: @unchecked Sendable {
     /// Map an `AVAudioSession` interruption to the call's interruption vocabulary: a begin
     /// mutes the mic; an end resumes if the system allows, otherwise ends the call.
     private func handleInterruption(_ note: Notification) {
+        // Under CallKit the system negotiates interruptions through the provider
+        // (hold actions + didDeactivate/didActivate) — reacting here too would
+        // fight it (e.g. ending a call CallKit merely put on hold).
+        guard !callKitMode else { return }
         guard let info = note.userInfo,
               let raw = info[AVAudioSessionInterruptionTypeKey] as? UInt,
               let type = AVAudioSession.InterruptionType(rawValue: raw) else { return }
@@ -65,22 +74,37 @@ final class AudioSessionController: @unchecked Sendable {
         session.lockForConfiguration()
         defer { session.unlockForConfiguration() }
         selectedDeviceId = nil // a fresh call starts on automatic routing
+        let config = Self.callConfiguration()
+        do {
+            if callKitMode {
+                // NEVER self-activate under CallKit: a plain playAndRecord session
+                // activated here blocks CallKit's elevated phone-session activation
+                // and didActivate never fires. Configure only; the route is applied
+                // by the route-change that fires when CallKit activates.
+                try session.setConfiguration(config)
+                activated = true
+            } else {
+                try session.setConfiguration(config, active: true)
+                // Only a SUCCESSFUL activation may arm deactivate() — otherwise cleanup
+                // would setActive(false) on a session this call never actually owned,
+                // clobbering the host app's audio.
+                activated = true
+                applyRoute()
+            }
+            emitAudioState()
+        } catch {
+            // Best-effort — WebRTC is not in manual-audio mode here, so it
+            // configures its own session when the audio unit starts.
+        }
+    }
+
+    /// The audio-session shape of a voice call (playAndRecord/voiceChat + Bluetooth).
+    static func callConfiguration() -> RTCAudioSessionConfiguration {
         let config = RTCAudioSessionConfiguration.webRTC()
         config.category = AVAudioSession.Category.playAndRecord.rawValue
         config.mode = AVAudioSession.Mode.voiceChat.rawValue
         config.categoryOptions = [.allowBluetooth, .allowBluetoothA2DP]
-        do {
-            try session.setConfiguration(config, active: true)
-            // Only a SUCCESSFUL activation may arm deactivate() — otherwise cleanup
-            // would setActive(false) on a session this call never actually owned,
-            // clobbering the host app's audio.
-            activated = true
-            applyRoute()
-            emitAudioState()
-        } catch {
-            // Best-effort — WebRTC is not in manual-audio mode, so it configures
-            // its own session when the audio unit starts.
-        }
+        return config
     }
 
     /// Route call audio to `device`, or `nil` to revert to automatic (accessory-aware) routing.
@@ -197,7 +221,11 @@ final class AudioSessionController: @unchecked Sendable {
         activated = false
         selectedDeviceId = nil
         try? session.overrideOutputAudioPort(.none)
-        try? session.setActive(false)
+        if !callKitMode {
+            // Under CallKit the SYSTEM deactivates (didDeactivate) — doing it here
+            // would tear down a session the app doesn't own at this priority.
+            try? session.setActive(false)
+        }
         onAudioState?(.empty)
     }
 

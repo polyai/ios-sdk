@@ -17,6 +17,7 @@ Separate from the chat ladder, **Voice** has its own ladder on the [`PolyVoice`]
 | Level | What it covers | SwiftUI | UIKit |
 |---|---|---|---|
 | **Voice 01-Hello** | `PolyVoice.call()`, observe `call.states`, start / mute / end, speaker toggle | [`SwiftUI/Voice/01-Hello/`](SwiftUI/Voice/01-Hello/) | [`UIKit/Voice/01-Hello/`](UIKit/Voice/01-Hello/) |
+| **Voice 02-CallKit** | the same call as a **system call**: CallKit provider wiring, lock-screen/AirPods controls, cellular-call hold | [`SwiftUI/Voice/02-CallKit/`](SwiftUI/Voice/02-CallKit/) | [`UIKit/Voice/02-CallKit/`](UIKit/Voice/02-CallKit/) |
 
 UIKit 06–07 are built programmatically (no storyboard) so their connect/loading/chat/error screens can swap a single container.
 

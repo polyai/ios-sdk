@@ -148,7 +148,7 @@ iOS keeps one active output and routes accessories (headset, Bluetooth, CarPlay)
 
 ## What this example skips
 
-- CallKit / system call UI — a PolyVoice call is a normal app audio session, see [voice guide › Backgrounding](../../../../docs/PolyVoice.md#backgrounding)
+- CallKit / system call UI — that is the next rung: [`02-CallKit`](../02-CallKit/), see also [voice guide › CallKit](../../../../docs/PolyVoice.md#callkit)
 - reconnect and interruption UI — the SDK recovers transient drops itself, see [voice guide › Resilience](../../../../docs/PolyVoice.md#resilience)
 - a custom / dev gateway — `VoiceOptions.signalingHost`, see [voice guide › Credentials](../../../../docs/PolyVoice.md#credentials)
 - chat + voice in one app — the products compose; start from the chat ladder's [`01-Hello`](../../Chat/01-Hello/)

@@ -62,9 +62,52 @@ enable the **`audio` background mode** — add `UIBackgroundModes` to your `Info
 ```
 
 The SDK holds a `playAndRecord` `AVAudioSession`, so with this mode the call keeps running
-when the app is backgrounded; without it, iOS suspends the app and the call drops. Both Voice
-examples set this. (There's no CallKit integration — a call is a normal app audio session, not
-a system phone call.)
+when the app is backgrounded; without it, iOS suspends the app and the call drops. All Voice
+examples set this. By default a call is a normal app audio session, not a system phone call —
+for the system call UI, see [CallKit](#callkit).
+
+## CallKit
+
+Opt in with **`VoiceOptions(callKit: true)`** to run a call as a **system call**: the green
+in-call indicator, lock-screen / AirPods / car-Bluetooth controls, phone-call audio priority,
+and hold arbitration when a cellular call arrives. In this mode the SDK never activates or
+deactivates the audio session itself — CallKit does — and your `CXProviderDelegate` must
+forward three moments to the SDK:
+
+```swift
+func provider(_ provider: CXProvider, perform action: CXStartCallAction) {
+    PolyVoice.callKitConfigureAudioSession() // configure EARLY — never self-activate
+    Task { try? await call.start() }
+    action.fulfill()
+    provider.reportOutgoingCall(with: action.callUUID, startedConnectingAt: nil)
+}
+func provider(_ provider: CXProvider, didActivate audioSession: AVAudioSession) {
+    PolyVoice.callKitAudioSessionDidActivate(audioSession)   // audio starts HERE
+}
+func provider(_ provider: CXProvider, didDeactivate audioSession: AVAudioSession) {
+    PolyVoice.callKitAudioSessionDidDeactivate(audioSession)
+}
+```
+
+Rules the integration must follow (the **02-CallKit** examples encode all of them):
+
+- **Request, don't command:** start / end / mute go through `CXCallController` actions and
+  are executed in the matching `perform` callback, so the system can arbitrate and the
+  system UI stays in sync. Remote endings (the agent hangs up, a failure) are **reported**
+  via `reportCall(with:endedAt:reason:)` instead.
+- **Never call `AVAudioSession.setActive(true)`** during a CallKit call — a self-activated
+  session blocks CallKit's elevated activation and `didActivate` never fires (the classic
+  "call connects, no audio" bug).
+- **System interruptions move to CallKit:** a cellular call arrives as a hold action +
+  `didDeactivate`, not as the SDK's interruption handling (which stands down in this mode).
+  After the interrupting call ends, iOS may not resume you automatically — offer a manual
+  un-hold path.
+- **Simulator:** CallKit is broken there (iOS 17+ auto-ends calls); gate on
+  `targetEnvironment(simulator)` and fall back to a plain call, as the examples do.
+- **China:** Apple rejects CallKit UI for the Chinese App Store; keep `callKit:` behind a
+  region or remote-config gate if you ship there.
+
+Inbound (push-triggered) calls are not supported — PolyVoice calls are app-initiated.
 
 ## Credentials
 

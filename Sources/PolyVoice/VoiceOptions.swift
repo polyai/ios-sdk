@@ -23,9 +23,29 @@ public struct VoiceOptions: Sendable {
     /// the environment is `.custom`.
     public let signalingHost: String?
 
-    public init(webrtcToken: String, speakerphone: Bool = true, signalingHost: String? = nil) {
+    /// Set `true` when the app drives this call through **CallKit** (`CXProvider`).
+    ///
+    /// The SDK then never activates or deactivates the audio session itself and
+    /// defers the WebRTC audio unit to CallKit — the app **must** forward the
+    /// three `CXProviderDelegate` moments:
+    /// `PolyVoice.callKitConfigureAudioSession()` from `perform(CXStartCallAction)`,
+    /// `PolyVoice.callKitAudioSessionDidActivate(_:)` from `provider(_:didActivate:)`,
+    /// and `PolyVoice.callKitAudioSessionDidDeactivate(_:)` from `provider(_:didDeactivate:)`.
+    /// Without those calls the call connects but carries no audio.
+    /// System interruptions (a cellular call, Siri) are also left to CallKit's
+    /// hold/deactivate callbacks instead of the SDK's own interruption handling.
+    /// See the `02-CallKit` Voice example.
+    public let callKit: Bool
+
+    public init(
+        webrtcToken: String,
+        speakerphone: Bool = true,
+        signalingHost: String? = nil,
+        callKit: Bool = false
+    ) {
         self.webrtcToken = webrtcToken
         self.speakerphone = speakerphone
         self.signalingHost = signalingHost
+        self.callKit = callKit
     }
 }

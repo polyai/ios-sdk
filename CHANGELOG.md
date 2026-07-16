@@ -4,6 +4,25 @@ All notable changes to the PolyMessaging iOS SDK are documented here.
 This project adheres to [Semantic Versioning](https://semver.org). While the SDK
 is pre-1.0, breaking changes bump the **minor** version.
 
+## [Unreleased]
+
+### Added
+- **CallKit support** (`PolyVoice`): opt in with `VoiceOptions(callKit: true)` to run a
+  call as a system call. The SDK defers audio-session activation and the WebRTC audio
+  unit to CallKit; three new statics forward the `CXProviderDelegate` moments —
+  `PolyVoice.callKitConfigureAudioSession()`, `callKitAudioSessionDidActivate(_:)`,
+  `callKitAudioSessionDidDeactivate(_:)`. New **Voice 02-CallKit** example (SwiftUI +
+  UIKit) with the full provider wiring; [voice guide › CallKit](docs/PolyVoice.md#callkit).
+
+### Fixed
+- `PolyVoice.podspec` now depends on `WebRTC-lib` (the pod that actually publishes
+  M149) — CocoaPods installs of 0.9.0's spec could not resolve `WebRTC-SDK`.
+- Voice signaling hardening: offers/ICE are re-sent after a reconnect instead of being
+  silently lost, stale socket callbacks can no longer corrupt a new connection, WS close
+  codes are classified (clean close / terminal / retryable), `call.end()` now returns
+  only after every resource (sockets, media engine, audio session) is released, and the
+  audio session is never deactivated by a call that failed to acquire it.
+
 ## [0.9.0] - 2026-07-01
 
 Adds **PolyVoice** — live, two-way WebRTC voice calls to a PolyAI agent — as a

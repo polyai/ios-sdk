@@ -297,7 +297,8 @@ the **API key** (`Configuration.apiKey`, authenticates the connector) and the **
 
 Add **`PolyVoice`** via SPM (`.product(name: "PolyVoice", package: "ios-sdk")`) or CocoaPods
 (`pod 'PolyVoice'`). **📖 Full guide → [`docs/PolyVoice.md`](docs/PolyVoice.md)** — credentials, the
-microphone permission, accessory-aware audio routing, and the architecture.
+microphone permission, accessory-aware audio routing, [CallKit](docs/PolyVoice.md#callkit)
+(system call UI via `VoiceOptions(callKit: true)`), and the architecture.
 Runnable demos: [`Examples/SwiftUI/Voice`](Examples/SwiftUI/Voice/01-Hello/) ·
 [`Examples/UIKit/Voice`](Examples/UIKit/Voice/01-Hello/).
 
@@ -1642,6 +1643,7 @@ WebRTC media). See [Voice calling](#voice-calling-polyvoice).
 | Level | What it covers | SwiftUI · UIKit |
 |---|---|---|
 | **01 Hello** | `PolyVoice.call()`, `call.states`, start / mute / end, speaker toggle | [SwiftUI](Examples/SwiftUI/Voice/01-Hello/) · [UIKit](Examples/UIKit/Voice/01-Hello/) |
+| **02 CallKit** | the same call as a **system call** — CallKit wiring, lock-screen/AirPods controls, cellular-call hold | [SwiftUI](Examples/SwiftUI/Voice/02-CallKit/) · [UIKit](Examples/UIKit/Voice/02-CallKit/) |
 
 ## Requirements
 

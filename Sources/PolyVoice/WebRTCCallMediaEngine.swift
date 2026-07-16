@@ -35,7 +35,20 @@ final class WebRTCCallMediaEngine: NSObject, CallMediaEngine, @unchecked Sendabl
     // MARK: - CallMediaEngine
 
     func createOffer(iceServers: [IceServer]) async throws -> String {
-        audio.activate() // route + configure the AVAudioSession for a call before capturing
+        // Manual-vs-automatic audio must be decided BEFORE the first audio track
+        // exists (WebRTC starts the audio unit at track-ready time otherwise).
+        // The flag is process-global, so a non-CallKit call must also RESET it —
+        // a leftover `true` from a previous CallKit call would leave this call
+        // waiting forever for a didActivate that never comes.
+        let rtcSession = RTCAudioSession.sharedInstance()
+        if audio.callKitMode {
+            rtcSession.useManualAudio = true
+            rtcSession.isAudioEnabled = false
+        } else {
+            rtcSession.useManualAudio = false
+        }
+
+        audio.activate() // configure (and, without CallKit, activate) the AVAudioSession
 
         let config = RTCConfiguration()
         config.sdpSemantics = .unifiedPlan
@@ -132,6 +145,12 @@ final class WebRTCCallMediaEngine: NSObject, CallMediaEngine, @unchecked Sendabl
     func close() async {
         lock.lock(); let peer = self.peer; self.peer = nil; self.audioTrack = nil; lock.unlock()
         peer?.close()
+        if audio.callKitMode {
+            // Defensive: if the call died without CallKit deactivating (e.g. a
+            // signaling failure before the system ever activated), make sure the
+            // audio unit can't start later on a dead call.
+            RTCAudioSession.sharedInstance().isAudioEnabled = false
+        }
         audio.deactivate()
     }
 

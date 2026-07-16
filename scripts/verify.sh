@@ -1,7 +1,7 @@
 #!/bin/bash
 # Dev verification script (NOT part of the customer README / example sources).
 # Runs the full ship-readiness gate: SDK unit tests + resilience matrix, then
-# builds all 16 example apps.
+# builds all 18 example apps.
 #
 # Usage: scripts/verify.sh
 set -uo pipefail
@@ -16,9 +16,9 @@ else
   echo "    FAIL: swift test"; FAIL=1
 fi
 
-echo "==> 2/2  build all 16 example apps"
+echo "==> 2/2  build all 18 example apps"
 if ./scripts/build-all.sh 2>&1 | tail -1 | grep -q "0 failed"; then
-  echo "    PASS: 16/16 built"
+  echo "    PASS: 18/18 built"
 else
   echo "    FAIL: example build"; FAIL=1
 fi

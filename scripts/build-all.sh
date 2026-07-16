@@ -1,5 +1,5 @@
 #!/bin/bash
-# Build all 16 example apps. Regenerates each xcodeproj with xcodegen, then xcodebuild for the simulator.
+# Build all 18 example apps. Regenerates each xcodeproj with xcodegen, then xcodebuild for the simulator.
 set -uo pipefail
 cd "$(dirname "$0")/.."
 DEST='platform=iOS Simulator,name=iPhone 17 Pro'
@@ -22,6 +22,8 @@ declare -a APPS=(
   "UIKit/Chat/07-Playground:PlaygroundUIKit"
   "SwiftUI/Voice/01-Hello:VoiceSwiftUI"
   "UIKit/Voice/01-Hello:VoiceUIKit"
+  "SwiftUI/Voice/02-CallKit:VoiceCallKitSwiftUI"
+  "UIKit/Voice/02-CallKit:VoiceCallKitUIKit"
 )
 PASS=0; FAIL=0; FAILED_APPS=""
 for entry in "${APPS[@]}"; do
