@@ -49,7 +49,8 @@ await call.end()
 
 A call needs the microphone. Add **`NSMicrophoneUsageDescription`** to your app's
 `Info.plist` (a call without it crashes on iOS). The system prompts on the first
-call; the SDK activates the `AVAudioSession` for you.
+call; the SDK activates the `AVAudioSession` for you (under [CallKit](#callkit),
+the *system* activates it — the permission requirement is unchanged).
 
 ## Backgrounding
 
@@ -64,7 +65,8 @@ enable the **`audio` background mode** — add `UIBackgroundModes` to your `Info
 The SDK holds a `playAndRecord` `AVAudioSession`, so with this mode the call keeps running
 when the app is backgrounded; without it, iOS suspends the app and the call drops. All Voice
 examples set this. By default a call is a normal app audio session, not a system phone call —
-for the system call UI, see [CallKit](#callkit).
+for the system call UI, see [CallKit](#callkit), which additionally requires the **`voip`**
+background mode alongside `audio`.
 
 ## CallKit
 
