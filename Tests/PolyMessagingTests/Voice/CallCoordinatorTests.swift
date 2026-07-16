@@ -458,6 +458,135 @@ final class CallCoordinatorTests: XCTestCase {
         XCTAssertTrue(failed, "a pre-connect reconnect exhaustion fails as .signalingFailed")
     }
 
+    // MARK: - Delivery guarantees (send-failure requeue / re-offer)
+
+    func test_offerSendFailure_reoffersAfterReconnect() async throws {
+        let conn = MockConnection()
+        let channel = MockSignalingChannel()
+        let media = StubMediaEngine()
+        let coord = makeCoordinator(conn: conn, channel: channel, media: media)
+        try await arm(coord, conn: conn)
+
+        // The socket accepts the open but rejects the offer send.
+        channel.failSends = true
+        channel.emit(.opened)
+        try? await Task.sleep(nanoseconds: 100_000_000)
+        XCTAssertTrue(channel.sentFrames(ofType: "offer").isEmpty, "the failed offer never hit the wire")
+
+        // The dead socket drops; the reconnected socket must get the offer —
+        // otherwise the call can only sit out the 30s timeout.
+        channel.emit(.closed(code: 1006, reason: "send failed"))
+        _ = await waitUntil { channel.openCount >= 2 }
+        channel.failSends = false
+        channel.emit(.opened)
+        let reoffered = await waitUntil { channel.sentFrames(ofType: "offer").count == 1 }
+        XCTAssertTrue(reoffered, "an offer that never got out is re-sent after reconnect")
+
+        // The call still completes normally from there.
+        channel.emit(.message(answerFrame(sessionId: "sig_1", sdp: "v=0")))
+        _ = await waitUntil { media.acceptedAnswer == "v=0" }
+        media.driveState(.connected)
+        let connected = await waitUntil { await self.callState(coord) == .connected }
+        XCTAssertTrue(connected)
+    }
+
+    func test_localIceSendFailure_requeuedAndDeliveredAfterReconnect() async throws {
+        let conn = MockConnection()
+        let channel = MockSignalingChannel()
+        let media = StubMediaEngine()
+        let coord = makeCoordinator(conn: conn, channel: channel, media: media)
+        try await arm(coord, conn: conn)
+        channel.emit(.opened)
+        channel.emit(.message(answerFrame(sessionId: "sig_1", sdp: "v=0"))) // session id known → direct sends
+        _ = await waitUntil { media.acceptedAnswer == "v=0" }
+
+        // A direct send that fails must requeue the candidate, not drop it.
+        channel.failSends = true
+        media.emitLocalCandidate(ICECandidate(candidate: "cand:requeued", sdpMid: "0", sdpMLineIndex: 0))
+        try? await Task.sleep(nanoseconds: 100_000_000)
+        XCTAssertTrue(channel.sentFrames(ofType: "ice-candidate").isEmpty)
+
+        channel.emit(.closed(code: 1006, reason: "dead socket"))
+        _ = await waitUntil { channel.openCount >= 2 }
+        channel.failSends = false
+        channel.emit(.opened) // reconnect flush must deliver the requeued candidate
+        let delivered = await waitUntil {
+            channel.sentFrames(ofType: "ice-candidate")
+                .contains { ($0["data"] as? [String: Any])?["candidate"] as? String == "cand:requeued" }
+        }
+        XCTAssertTrue(delivered, "a candidate whose send failed is requeued and re-sent")
+    }
+
+    // MARK: - Close-code classification
+
+    func test_cleanClose1000_endsCallWithoutReconnect() async throws {
+        let conn = MockConnection()
+        let channel = MockSignalingChannel()
+        let coord = makeCoordinator(conn: conn, channel: channel)
+        try await arm(coord, conn: conn)
+        channel.emit(.opened)
+
+        channel.emit(.closed(code: 1000, reason: "server done"))
+        let ended = await waitUntil { await self.callState(coord) == .ended }
+        XCTAssertTrue(ended, "a clean 1000 close is the backend hanging up, not an outage")
+        try? await Task.sleep(nanoseconds: 200_000_000)
+        XCTAssertEqual(channel.openCount, 1, "no reconnect is attempted after a clean close")
+    }
+
+    func test_terminalCloseCode_beforeConnect_failsImmediately() async throws {
+        let conn = MockConnection()
+        let channel = MockSignalingChannel()
+        let coord = makeCoordinator(conn: conn, channel: channel)
+        try await arm(coord, conn: conn)
+        channel.emit(.opened)
+
+        channel.emit(.closed(code: 4001, reason: "bad auth"))
+        let failed = await waitUntil {
+            if case .failed(.voice(.signalingFailed)) = await self.callState(coord) { return true }
+            return false
+        }
+        XCTAssertTrue(failed, "an application/auth close fails at once instead of retrying the same handshake")
+        try? await Task.sleep(nanoseconds: 200_000_000)
+        XCTAssertEqual(channel.openCount, 1, "no reconnect for a deterministic rejection")
+    }
+
+    func test_terminalCloseCode_afterConnect_failsDisconnected() async throws {
+        let conn = MockConnection()
+        let channel = MockSignalingChannel()
+        let media = StubMediaEngine()
+        let coord = makeCoordinator(conn: conn, channel: channel, media: media)
+        try await arm(coord, conn: conn)
+        channel.emit(.opened)
+        media.driveState(.connected)
+        _ = await waitUntil { await self.callState(coord) == .connected }
+
+        channel.emit(.closed(code: 4001, reason: "revoked"))
+        let failed = await waitUntil {
+            if case .failed(.voice(.disconnected)) = await self.callState(coord) { return true }
+            return false
+        }
+        XCTAssertTrue(failed, "after connecting, a terminal close surfaces as the (retryable) .disconnected")
+    }
+
+    // MARK: - Deterministic teardown
+
+    func test_end_returnsOnlyAfterResourcesReleased() async throws {
+        let conn = MockConnection()
+        let channel = MockSignalingChannel()
+        let media = StubMediaEngine()
+        let coord = makeCoordinator(conn: conn, channel: channel, media: media)
+        try await arm(coord, conn: conn)
+        channel.emit(.opened)
+        media.driveState(.connected)
+        _ = await waitUntil { await self.callState(coord) == .connected }
+
+        await coord.end()
+        // No polling: by the time end() returns, everything must already be released.
+        XCTAssertEqual(media.closeCount, 1, "end() awaits the media/audio release")
+        XCTAssertTrue(channel.closeCalled, "end() awaits the signaling close")
+        XCTAssertEqual(conn.disconnectCalls.count, 1, "end() awaits the messaging-link close")
+    }
+
     // MARK: - Frame builders (return raw JSON Data wrapped at the call site)
 
     private func answerFrame(sessionId: String, sdp: String) -> Data {

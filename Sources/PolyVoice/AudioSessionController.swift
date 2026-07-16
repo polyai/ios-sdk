@@ -64,7 +64,6 @@ final class AudioSessionController: @unchecked Sendable {
     func activate() {
         session.lockForConfiguration()
         defer { session.unlockForConfiguration() }
-        activated = true
         selectedDeviceId = nil // a fresh call starts on automatic routing
         let config = RTCAudioSessionConfiguration.webRTC()
         config.category = AVAudioSession.Category.playAndRecord.rawValue
@@ -72,10 +71,15 @@ final class AudioSessionController: @unchecked Sendable {
         config.categoryOptions = [.allowBluetooth, .allowBluetoothA2DP]
         do {
             try session.setConfiguration(config, active: true)
+            // Only a SUCCESSFUL activation may arm deactivate() — otherwise cleanup
+            // would setActive(false) on a session this call never actually owned,
+            // clobbering the host app's audio.
+            activated = true
             applyRoute()
             emitAudioState()
         } catch {
-            // Best-effort — WebRTC falls back to its own audio configuration.
+            // Best-effort — WebRTC is not in manual-audio mode, so it configures
+            // its own session when the audio unit starts.
         }
     }
 
@@ -149,6 +153,19 @@ final class AudioSessionController: @unchecked Sendable {
                 devices.append(AudioDevice(type: .wiredHeadset, name: input.portName, id: input.uid))
             case .bluetoothHFP, .bluetoothA2DP, .bluetoothLE:
                 devices.append(AudioDevice(type: .bluetooth, name: input.portName, id: input.uid))
+            default:
+                break
+            }
+        }
+        // `availableInputs` only lists input-capable ports — an output-only route
+        // (e.g. a Bluetooth A2DP speaker) would otherwise be missing entirely, so
+        // fold in whatever the CURRENT route is playing through as well.
+        for output in av.currentRoute.outputs {
+            switch output.portType {
+            case .headphones, .usbAudio, .lineOut:
+                devices.append(AudioDevice(type: .wiredHeadset, name: output.portName, id: output.uid))
+            case .bluetoothHFP, .bluetoothA2DP, .bluetoothLE, .carAudio:
+                devices.append(AudioDevice(type: .bluetooth, name: output.portName, id: output.uid))
             default:
                 break
             }

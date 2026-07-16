@@ -20,6 +20,9 @@ final class MockSignalingChannel: SignalingChannel, @unchecked Sendable {
     private(set) var openCalled = false
     private(set) var openCount = 0
     private(set) var closeCalled = false
+    /// While true, send() reports failure (and records nothing) — drives the
+    /// coordinator's keep-buffered / requeue paths.
+    var failSends = false
 
     var events: AsyncStream<SignalingChannelEvent> {
         AsyncStream { cont in
@@ -36,8 +39,13 @@ final class MockSignalingChannel: SignalingChannel, @unchecked Sendable {
         lock.lock(); openCalled = true; openCount += 1; lock.unlock()
     }
 
-    func send(_ data: Data) async {
-        lock.lock(); sentFrames.append(data); lock.unlock()
+    @discardableResult
+    func send(_ data: Data) async -> Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        if failSends { return false }
+        sentFrames.append(data)
+        return true
     }
 
     func close() async {

@@ -46,6 +46,7 @@ actor CallCoordinator {
     private var connectTimeoutTask: Task<Void, Never>?
     private var disconnectGraceTask: Task<Void, Never>?
     private var reconnectTask: Task<Void, Never>?
+    private var teardownTask: Task<Void, Never>?
     private var signalingReconnecting = false
     private var signalingConnected = false
 
@@ -149,11 +150,16 @@ actor CallCoordinator {
         }
     }
 
-    func end() {
-        guard active else { return }
-        logger.debug("Voice call ending", metadata: nil)
-        teardown()
-        setState(.ended)
+    /// End the call. Returns once every resource (signaling socket, messaging
+    /// link, media engine, audio session) has actually been released, so an
+    /// immediate follow-up call can't race the old call's cleanup.
+    func end() async {
+        if active {
+            logger.debug("Voice call ending", metadata: nil)
+            teardown()
+            setState(.ended)
+        }
+        await teardownTask?.value
     }
 
     func setMuted(_ muted: Bool) async {
@@ -212,23 +218,46 @@ actor CallCoordinator {
         switch event {
         case .opened:
             signalingConnected = true
-            if signalingReconnecting {
-                // A reconnect succeeded — the gateway routes by sessionId, so re-flush
-                // any ICE buffered during the gap rather than re-offering.
+            let reconnected = signalingReconnecting
+            // `pendingOfferSDP` is only non-nil while the offer has never made it onto
+            // the wire (it's cleared on a successful send) — so this covers both the
+            // first open and a reconnect after the initial send failed. An offer that
+            // WAS delivered is never re-sent: the gateway routes by sessionId.
+            await sendPendingOffer()
+            if reconnected {
+                // A reconnect succeeded — re-flush any ICE buffered during the gap.
                 await flushLocalIce()
-            } else {
-                await sendPendingOffer()
             }
         case .message(let data):
             if let signal = SignalingProtocol.parse(data) { await handle(signal) }
         case .closed(let code, _):
             logger.warn("Signaling connection closed (\(code))", metadata: nil)
             signalingConnected = false
-            handleSignalingDrop()
+            if code == 1000 {
+                // A clean server-side close is the backend hanging up (the WS twin of
+                // the `close` frame) — end gracefully, don't fight it with reconnects.
+                await end()
+            } else if Self.isTerminalCloseCode(code) {
+                // Policy/protocol/application (auth) closures won't heal by retrying.
+                fail(hasConnected ? .voice(.disconnected) : .voice(.signalingFailed("Signaling closed (\(code))")))
+            } else {
+                handleSignalingDrop()
+            }
         case .failed(let underlying):
             logger.error("Signaling channel failed", metadata: ["error": String(describing: underlying)])
             signalingConnected = false
             handleSignalingDrop()
+        }
+    }
+
+    /// Close codes that indicate a deterministic rejection (protocol violation,
+    /// policy, or an application/auth code in the 4xxx range) — reconnecting with
+    /// the same handshake can only produce the same close again.
+    private static func isTerminalCloseCode(_ code: Int) -> Bool {
+        switch code {
+        case 1002, 1003, 1007, 1008, 1009: return true // protocol / unsupported / invalid / policy / too-big
+        case 4000...4999: return true                   // application-defined (auth & friends)
+        default: return false                           // 1001/1006/1011/… — transient, retry
         }
     }
 
@@ -277,15 +306,18 @@ actor CallCoordinator {
 
     private func sendPendingOffer() async {
         guard active, let sdp = pendingOfferSDP, let sid = callSid else { return }
-        pendingOfferSDP = nil
         guard let data = SignalingProtocol.offer(
             sdp: sdp, authToken: authToken, callSid: sid, sessionId: signalSessionId
         ) else {
             fail(.voice(.signalingFailed("Failed to encode offer")))
             return
         }
-        await channel.send(data)
-        logger.debug("Voice offer sent — awaiting answer", metadata: nil)
+        // Clear the buffer only once the frame is on the wire: a failed send keeps
+        // the offer queued, and the reconnect's `.opened` re-sends it.
+        if await channel.send(data) {
+            pendingOfferSDP = nil
+            logger.debug("Voice offer sent — awaiting answer", metadata: nil)
+        }
     }
 
     private func handle(_ signal: InboundSignal) async {
@@ -315,7 +347,7 @@ actor CallCoordinator {
         case .pong:
             break
         case .close:
-            end()
+            await end()
         }
     }
 
@@ -327,8 +359,10 @@ actor CallCoordinator {
         // reconnecting — otherwise a candidate would be sent into a dead socket and lost.
         // flushLocalIce() re-sends the buffer once the (re)connected socket is ready.
         if let sid = signalSessionId, !signalingReconnecting {
-            if let data = SignalingProtocol.iceCandidate(candidate, sessionId: sid) {
-                await channel.send(data)
+            if let data = SignalingProtocol.iceCandidate(candidate, sessionId: sid),
+               !(await channel.send(data)) {
+                // The socket rejected it — requeue for the reconnect's re-flush.
+                pendingLocalIce.append(candidate)
             }
         } else {
             pendingLocalIce.append(candidate)
@@ -337,12 +371,23 @@ actor CallCoordinator {
 
     private func flushLocalIce() async {
         guard let sid = signalSessionId, !pendingLocalIce.isEmpty else { return }
-        for candidate in pendingLocalIce {
-            if let data = SignalingProtocol.iceCandidate(candidate, sessionId: sid) {
-                await channel.send(data)
+        // Snapshot-and-clear BEFORE the sends: candidates that arrive while a send
+        // is suspended append to the (now empty) buffer and survive for the next
+        // flush instead of being wiped by a post-loop removeAll.
+        let batch = pendingLocalIce
+        pendingLocalIce.removeAll()
+        var requeue: [ICECandidate] = []
+        var socketDead = false
+        for candidate in batch {
+            guard !socketDead else { requeue.append(candidate); continue }
+            guard let data = SignalingProtocol.iceCandidate(candidate, sessionId: sid) else { continue }
+            if !(await channel.send(data)) {
+                socketDead = true
+                requeue.append(candidate)
             }
         }
-        pendingLocalIce.removeAll()
+        // Failed sends go back to the FRONT so ordering is preserved for the retry.
+        if !requeue.isEmpty { pendingLocalIce.insert(contentsOf: requeue, at: 0) }
     }
 
     /// Add remote candidates buffered before the answer was applied, in arrival order.
@@ -438,7 +483,11 @@ actor CallCoordinator {
         let channel = self.channel
         let linker = self.linker
         let media = self.media
-        Task {
+        // Stored (not fire-and-forget) so end() can await the release of the
+        // signaling socket, the messaging link, and — critically — the media
+        // engine's process-global audio session. teardown() only runs while
+        // `active`, so this is assigned exactly once per call lifecycle.
+        teardownTask = Task {
             if let sid, let data = SignalingProtocol.close(sessionId: sid) {
                 await channel.send(data)
             }

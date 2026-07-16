@@ -5,6 +5,7 @@ import Foundation
 struct VoiceEnvironment: Sendable {
     let signalingURL: URL
     private let gatewayHost: String
+    private let gatewayPort: Int?
 
     /// - Parameter signalingHost: overrides the derived host (self-hosted / dev gateway);
     ///   **required** for `.custom`. The host rule: `dev` is standalone,
@@ -27,7 +28,11 @@ struct VoiceEnvironment: Sendable {
                     "Voice on a .custom environment requires VoiceOptions.signalingHost")
             }
         }
-        gatewayHost = host
+        // A signalingHost may carry a port ("localhost:8443"). URLComponents.host
+        // rejects "host:port", so split it here — the ICE URL below sets the port
+        // separately instead of silently producing a nil URL (which would drop the
+        // TURN fetch and fall back to public STUN).
+        (gatewayHost, gatewayPort) = Self.splitPort(host)
         guard let url = URL(string: "wss://\(host)/api/v1/webrtc/signal") else {
             throw PolyError.invalidConfiguration("Invalid voice signaling host: \(host)")
         }
@@ -41,8 +46,21 @@ struct VoiceEnvironment: Sendable {
         var components = URLComponents()
         components.scheme = "https"
         components.host = gatewayHost
+        components.port = gatewayPort
         components.path = "/api/v1/ice-servers"
         components.queryItems = [URLQueryItem(name: "token", value: token)]
         return components.url
+    }
+
+    /// Split a trailing `:port` off a host string. Leaves anything that isn't a
+    /// plain host:port pair (no port, or an IPv6 literal) untouched.
+    private static func splitPort(_ host: String) -> (String, Int?) {
+        guard !host.hasPrefix("["), // IPv6 literals keep their brackets — no split
+              let colon = host.lastIndex(of: ":"),
+              let port = Int(host[host.index(after: colon)...]),
+              (1...65535).contains(port) else {
+            return (host, nil)
+        }
+        return (String(host[..<colon]), port)
     }
 }

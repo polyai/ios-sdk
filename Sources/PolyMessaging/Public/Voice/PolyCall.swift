@@ -71,6 +71,12 @@ public final class PolyCall: @unchecked Sendable {
 
     deinit {
         relayTask?.cancel()
+        // Dropping a live call must still release the mic, sockets, and the
+        // process-global audio session — the Task retains the coordinator until
+        // its teardown completes.
+        if let coordinator {
+            Task { await coordinator.end() }
+        }
     }
 
     /// Begin the call. Voice calling is not yet available, so for the shipped
@@ -83,7 +89,10 @@ public final class PolyCall: @unchecked Sendable {
         try await coordinator.start()
     }
 
-    /// End the call and release resources. Safe to call at any time.
+    /// End the call and release its resources. Safe to call at any time, and
+    /// returns only once everything (sockets, media engine, audio session) is
+    /// actually released — so a new call started right after can't collide
+    /// with this one's cleanup.
     public func end() async {
         await coordinator?.end()
         if coordinator == nil { setState(.ended) }

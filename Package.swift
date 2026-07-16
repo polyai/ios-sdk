@@ -44,5 +44,12 @@ let package = Package(
             dependencies: ["PolyMessaging"],
             path: "Tests/PolyMessagingTests"
         ),
+        // Compiles the real (iOS-only) voice implementation; the tests are no-ops
+        // on macOS and run for real under an iOS-simulator `xcodebuild test`.
+        .testTarget(
+            name: "PolyVoiceTests",
+            dependencies: ["PolyVoice", "PolyMessaging"],
+            path: "Tests/PolyVoiceTests"
+        ),
     ]
 )

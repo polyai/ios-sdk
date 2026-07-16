@@ -60,6 +60,8 @@ final class VoiceSessionLinkerTests: XCTestCase {
         let items = comps.queryItems ?? []
         XCTAssertEqual(items.first { $0.name == "access_token" }?.value, "tok_abc")
         XCTAssertEqual(items.first { $0.name == "session_id" }?.value, "sess_1")
+        XCTAssertEqual(items.first { $0.name == "region" }?.value, "us",
+                       "query params already on the base URL are preserved, not replaced")
         XCTAssertEqual(comps.host, "messaging.test")
         XCTAssertEqual(comps.path, "/ws")
 

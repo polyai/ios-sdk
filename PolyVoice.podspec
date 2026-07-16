@@ -20,5 +20,5 @@ Pod::Spec.new do |s|
   s.source_files     = 'Sources/PolyVoice/**/*.swift'
 
   s.dependency 'PolyMessaging', "#{s.version}"
-  s.dependency 'WebRTC-SDK', '149.0.0'  # exact — matches the SPM pin (M149; M141 is broken for SPM)
+  s.dependency 'WebRTC-lib', '149.0.0'  # exact — matches the SPM pin (stasel/WebRTC's pod; M141 is broken for SPM)
 end

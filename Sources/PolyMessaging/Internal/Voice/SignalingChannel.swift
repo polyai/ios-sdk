@@ -15,8 +15,11 @@ enum SignalingChannelEvent: Sendable {
 protocol SignalingChannel: Sendable {
     /// Open the socket. Lifecycle is reported through `events` (`.opened` first).
     func open() async
-    /// Send a pre-encoded JSON frame.
-    func send(_ data: Data) async
+    /// Send a pre-encoded JSON frame. Returns whether the frame was handed to the
+    /// socket — a `false` means the data was NOT sent (the caller must requeue it
+    /// if it matters); the channel also reports the failure through `events`.
+    @discardableResult
+    func send(_ data: Data) async -> Bool
     /// Close the socket and stop emitting events.
     func close() async
     var events: AsyncStream<SignalingChannelEvent> { get }
@@ -36,6 +39,11 @@ final class GatewaySignalingChannel: SignalingChannel, @unchecked Sendable {
     private let caster = Multicaster<SignalingChannelEvent>()
     private let lock = NSLock()
     private var terminated = false
+    // Each open() starts a new connection generation. Delegate callbacks and
+    // receive-loop events carry the generation they belong to, so a delayed
+    // close/open/error from a cancelled socket can never terminate — or falsely
+    // open — the connection that replaced it.
+    private var generation = 0
 
     init(url: URL, logger: PolyLogger) {
         self.url = url
@@ -46,21 +54,26 @@ final class GatewaySignalingChannel: SignalingChannel, @unchecked Sendable {
 
     func open() async {
         // Reset for a fresh connection so the same instance can be re-opened on
-        // reconnect: clear the terminal latch and cancel any prior socket.
-        lock.lock(); terminated = false; lock.unlock()
+        // reconnect: bump the generation (orphaning any in-flight callbacks from
+        // the old socket), clear the terminal latch, and cancel the prior socket.
+        let gen: Int = withLock {
+            generation += 1
+            terminated = false
+            return generation
+        }
         receiveTask?.cancel()
         task?.cancel(with: .normalClosure, reason: nil)
         urlSession?.invalidateAndCancel()
 
         logger.debug("Opening signaling WS", metadata: ["host": url.host ?? "unknown"])
         let del = SignalingSocketDelegate(
-            onOpen: { [weak self] in self?.caster.emit(.opened) },
+            onOpen: { [weak self] in self?.emitCurrent(gen, .opened) },
             onClose: { [weak self] code, reason in
                 let text = reason.flatMap { String(data: $0, encoding: .utf8) } ?? ""
-                self?.emitTerminal(.closed(code: code.rawValue, reason: text))
+                self?.emitTerminal(gen, .closed(code: code.rawValue, reason: text))
             },
             onError: { [weak self] error in
-                self?.emitTerminal(.failed(.transport(.networkError(error.localizedDescription))))
+                self?.emitTerminal(gen, .failed(.transport(.networkError(error.localizedDescription))))
             }
         )
         self.delegate = del
@@ -70,15 +83,19 @@ final class GatewaySignalingChannel: SignalingChannel, @unchecked Sendable {
         let t = session.webSocketTask(with: url)
         self.task = t
         t.resume()
-        startReceiveLoop()
+        startReceiveLoop(gen, task: t)
     }
 
-    func send(_ data: Data) async {
-        guard let t = task, let string = String(data: data, encoding: .utf8) else { return }
+    @discardableResult
+    func send(_ data: Data) async -> Bool {
+        let (t, gen): (URLSessionWebSocketTask?, Int) = withLock { (task, generation) }
+        guard let t, let string = String(data: data, encoding: .utf8) else { return false }
         do {
             try await t.send(.string(string))
+            return true
         } catch {
-            emitTerminal(.failed(.transport(.networkError(error.localizedDescription))))
+            emitTerminal(gen, .failed(.transport(.networkError(error.localizedDescription))))
+            return false
         }
     }
 
@@ -95,33 +112,48 @@ final class GatewaySignalingChannel: SignalingChannel, @unchecked Sendable {
 
     // MARK: - Internal
 
+    /// Synchronous critical section (safe to call from async contexts, unlike raw NSLock).
+    private func withLock<T>(_ body: () -> T) -> T {
+        lock.lock()
+        defer { lock.unlock() }
+        return body()
+    }
+
     private func markTerminated() {
         lock.lock()
         terminated = true
         lock.unlock()
     }
 
-    private func emitTerminal(_ event: SignalingChannelEvent) {
+    /// Emit a non-terminal event, dropping it if it belongs to a superseded connection.
+    private func emitCurrent(_ gen: Int, _ event: SignalingChannelEvent) {
         lock.lock()
-        if terminated { lock.unlock(); return }
+        let current = gen == generation && !terminated
+        lock.unlock()
+        if current { caster.emit(event) }
+    }
+
+    /// Emit a terminal event exactly once per generation, dropping stale ones.
+    private func emitTerminal(_ gen: Int, _ event: SignalingChannelEvent) {
+        lock.lock()
+        if gen != generation || terminated { lock.unlock(); return }
         terminated = true
         lock.unlock()
         caster.emit(event)
     }
 
-    private func startReceiveLoop() {
-        receiveTask?.cancel()
+    private func startReceiveLoop(_ gen: Int, task t: URLSessionWebSocketTask) {
+        // Loop over the task captured at open() — never re-read self.task, which
+        // may already belong to a newer connection.
         receiveTask = Task { [weak self] in
-            guard let self else { return }
             while !Task.isCancelled {
-                guard let t = self.task else { break }
                 do {
                     let message = try await t.receive()
                     switch message {
                     case .string(let text):
-                        if let data = text.data(using: .utf8) { self.caster.emit(.message(data)) }
+                        if let data = text.data(using: .utf8) { self?.emitCurrent(gen, .message(data)) }
                     case .data(let data):
-                        self.caster.emit(.message(data))
+                        self?.emitCurrent(gen, .message(data))
                     @unknown default:
                         break
                     }

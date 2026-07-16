@@ -72,6 +72,23 @@ final class IceServersProviderTests: XCTestCase {
         XCTAssertThrowsError(try VoiceEnvironment(environment: .custom(restBaseURL: URL(string: "https://x")!, wsBaseURL: URL(string: "wss://x")!)))
     }
 
+    func test_signalingHost_withPort_buildsBothURLs() throws {
+        // A dev/self-hosted gateway is often "host:port" — the port must survive
+        // into BOTH URLs (URLComponents.host alone rejects "host:port", which used
+        // to nil out the ICE URL and silently drop the TURN fetch).
+        let env = try VoiceEnvironment(environment: .us, signalingHost: "localhost:8443")
+        XCTAssertEqual(env.signalingURL.absoluteString, "wss://localhost:8443/api/v1/webrtc/signal")
+        let ice = try XCTUnwrap(env.iceServersURL(token: "t"), "a ported host must still yield an ICE URL")
+        XCTAssertEqual(ice.host, "localhost")
+        XCTAssertEqual(ice.port, 8443)
+        XCTAssertEqual(ice.path, "/api/v1/ice-servers")
+    }
+
+    func test_signalingHost_withoutPort_hasNoPort() throws {
+        let env = try VoiceEnvironment(environment: .us, signalingHost: "gw.example")
+        XCTAssertNil(env.iceServersURL(token: "t")?.port)
+    }
+
     // MARK: - fetch() HTTP orchestration (STUN fallback)
 
     private func mockSession() -> URLSession {

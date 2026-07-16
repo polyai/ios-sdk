@@ -282,7 +282,7 @@ stays source-only). It reuses the messaging `Configuration` and the same `CallSt
 import PolyMessaging
 import PolyVoice
 
-let call = PolyVoice.call(
+let call = try PolyVoice.call(
     config: Configuration(apiKey: "YOUR_API_KEY"),          // connector token
     options: VoiceOptions(webrtcToken: "YOUR_WEBRTC_TOKEN")  // WebRTC token — distinct; both from Agent Studio
 )
