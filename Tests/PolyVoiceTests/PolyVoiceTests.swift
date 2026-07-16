@@ -112,7 +112,21 @@ final class CallKitAudioSeamTests: XCTestCase {
         XCTAssertTrue(sdp.contains("m=audio"), "a real audio offer is produced")
         XCTAssertTrue(RTCAudioSession.sharedInstance().useManualAudio,
                       "the engine arms manual audio before the first track exists")
-        XCTAssertFalse(RTCAudioSession.sharedInstance().isAudioEnabled)
+        await engine.close()
+    }
+
+    func test_createOffer_callKitMode_neverStompsAnEarlierActivation() async throws {
+        // Signaling takes seconds, so CallKit usually activates (didActivate →
+        // isAudioEnabled = true) BEFORE createOffer runs. The engine must not
+        // re-gate audio off — that was the "connected but silent call" bug.
+        PolyVoice.callKitConfigureAudioSession()
+        RTCAudioSession.sharedInstance().isAudioEnabled = true // didActivate already came
+
+        let audio = AudioSessionController(defaultToSpeaker: true, callKitMode: true)
+        let engine = WebRTCCallMediaEngine(audio: audio)
+        _ = try await engine.createOffer(iceServers: [])
+        XCTAssertTrue(RTCAudioSession.sharedInstance().isAudioEnabled,
+                      "createOffer must leave the CallKit audio gate alone")
         await engine.close()
     }
 

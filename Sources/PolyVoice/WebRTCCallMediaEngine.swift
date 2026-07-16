@@ -40,13 +40,13 @@ final class WebRTCCallMediaEngine: NSObject, CallMediaEngine, @unchecked Sendabl
         // The flag is process-global, so a non-CallKit call must also RESET it —
         // a leftover `true` from a previous CallKit call would leave this call
         // waiting forever for a didActivate that never comes.
+        //
+        // Do NOT touch `isAudioEnabled` here: callKitConfigureAudioSession() gates
+        // it off before the call and didActivate opens it — and because signaling
+        // takes seconds, CallKit has usually ALREADY activated by the time this
+        // runs. Re-gating here would stomp that activation and silence the call.
         let rtcSession = RTCAudioSession.sharedInstance()
-        if audio.callKitMode {
-            rtcSession.useManualAudio = true
-            rtcSession.isAudioEnabled = false
-        } else {
-            rtcSession.useManualAudio = false
-        }
+        rtcSession.useManualAudio = audio.callKitMode
 
         audio.activate() // configure (and, without CallKit, activate) the AVAudioSession
 
