@@ -178,7 +178,7 @@ actor CallCoordinator {
         await media.setMuted(userMuted || interruptionMuted)
     }
 
-    /// React to an audio-session interruption (mirrors Android's `onInterruption`).
+    /// React to an audio-session interruption.
     /// A transient loss mutes the mic; a resumable end restores it (respecting the
     /// user's mute); a non-resumable end ends the call as `.interrupted`.
     private func handleInterruption(_ interruption: CallInterruption) async {

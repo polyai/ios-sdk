@@ -7,8 +7,8 @@ is pre-1.0, breaking changes bump the **minor** version.
 ## [0.9.0] - 2026-07-01
 
 Adds **PolyVoice** — live, two-way WebRTC voice calls to a PolyAI agent — as a
-**separate product/pod**, so chat-only apps never link the WebRTC binary (mirrors
-Android's `ai.poly:voice`). It supplies a real `RTCPeerConnection` audio engine +
+**separate product/pod**, so chat-only apps never link the WebRTC binary. It supplies
+a real `RTCPeerConnection` audio engine +
 `AVAudioSession` control behind the existing, already-tested `CallCoordinator`
 signaling pipeline.
 

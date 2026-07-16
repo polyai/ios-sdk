@@ -51,7 +51,7 @@ final class IceServersProviderTests: XCTestCase {
     }
 
     func test_signalingURL_perRegion_usesPlatformSubdomain() throws {
-        // Prod regions live under `.platform`; only `dev` is standalone (mirrors Android's VoiceHosts).
+        // Prod regions live under `.platform`; only `dev` is standalone.
         XCTAssertEqual(
             try VoiceEnvironment(environment: .us).signalingURL.absoluteString,
             "wss://webrtc-gateway.us-1.platform.polyai.app/api/v1/webrtc/signal"

@@ -5,7 +5,7 @@ import Foundation
 import WebRTC
 import PolyMessaging
 
-/// Real WebRTC audio engine — the iOS analog of Android's `AndroidWebRtcPeer`.
+/// Real WebRTC audio engine.
 ///
 /// Audio-only (Opus), Unified Plan, trickle ICE. Bridges WebRTC's completion-handler
 /// API into the `async` `CallMediaEngine` seam the `CallCoordinator` drives.

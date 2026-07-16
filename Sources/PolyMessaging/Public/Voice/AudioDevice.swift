@@ -6,7 +6,7 @@ import Foundation
 ///
 /// Obtain instances from ``PolyCall/audioState`` — never construct one. Pass an instance to
 /// ``PolyCall/setAudioDevice(_:)`` to switch the live call's output, or `nil` to revert to
-/// automatic routing. Mirrors Android's `AudioDevice`.
+/// automatic routing.
 public struct AudioDevice: Sendable, Equatable, Identifiable {
 
     /// The category of an ``AudioDevice`` — pick an icon/label without string-matching `name`.

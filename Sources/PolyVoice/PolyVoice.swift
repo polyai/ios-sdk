@@ -5,8 +5,8 @@ import PolyMessaging
 
 /// Entry point for WebRTC voice calling — the PolyVoice companion to PolyMessaging.
 ///
-/// Ships as a **separate** product so chat-only apps never link the WebRTC binary,
-/// mirroring Android's separate `ai.poly:voice` artifact. It reuses the messaging
+/// Ships as a **separate** product so chat-only apps never link the WebRTC binary.
+/// It reuses the messaging
 /// `Configuration` and the same `CallState` / `PolyError` vocabulary.
 ///
 /// ```swift

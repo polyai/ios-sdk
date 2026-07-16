@@ -7,7 +7,7 @@ struct VoiceEnvironment: Sendable {
     private let gatewayHost: String
 
     /// - Parameter signalingHost: overrides the derived host (self-hosted / dev gateway);
-    ///   **required** for `.custom`. Mirrors Android's `VoiceHosts` rule: `dev` is standalone,
+    ///   **required** for `.custom`. The host rule: `dev` is standalone,
     ///   every other region/cluster lives under the `.platform` subdomain.
     init(environment: Environment, signalingHost: String? = nil) throws {
         let host: String

@@ -6,7 +6,7 @@ import Foundation
 ///
 /// `webrtcToken` is **required** — every voice call needs the WebRTC gateway
 /// token, a distinct value from the API key (both come from Agent Studio ›
-/// Connector Settings). Mirrors Android's `VoiceOptions`.
+/// Connector Settings).
 public struct VoiceOptions: Sendable {
 
     /// The connector's WebRTC token — authenticates the signaling offer + the
@@ -20,7 +20,7 @@ public struct VoiceOptions: Sendable {
 
     /// Override the WebRTC gateway host (e.g. a self-hosted or dev gateway). When
     /// nil the host is derived from `Configuration.environment`. **Required** when
-    /// the environment is `.custom`. Mirrors Android's `VoiceOptions.signalingHost`.
+    /// the environment is `.custom`.
     public let signalingHost: String?
 
     public init(webrtcToken: String, speakerphone: Bool = true, signalingHost: String? = nil) {

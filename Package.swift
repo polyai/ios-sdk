@@ -14,14 +14,14 @@ let package = Package(
             targets: ["PolyMessaging"]
         ),
         // Voice calling (WebRTC). Separate product so chat-only apps never pull
-        // the WebRTC binary — mirrors Android's separate ai.poly:voice artifact.
+        // the WebRTC binary.
         .library(
             name: "PolyVoice",
             targets: ["PolyVoice"]
         ),
     ],
     dependencies: [
-        // The maintained WebRTC xcframework (same lineage as Android's libwebrtc).
+        // The maintained WebRTC xcframework.
         .package(url: "https://github.com/stasel/WebRTC.git", exact: "149.0.0"),
     ],
     targets: [

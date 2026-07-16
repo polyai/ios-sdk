@@ -6,8 +6,7 @@ import Foundation
 ///
 /// Fetched from the gateway per call (TURN relay credentials are short-lived),
 /// then handed to the media engine. Falls back to ``default`` (public STUN) when
-/// the fetch fails so a call can still connect on open NATs. Mirrors Android's
-/// `IceServer`.
+/// the fetch fails so a call can still connect on open NATs.
 public struct IceServer: Sendable, Equatable {
     public let urls: [String]
     public let username: String?

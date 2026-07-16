@@ -6,16 +6,16 @@ import AVFoundation
 import WebRTC
 import PolyMessaging
 
-/// Configures the audio session for a live call — the iOS analog of Android's
-/// `AndroidAudioControl`. Accessory-aware: a connected headset/Bluetooth is used
-/// automatically; otherwise it falls back to the loudspeaker (hands-free — the
-/// natural mode for a voice agent) when `defaultToSpeaker` is true.
+/// Configures the audio session for a live call. Accessory-aware: a connected
+/// headset/Bluetooth is used automatically; otherwise it falls back to the
+/// loudspeaker (hands-free — the natural mode for a voice agent) when
+/// `defaultToSpeaker` is true.
 final class AudioSessionController: @unchecked Sendable {
 
     private let defaultToSpeaker: Bool
     private let session = RTCAudioSession.sharedInstance()
     // Guards deactivate(): never touch the process-global audio session on a call that never
-    // activated it (e.g. start() failed before createOffer) — mirrors Android's `activated` guard.
+    // activated it (e.g. start() failed before createOffer).
     private var activated = false
 
     /// Sink for audio-session interruptions (phone call / Siri / another app), set by the engine.
@@ -31,7 +31,7 @@ final class AudioSessionController: @unchecked Sendable {
         interruptionObserver = NotificationCenter.default.addObserver(
             forName: AVAudioSession.interruptionNotification, object: nil, queue: nil
         ) { [weak self] note in self?.handleInterruption(note) }
-        // Re-route when a headset/Bluetooth is connected or removed mid-call (matches Android).
+        // Re-route when a headset/Bluetooth is connected or removed mid-call.
         routeChangeObserver = NotificationCenter.default.addObserver(
             forName: AVAudioSession.routeChangeNotification, object: nil, queue: nil
         ) { [weak self] _ in self?.handleRouteChange() }

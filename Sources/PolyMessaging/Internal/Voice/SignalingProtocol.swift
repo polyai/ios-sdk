@@ -84,7 +84,7 @@ enum SignalingProtocol {
 
     /// An outbound local ICE candidate (sent once the session ID is known).
     static func iceCandidate(_ candidate: ICECandidate, sessionId: String) -> Data? {
-        // Explicit JSON null when absent (matches the web/Android client's wire shape).
+        // Explicit JSON null when absent (matches the web client's wire shape).
         let data: [String: Any] = [
             "candidate": candidate.candidate,
             "sdpMid": candidate.sdpMid ?? NSNull(),
