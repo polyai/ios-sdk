@@ -158,6 +158,29 @@ let muted = await call.isMuted
 connected outputs the iOS-standard way, drop in the system route picker (`AVRoutePickerView`).
 Both example apps ship a **speaker toggle**.
 
+## Troubleshooting
+
+- **"API key was rejected" / fails while connecting** — both tokens come from the *same*
+  connector in Agent Studio › Connector Settings, and the `Configuration` must match that
+  connector's **environment** (region/cluster) and registered **host** (`hostIdentifier` /
+  the app's bundle id). A token from one environment silently 401s on another.
+- **Call connects but is silent (CallKit)** — the app isn't forwarding the provider
+  callbacks: all three `PolyVoice.callKit*` calls are required (see [CallKit](#callkit)),
+  and `UIBackgroundModes` must include `voip` or the call never starts at all
+  (`requesttransaction Code=1`).
+- **Call connects but is silent (no CallKit)** — check the mic permission was granted
+  (Settings › *your app* › Microphone) and that nothing else in the app deactivated the
+  `AVAudioSession` mid-call.
+- **`failed(.voice(.timedOut))` after ~30 s** — signaling reached the gateway but media
+  never connected: usually a firewalled/relay-only network where the TURN fetch failed
+  (the SDK then falls back to STUN, which can't cross symmetric NAT). Check connectivity
+  or the gateway's ICE endpoint.
+- **Works on Wi-Fi, dies on the walk to the car** — transient drops reconnect
+  automatically (see [Resilience](#resilience)); a `.disconnected` failure is retryable
+  (`error.isRetryable`) — offer a redial button.
+- **Nothing works on the simulator** — expected: WebRTC media needs a physical device,
+  and CallKit is additionally broken on iOS 17+ simulators.
+
 ## Resilience
 
 - **Connectivity:** STUN/TURN servers are fetched from the gateway per call, so calls connect
