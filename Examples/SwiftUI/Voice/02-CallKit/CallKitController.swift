@@ -24,6 +24,9 @@ final class CallKitController: NSObject, CXProviderDelegate {
     var performStart: (() -> Void)?
     var performEnd: (() -> Void)?
     var performMute: ((Bool) -> Void)?
+    /// The system refused a transaction (e.g. calls restricted by Screen Time) —
+    /// surface it; a silently-dropped Start tap looks like a dead button.
+    var onRequestError: ((Error) -> Void)?
 
     private let provider: CXProvider
     private let callController = CXCallController()
@@ -51,7 +54,11 @@ final class CallKitController: NSObject, CXProviderDelegate {
         let handle = CXHandle(type: .generic, value: agentName)
         let action = CXStartCallAction(call: uuid, handle: handle)
         callController.request(CXTransaction(action: action)) { [weak self] error in
-            if error != nil { self?.callUUID = nil } // e.g. calls restricted by Screen Time
+            if let error {
+                NSLog("PolyVoiceCallKit: start-call transaction failed: \(error)")
+                self?.callUUID = nil
+                self?.onRequestError?(error)
+            }
         }
     }
 
@@ -89,6 +96,7 @@ final class CallKitController: NSObject, CXProviderDelegate {
     }
 
     func provider(_ provider: CXProvider, perform action: CXStartCallAction) {
+        NSLog("PolyVoiceCallKit: perform(CXStartCallAction)")
         // Configure (never activate) BEFORE fulfilling: the session must already
         // have its voice-call shape when the system activates it — configuring
         // late (or self-activating) is the classic "didActivate never fires /
@@ -112,6 +120,7 @@ final class CallKitController: NSObject, CXProviderDelegate {
     }
 
     func provider(_ provider: CXProvider, didActivate audioSession: AVAudioSession) {
+        NSLog("PolyVoiceCallKit: didActivate audio session")
         PolyVoice.callKitAudioSessionDidActivate(audioSession)
     }
 

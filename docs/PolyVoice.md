@@ -91,6 +91,9 @@ func provider(_ provider: CXProvider, didDeactivate audioSession: AVAudioSession
 
 Rules the integration must follow (the **02-CallKit** examples encode all of them):
 
+- **Declare the `voip` background mode** (alongside `audio`) in `UIBackgroundModes` —
+  without it every `CXCallController` transaction is refused with
+  `com.apple.CallKit.error.requesttransaction Code=1` (unentitled) and the call never starts.
 - **Request, don't command:** start / end / mute go through `CXCallController` actions and
   are executed in the matching `perform` callback, so the system can arbitrate and the
   system UI stays in sync. Remote endings (the agent hangs up, a failure) are **reported**

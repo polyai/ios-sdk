@@ -27,7 +27,7 @@ targets:
       properties:
         UILaunchScreen: {}
         NSMicrophoneUsageDescription: "Voice calls need the microphone to talk to the agent."
-        UIBackgroundModes: [audio]  # keep the call alive when the app is backgrounded
+        UIBackgroundModes: [audio, voip]  # audio keeps the call alive; voip is REQUIRED for CallKit transactions
     settings:
       base:
         TARGETED_DEVICE_FAMILY: "1,2"

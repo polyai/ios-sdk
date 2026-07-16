@@ -140,6 +140,11 @@ struct ContentView: View {
             Task { await newCall.setMuted(m) }
             muted = m
         }
+        callKit.onRequestError = { error in
+            Task { @MainActor in
+                state = .failed(.voice(.signalingFailed("CallKit refused the call: \(error.localizedDescription)")))
+            }
+        }
         if callKitAvailable {
             callKit.requestStart(agentName: "PolyAI Agent")
         } else {

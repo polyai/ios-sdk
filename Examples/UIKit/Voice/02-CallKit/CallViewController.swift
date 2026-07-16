@@ -138,6 +138,11 @@ final class CallViewController: UIViewController {
         callKit.performMute = { [weak self] m in
             Task { @MainActor in self?.setMuted(m) }
         }
+        callKit.onRequestError = { [weak self] error in
+            Task { @MainActor in
+                self?.state = .failed(.voice(.signalingFailed("CallKit refused the call: \(error.localizedDescription)")))
+            }
+        }
         if callKitAvailable {
             callKit.requestStart(agentName: "PolyAI Agent")
         } else {
