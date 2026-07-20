@@ -8,6 +8,10 @@ import PolyMessaging
 /// iOS-only, so the meat of this suite is `#if os(iOS)` and exercised by the
 /// iOS-simulator CI leg (`xcodebuild test`); under `swift test` on macOS it
 /// compiles to the options-only subset.
+///
+/// `@MainActor` because `PolyVoice.call(...)` and `PolyCall` are — `PolyCall` is
+/// an `ObservableObject` created and observed on the main actor, like `ChatSession`.
+@MainActor
 final class PolyVoiceTests: XCTestCase {
 
     func test_voiceOptions_defaults() {
