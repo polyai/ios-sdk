@@ -1,11 +1,12 @@
 // Copyright PolyAI Limited
 
 import XCTest
-@testable import PolyMessaging
+@_spi(PolyVoice) @testable import PolyMessaging
 
 /// Tests the public, gated voice-call surface. Voice calling ships without an
 /// on-device media engine, so the public entry points must report
 /// `.voice(.notImplemented)` — never silently no-op or appear to connect.
+@MainActor
 final class PolyCallTests: XCTestCase {
 
     private let config = Configuration(apiKey: "test_api_key", environment: .us)

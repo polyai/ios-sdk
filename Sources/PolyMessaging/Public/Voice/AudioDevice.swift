@@ -10,7 +10,7 @@ import Foundation
 public struct AudioDevice: Sendable, Equatable, Identifiable {
 
     /// The category of an ``AudioDevice`` — pick an icon/label without string-matching `name`.
-    public enum DeviceType: Sendable, Equatable {
+    public enum Kind: Sendable, Equatable {
         case earpiece
         case speakerphone
         case wiredHeadset
@@ -19,7 +19,7 @@ public struct AudioDevice: Sendable, Equatable, Identifiable {
     }
 
     /// The kind of output.
-    public let type: DeviceType
+    public let kind: Kind
     /// Human-readable label for a picker (e.g. `"AirPods Pro"`, `"Speaker"`).
     public let name: String
     /// Opaque, stable identity (the `AVAudioSession` port UID, or a synthetic id for the
@@ -28,14 +28,19 @@ public struct AudioDevice: Sendable, Equatable, Identifiable {
 
     /// Constructed by the SDK's audio engine — you obtain instances from ``PolyCall/audioState``,
     /// you don't build them yourself.
-    public init(type: DeviceType, name: String, id: String) {
-        self.type = type
+    ///
+    /// SPI rather than API: `PolyVoice` is a separate module and needs to build these,
+    /// but that's an SDK-internal need. Keeping it out of the public surface means the
+    /// memberwise shape isn't semver-locked.
+    @_spi(PolyVoice)
+    public init(kind: Kind, name: String, id: String) {
+        self.kind = kind
         self.name = name
         self.id = id
     }
 
     public static func == (lhs: AudioDevice, rhs: AudioDevice) -> Bool {
-        lhs.type == rhs.type && lhs.id == rhs.id
+        lhs.kind == rhs.kind && lhs.id == rhs.id
     }
 }
 

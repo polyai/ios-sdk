@@ -1,7 +1,7 @@
 // Copyright PolyAI Limited
 
 import XCTest
-@testable import PolyMessaging
+@_spi(PolyVoice) @testable import PolyMessaging
 
 /// Parsing of the gateway ICE-servers response + the static fallback provider.
 final class IceServersProviderTests: XCTestCase {
@@ -35,7 +35,7 @@ final class IceServersProviderTests: XCTestCase {
 
     func test_staticProvider_returnsGivenServers() async {
         let servers = await StaticIceServersProvider().fetch()
-        XCTAssertEqual(servers, IceServer.default)
+        XCTAssertEqual(servers, IceServer.defaultServers)
     }
 
     // MARK: - VoiceEnvironment endpoint construction
@@ -107,7 +107,7 @@ final class IceServersProviderTests: XCTestCase {
     func test_fetch_nilURL_returnsDefault() async {
         let f = GatewayIceServersFetcher(url: nil, logger: OSLogLogger(level: .none))
         let servers = await f.fetch()
-        XCTAssertEqual(servers, IceServer.default)
+        XCTAssertEqual(servers, IceServer.defaultServers)
     }
 
     func test_fetch_success_parsesServers() async {
@@ -128,14 +128,14 @@ final class IceServersProviderTests: XCTestCase {
         }
         defer { MockURLProtocol.handler = nil }
         let servers = await fetcher(mockSession()).fetch()
-        XCTAssertEqual(servers, IceServer.default)
+        XCTAssertEqual(servers, IceServer.defaultServers)
     }
 
     func test_fetch_networkError_fallsBackToStun() async {
         MockURLProtocol.handler = { _ in throw URLError(.notConnectedToInternet) }
         defer { MockURLProtocol.handler = nil }
         let servers = await fetcher(mockSession()).fetch()
-        XCTAssertEqual(servers, IceServer.default)
+        XCTAssertEqual(servers, IceServer.defaultServers)
     }
 
     func test_fetch_emptyList_fallsBackToStun() async {
@@ -145,7 +145,7 @@ final class IceServersProviderTests: XCTestCase {
         }
         defer { MockURLProtocol.handler = nil }
         let servers = await fetcher(mockSession()).fetch()
-        XCTAssertEqual(servers, IceServer.default, "an empty list still yields a usable STUN default")
+        XCTAssertEqual(servers, IceServer.defaultServers, "an empty list still yields a usable STUN default")
     }
 }
 

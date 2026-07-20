@@ -2,7 +2,7 @@
 
 import Foundation
 import XCTest
-@testable import PolyMessaging
+@_spi(PolyVoice) @testable import PolyMessaging
 
 // MARK: - Mock signaling channel
 
@@ -85,10 +85,10 @@ final class StubMediaEngine: CallMediaEngine, @unchecked Sendable {
     private let lock = NSLock()
     private var _createOfferCount = 0
     private var _acceptedAnswer: String?
-    private var _remoteCandidates: [ICECandidate] = []
+    private var _remoteCandidates: [IceCandidate] = []
     private var _muted: Bool?
     private var _closeCount = 0
-    private var localHandler: (@Sendable (ICECandidate) -> Void)?
+    private var localHandler: (@Sendable (IceCandidate) -> Void)?
     private var stateHandler: (@Sendable (CallMediaState) -> Void)?
     private var interruptionHandler: (@Sendable (CallInterruption) -> Void)?
     private var audioStateHandler: (@Sendable (AudioState) -> Void)?
@@ -101,7 +101,7 @@ final class StubMediaEngine: CallMediaEngine, @unchecked Sendable {
 
     var createOfferCount: Int { lock.lock(); defer { lock.unlock() }; return _createOfferCount }
     var acceptedAnswer: String? { lock.lock(); defer { lock.unlock() }; return _acceptedAnswer }
-    var remoteCandidates: [ICECandidate] { lock.lock(); defer { lock.unlock() }; return _remoteCandidates }
+    var remoteCandidates: [IceCandidate] { lock.lock(); defer { lock.unlock() }; return _remoteCandidates }
     var muted: Bool? { lock.lock(); defer { lock.unlock() }; return _muted }
     var closeCount: Int { lock.lock(); defer { lock.unlock() }; return _closeCount }
 
@@ -118,11 +118,11 @@ final class StubMediaEngine: CallMediaEngine, @unchecked Sendable {
         lock.lock(); _acceptedAnswer = sdp; lock.unlock()
     }
 
-    func addRemoteCandidate(_ candidate: ICECandidate) async throws {
+    func addRemoteCandidate(_ candidate: IceCandidate) async throws {
         lock.lock(); _remoteCandidates.append(candidate); lock.unlock()
     }
 
-    func setLocalCandidateHandler(_ handler: @escaping @Sendable (ICECandidate) -> Void) async {
+    func setLocalCandidateHandler(_ handler: @escaping @Sendable (IceCandidate) -> Void) async {
         lock.lock(); localHandler = handler; lock.unlock()
     }
 
@@ -151,7 +151,7 @@ final class StubMediaEngine: CallMediaEngine, @unchecked Sendable {
     }
 
     // Test drivers
-    func emitLocalCandidate(_ candidate: ICECandidate) {
+    func emitLocalCandidate(_ candidate: IceCandidate) {
         lock.lock(); let h = localHandler; lock.unlock()
         h?(candidate)
     }

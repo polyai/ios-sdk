@@ -10,7 +10,7 @@ protocol IceServersProviding: Sendable {
 /// Returns a fixed set — used by unit tests and as the STUN-only default.
 struct StaticIceServersProvider: IceServersProviding {
     let servers: [IceServer]
-    init(_ servers: [IceServer] = IceServer.default) { self.servers = servers }
+    init(_ servers: [IceServer] = IceServer.defaultServers) { self.servers = servers }
     func fetch() async -> [IceServer] { servers }
 }
 
@@ -24,20 +24,20 @@ struct GatewayIceServersFetcher: IceServersProviding {
     var urlSession: URLSession = .shared
 
     func fetch() async -> [IceServer] {
-        guard let url else { return IceServer.default }
+        guard let url else { return IceServer.defaultServers }
         do {
             var request = URLRequest(url: url)
             request.setValue("application/json", forHTTPHeaderField: "Accept")
             let (data, response) = try await urlSession.data(for: request)
             guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else {
                 logger.warn("ICE servers fetch returned non-2xx; falling back to STUN", metadata: nil)
-                return IceServer.default
+                return IceServer.defaultServers
             }
             let parsed = Self.parse(data)
-            return parsed.isEmpty ? IceServer.default : parsed
+            return parsed.isEmpty ? IceServer.defaultServers : parsed
         } catch {
             logger.warn("ICE servers fetch failed; falling back to STUN", metadata: ["error": error.localizedDescription])
-            return IceServer.default
+            return IceServer.defaultServers
         }
     }
 

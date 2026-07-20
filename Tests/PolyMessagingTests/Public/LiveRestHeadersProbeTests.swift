@@ -1,7 +1,7 @@
 // Copyright PolyAI Limited
 
 import XCTest
-@testable import PolyMessaging
+@_spi(PolyVoice) @testable import PolyMessaging
 
 /// Opt-in live probe asserting the REST session-create body carries the new
 /// `device_type` field (web-SDK parity). Skipped unless POLY_CONNECTOR_TOKEN is set.

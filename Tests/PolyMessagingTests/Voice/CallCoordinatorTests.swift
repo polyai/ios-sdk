@@ -1,7 +1,7 @@
 // Copyright PolyAI Limited
 
 import XCTest
-@testable import PolyMessaging
+@_spi(PolyVoice) @testable import PolyMessaging
 
 /// Deterministic, network-free tests of the full voice-call pipeline. Drives a
 /// real `CallCoordinator` over a `MockConnection` (messaging-link WS), a
@@ -79,7 +79,7 @@ final class CallCoordinatorTests: XCTestCase {
         XCTAssertNotNil((linkFrames.first?["payload"] as? [String: Any])?["call_sid"] as? String)
 
         // A local ICE candidate generated before the answer must be buffered.
-        media.emitLocalCandidate(ICECandidate(candidate: "cand:local", sdpMid: "0", sdpMLineIndex: 0))
+        media.emitLocalCandidate(IceCandidate(candidate: "cand:local", sdpMid: "0", sdpMLineIndex: 0))
 
         // Channel opens → the offer is sent with the right shape.
         channel.emit(.opened)
@@ -222,7 +222,7 @@ final class CallCoordinatorTests: XCTestCase {
         // Socket drops → reconnect. A candidate generated during the gap must not be lost.
         channel.emit(.closed(code: 1006, reason: "gap"))
         _ = await waitUntil { channel.openCount >= 2 }
-        media.emitLocalCandidate(ICECandidate(candidate: "cand:gap", sdpMid: "0", sdpMLineIndex: 0))
+        media.emitLocalCandidate(IceCandidate(candidate: "cand:gap", sdpMid: "0", sdpMLineIndex: 0))
         channel.emit(.opened) // reconnect succeeds → buffered ICE is flushed
 
         let delivered = await waitUntil {
@@ -282,7 +282,7 @@ final class CallCoordinatorTests: XCTestCase {
 
         // Inside the confirm window (shorter than the loop's 100ms poll tick).
         try await Task.sleep(nanoseconds: 30_000_000)
-        media.emitLocalCandidate(ICECandidate(candidate: "cand:window", sdpMid: "0", sdpMLineIndex: 0))
+        media.emitLocalCandidate(IceCandidate(candidate: "cand:window", sdpMid: "0", sdpMLineIndex: 0))
 
         let delivered = await waitUntil {
             channel.sentFrames(ofType: "ice-candidate")
@@ -297,7 +297,7 @@ final class CallCoordinatorTests: XCTestCase {
         let coord = makeCoordinator(conn: conn, media: media)
         try await arm(coord, conn: conn)
         // Default provider → the STUN fallback reaches the engine's createOffer.
-        XCTAssertEqual(media.lastIceServers, IceServer.default)
+        XCTAssertEqual(media.lastIceServers, IceServer.defaultServers)
     }
 
     func test_mediaDropAfterConnect_failsDisconnected() async throws {
@@ -412,7 +412,7 @@ final class CallCoordinatorTests: XCTestCase {
         let media = StubMediaEngine()
         let coord = makeCoordinator(conn: conn, media: media)
         try await arm(coord, conn: conn)
-        let speaker = AudioDevice(type: .speakerphone, name: "Speaker", id: "builtin.speaker")
+        let speaker = AudioDevice(kind: .speakerphone, name: "Speaker", id: "builtin.speaker")
         await coord.selectAudioDevice(speaker)
         await coord.selectAudioDevice(nil) // revert to automatic
         XCTAssertEqual(media.audioDeviceSelections.count, 2)
@@ -425,7 +425,7 @@ final class CallCoordinatorTests: XCTestCase {
         let media = StubMediaEngine()
         let coord = makeCoordinator(conn: conn, media: media)
         try await arm(coord, conn: conn) // sets the audio-state handler
-        let device = AudioDevice(type: .bluetooth, name: "Buds", id: "bt1")
+        let device = AudioDevice(kind: .bluetooth, name: "Buds", id: "bt1")
         let state = AudioState(availableDevices: [device], selectedDevice: device)
 
         let stream = coord.audioStream
@@ -561,7 +561,7 @@ final class CallCoordinatorTests: XCTestCase {
 
         // A direct send that fails must requeue the candidate, not drop it.
         channel.failSends = true
-        media.emitLocalCandidate(ICECandidate(candidate: "cand:requeued", sdpMid: "0", sdpMLineIndex: 0))
+        media.emitLocalCandidate(IceCandidate(candidate: "cand:requeued", sdpMid: "0", sdpMLineIndex: 0))
         try? await Task.sleep(nanoseconds: 100_000_000)
         XCTAssertTrue(channel.sentFrames(ofType: "ice-candidate").isEmpty)
 

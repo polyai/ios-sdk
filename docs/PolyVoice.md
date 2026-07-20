@@ -10,13 +10,19 @@ the same `CallState` / `PolyError` vocabulary — no new concepts.
 **Swift Package Manager** — add the package and depend on the `PolyVoice` product:
 
 ```swift
-.package(url: "https://github.com/polyai/ios-sdk.git", from: "0.9.0")
+// Pre-1.0: breaking changes bump the MINOR version, so pin to next-minor.
+.package(url: "https://github.com/polyai/ios-sdk.git", .upToNextMinor(from: "0.9.0"))
 // target dependency (the package identity is the repo name, `ios-sdk`):
 .product(name: "PolyVoice", package: "ios-sdk")
 ```
 
 `PolyVoice` transitively pulls the WebRTC xcframework; `PolyMessaging` stays
-source-only, so a chat-only target depends only on `PolyMessaging`.
+source-only, so a chat-only target **links** only `PolyMessaging`.
+
+> Note: with SPM, adding this repo resolves the WebRTC package for the whole
+> dependency graph, so a chat-only target still *downloads* the xcframework even
+> though it never links it. With CocoaPods the dependency lives solely in
+> `PolyVoice.podspec`, so a chat-only `pod 'PolyMessaging'` install pulls nothing extra.
 
 **CocoaPods**:
 
@@ -143,13 +149,13 @@ controls is **speaker ↔ earpiece**. Observe the live route via `call.audioStat
 speaker with `call.setAudioDevice(_:)`:
 
 ```swift
-Task { for await snapshot in call.audioState {
+Task { for await snapshot in call.audioStates {
     show(current: snapshot.selectedDevice)      // e.g. "Output: AirPods"
 } }
 
 // speaker ↔ earpiece — the entries come from snapshot.availableDevices
-await call.setAudioDevice(speakerDevice)    // .type == .speakerphone
-await call.setAudioDevice(earpieceDevice)   // .type == .earpiece
+await call.setAudioDevice(speakerDevice)    // .kind == .speakerphone
+await call.setAudioDevice(earpieceDevice)   // .kind == .earpiece
 let muted = await call.isMuted
 ```
 
@@ -196,7 +202,8 @@ Both example apps ship a **speaker toggle**.
 
 `PolyVoice` provides a real `CallMediaEngine` (an `RTCPeerConnection` audio engine)
 and an `AVAudioSession` controller, injected into the existing `PolyMessaging`
-`CallCoordinator` via `PolyCall.wired(config:webrtcToken:mediaEngine:)`. The
+`CallCoordinator` via `PolyCall.wired(config:webrtcToken:signalingHost:mediaEngine:)`
+(SPI — `@_spi(PolyVoice)`, not public API). The
 signaling pipeline (auth → session → link → signaling → offer/answer/ICE) lives in
 `PolyMessaging` and is exercised end-to-end by its test suite.
 

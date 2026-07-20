@@ -4,26 +4,7 @@ All notable changes to the PolyMessaging iOS SDK are documented here.
 This project adheres to [Semantic Versioning](https://semver.org). While the SDK
 is pre-1.0, breaking changes bump the **minor** version.
 
-## [Unreleased]
-
-### Added
-- **CallKit support** (`PolyVoice`): opt in with `VoiceOptions(callKit: true)` to run a
-  call as a system call. The SDK defers audio-session activation and the WebRTC audio
-  unit to CallKit; three new statics forward the `CXProviderDelegate` moments —
-  `PolyVoice.callKitConfigureAudioSession()`, `callKitAudioSessionDidActivate(_:)`,
-  `callKitAudioSessionDidDeactivate(_:)`. New **Voice 02-CallKit** example (SwiftUI +
-  UIKit) with the full provider wiring; [voice guide › CallKit](docs/PolyVoice.md#callkit).
-
-### Fixed
-- `PolyVoice.podspec` now depends on `WebRTC-lib` (the pod that actually publishes
-  M149) — CocoaPods installs of 0.9.0's spec could not resolve `WebRTC-SDK`.
-- Voice signaling hardening: offers/ICE are re-sent after a reconnect instead of being
-  silently lost, stale socket callbacks can no longer corrupt a new connection, WS close
-  codes are classified (clean close / terminal / retryable), `call.end()` now returns
-  only after every resource (sockets, media engine, audio session) is released, and the
-  audio session is never deactivated by a call that failed to acquire it.
-
-## [0.9.0] - 2026-07-01
+## [0.9.0] - 2026-07-20
 
 Adds **PolyVoice** — live, two-way WebRTC voice calls to a PolyAI agent — as a
 **separate product/pod**, so chat-only apps never link the WebRTC binary. It supplies
@@ -35,9 +16,20 @@ signaling pipeline.
 - **`PolyVoice.call(config:options:)`** → a `PolyCall` backed by a real WebRTC audio
   engine (audio-only Opus, offer / answer / trickle ICE, mute). `VoiceOptions.webrtcToken`
   is required — a distinct token from the API key.
-- Public media seam on `PolyMessaging`: `CallMediaEngine` / `CallMediaState` /
-  `ICECandidate` are now public, plus `PolyCall.wired(config:webrtcToken:mediaEngine:)` —
-  so `PolyVoice` injects the WebRTC engine while `PolyMessaging` stays source-only.
+- **CallKit support** (`PolyVoice`): opt in with `VoiceOptions(callKit: true)` to run a
+  call as a system call. The SDK defers audio-session activation and the WebRTC audio
+  unit to CallKit; three new statics forward the `CXProviderDelegate` moments —
+  `PolyVoice.callKitConfigureAudioSession()`, `callKitAudioSessionDidActivate(_:)`,
+  `callKitAudioSessionDidDeactivate(_:)`. New **Voice 02-CallKit** example (SwiftUI +
+  UIKit) with the full provider wiring; [voice guide › CallKit](docs/PolyVoice.md#callkit).
+- Public voice types on `PolyMessaging`: `CallState`, `AudioDevice`, `AudioState`,
+  `IceServer`, `IceCandidate`, `CallMediaState` and `CallInterruption`.
+  `CallMediaEngine` and `PolyCall.wired(...)` exist only so `PolyVoice` can inject its
+  engine across the module boundary, so they are **SPI** (`@_spi(PolyVoice)`), not API —
+  they stay refactorable and are not semver-locked.
+- **`PolyCall` is an `ObservableObject`** (`@MainActor`), matching `ChatSession`: bind
+  SwiftUI straight to the `@Published` `state` / `audioState`. The `states` /
+  `audioStates` `AsyncStream`s remain for UIKit and other non-SwiftUI consumers.
 - **Gateway ICE/TURN**: the call fetches STUN/TURN servers from the gateway per call, so it
   connects behind symmetric NAT / CGNAT (falls back to public STUN if the fetch fails).
 - **Signaling auto-reconnect**: an unexpected signaling-socket drop reconnects with backoff
@@ -55,6 +47,33 @@ signaling pipeline.
 - **Audio-output observation + control**: `PolyCall.audioState` (available outputs + the active one),
   `setAudioDevice(_:)` (speaker ↔ earpiece; accessories are system-routed), and `isMuted`.
 - A SwiftUI + UIKit **Voice** example (tap-to-call, with mute + a speaker toggle).
+
+### Fixed
+
+Found by review before this ever shipped — listed because they're the failure modes
+worth knowing about, not because any released version had them.
+
+- **CallKit calls played out of the earpiece** instead of the loudspeaker: the audio
+  route was never applied, because the route-change CallKit's activation fires was
+  dropped by a guard that hadn't been armed yet.
+- **Ending a call during setup leaked the peer connection and left the microphone
+  live** — the recording indicator stayed lit for the rest of the app's lifetime.
+- **Ending a call during a signaling reconnect leaked a WebSocket + URLSession** per
+  occurrence: `open()` has no cancellation points, so cancelling the reconnect didn't
+  stop it resuming a socket after teardown had finished.
+- **A data race in the signaling channel**: `send()` was synchronized but `open()` /
+  `close()` were not, and teardown races reconnect.
+- **A healthy call could be failed by a routine ICE blip**: media states were delivered
+  one unstructured `Task` per event, so `.disconnected` → `.connected` could apply in
+  reverse and strand the call on the disconnect grace timer.
+- ICE candidates gathered in the window just after a signaling reconnect were buffered
+  with nothing left to flush them, and were lost for the rest of the call.
+- Voice signaling hardening: offers/ICE are re-sent after a reconnect instead of being
+  silently lost, stale socket callbacks can no longer corrupt a new connection, WS close
+  codes are classified (clean close / terminal / retryable), `call.end()` now returns
+  only after every resource (sockets, media engine, audio session) is released, and the
+  audio session is never deactivated by a call that failed to acquire it.
+- `PolyVoice.podspec` depends on `WebRTC-lib` (the pod that actually publishes M149).
 
 ## [0.8.0] - 2026-06-04
 

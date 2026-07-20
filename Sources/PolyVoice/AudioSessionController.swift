@@ -4,7 +4,7 @@
 import Foundation
 import AVFoundation
 import WebRTC
-import PolyMessaging
+@_spi(PolyVoice) import PolyMessaging
 
 /// Configures the audio session for a live call. Accessory-aware: a connected
 /// headset/Bluetooth is used automatically; otherwise it falls back to the
@@ -173,7 +173,7 @@ final class AudioSessionController: @unchecked Sendable {
             applyRoute()
             return
         }
-        switch device.type {
+        switch device.kind {
         case .speakerphone:
             try? av.setPreferredInput(nil)
             try? session.overrideOutputAudioPort(.speaker)
@@ -199,15 +199,15 @@ final class AudioSessionController: @unchecked Sendable {
         let av = AVAudioSession.sharedInstance()
         // Built-in earpiece + speaker are always routable during a playAndRecord call.
         var devices: [AudioDevice] = [
-            AudioDevice(type: .earpiece, name: "iPhone", id: "builtin.earpiece"),
-            AudioDevice(type: .speakerphone, name: "Speaker", id: "builtin.speaker"),
+            AudioDevice(kind: .earpiece, name: "iPhone", id: "builtin.earpiece"),
+            AudioDevice(kind: .speakerphone, name: "Speaker", id: "builtin.speaker"),
         ]
         for input in av.availableInputs ?? [] {
             switch input.portType {
             case .headphones, .headsetMic, .usbAudio, .lineIn:
-                devices.append(AudioDevice(type: .wiredHeadset, name: input.portName, id: input.uid))
+                devices.append(AudioDevice(kind: .wiredHeadset, name: input.portName, id: input.uid))
             case .bluetoothHFP, .bluetoothA2DP, .bluetoothLE:
-                devices.append(AudioDevice(type: .bluetooth, name: input.portName, id: input.uid))
+                devices.append(AudioDevice(kind: .bluetooth, name: input.portName, id: input.uid))
             default:
                 break
             }
@@ -218,9 +218,9 @@ final class AudioSessionController: @unchecked Sendable {
         for output in av.currentRoute.outputs {
             switch output.portType {
             case .headphones, .usbAudio, .lineOut:
-                devices.append(AudioDevice(type: .wiredHeadset, name: output.portName, id: output.uid))
+                devices.append(AudioDevice(kind: .wiredHeadset, name: output.portName, id: output.uid))
             case .bluetoothHFP, .bluetoothA2DP, .bluetoothLE, .carAudio:
-                devices.append(AudioDevice(type: .bluetooth, name: output.portName, id: output.uid))
+                devices.append(AudioDevice(kind: .bluetooth, name: output.portName, id: output.uid))
             default:
                 break
             }
@@ -234,12 +234,12 @@ final class AudioSessionController: @unchecked Sendable {
     private func selectedOutput(from av: AVAudioSession, among available: [AudioDevice]) -> AudioDevice? {
         guard let output = av.currentRoute.outputs.first else { return nil }
         switch output.portType {
-        case .builtInReceiver: return available.first { $0.type == .earpiece }
-        case .builtInSpeaker:  return available.first { $0.type == .speakerphone }
+        case .builtInReceiver: return available.first { $0.kind == .earpiece }
+        case .builtInSpeaker:  return available.first { $0.kind == .speakerphone }
         case .headphones, .usbAudio, .lineOut:
-            return available.first { $0.id == output.uid } ?? available.first { $0.type == .wiredHeadset }
+            return available.first { $0.id == output.uid } ?? available.first { $0.kind == .wiredHeadset }
         case .bluetoothHFP, .bluetoothA2DP, .bluetoothLE, .carAudio:
-            return available.first { $0.id == output.uid } ?? available.first { $0.type == .bluetooth }
+            return available.first { $0.id == output.uid } ?? available.first { $0.kind == .bluetooth }
         default:
             return available.first { $0.id == output.uid }
         }

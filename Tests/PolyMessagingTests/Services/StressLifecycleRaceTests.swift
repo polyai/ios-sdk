@@ -1,7 +1,7 @@
 // Copyright PolyAI Limited
 
 import XCTest
-@testable import PolyMessaging
+@_spi(PolyVoice) @testable import PolyMessaging
 
 /// Stress probes for lifecycle races around the typing-indicator timer and the
 /// heartbeat tick gate. Assert CURRENT intended behaviour; must pass unchanged.

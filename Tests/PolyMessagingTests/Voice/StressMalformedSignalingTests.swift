@@ -1,7 +1,7 @@
 // Copyright PolyAI Limited
 
 import XCTest
-@testable import PolyMessaging
+@_spi(PolyVoice) @testable import PolyMessaging
 
 /// Adversarial inputs for the signaling wire layer (the voice twin of the chat
 /// `StressMalformedWire` suite). Two invariants:
@@ -67,7 +67,7 @@ final class StressMalformedSignalingTests: XCTestCase {
         ])
         XCTAssertEqual(
             SignalingProtocol.parse(ice),
-            .iceCandidate(ICECandidate(candidate: "cand:1", sdpMid: nil, sdpMLineIndex: nil))
+            .iceCandidate(IceCandidate(candidate: "cand:1", sdpMid: nil, sdpMLineIndex: nil))
         )
 
         // An error frame with a non-string message falls back to the default.

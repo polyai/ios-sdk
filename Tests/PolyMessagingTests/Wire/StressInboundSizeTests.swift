@@ -1,7 +1,7 @@
 // Copyright PolyAI Limited
 
 import XCTest
-@testable import PolyMessaging
+@_spi(PolyVoice) @testable import PolyMessaging
 
 /// Robustness / stress probes for oversized and content-only inbound frames.
 final class StressInboundSizeTests: XCTestCase {

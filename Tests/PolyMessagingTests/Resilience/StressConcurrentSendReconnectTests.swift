@@ -1,7 +1,7 @@
 // Copyright PolyAI Limited
 
 import XCTest
-@testable import PolyMessaging
+@_spi(PolyVoice) @testable import PolyMessaging
 
 /// Drives `ChatService`'s `waitForTransportOpen`/`retrySender` hooks directly (no
 /// Coordinator) for deterministic timing. Invariant: a send caught in a reconnect

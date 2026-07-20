@@ -1,7 +1,7 @@
 // Copyright PolyAI Limited
 
 import XCTest
-@testable import PolyMessaging
+@_spi(PolyVoice) @testable import PolyMessaging
 
 /// End-to-end *scenario* coverage for the two "complete" example levels
 /// (05-Handoff, 06-FullReference) at the layer those apps actually bind to —
@@ -297,7 +297,23 @@ final class E2EScenarioTests: XCTestCase {
         await assertEventually("new session re-attempts the socket", timeout: 10.0) {
             conn.connectCalls.count >= 2
         }
+        // `simulateOpen` is MainActor-originated, so it drives the executor and lets
+        // the pending session-id change land.
         conn.simulateOpen()
+
+        // Wait for the id change to be APPLIED before replaying the new session's
+        // events. Ordering matters and is not otherwise guaranteed: the id change
+        // (`applySessionIdChange`) and the socket's `sessionStart` arrive on separate
+        // streams from different actors, and `applySessionIdChange` resets
+        // `hasStarted`/`messages`. Emitting `sessionStart` first means a late id
+        // change wipes both — and since `hasStarted` is only ever set by
+        // `sessionStart`, nothing sets it true again and the session looks unstarted
+        // forever. A real app sees create-session before the socket opens; this
+        // reproduces that order instead of racing it. (~1-in-7 flake before.)
+        await assertEventually("new session id applied (old transcript cleared)") {
+            s.agentMessages.isEmpty
+        }
+
         conn.simulateMessage(.sessionStart(makeEnvelope(id: "ss2"), makeSessionStartPayload()))
         conn.simulateMessage(.agentMessage(makeEnvelope(id: "a2"),
             makeAgentMessagePayload(messageId: "m2", text: "Fresh start")))
@@ -308,7 +324,10 @@ final class E2EScenarioTests: XCTestCase {
         }
         XCTAssertFalse(s.agentMessages.contains { $0.text == "Old conversation" },
                        "old transcript must be cleared on the new session")
-        XCTAssertTrue(s.hasStarted)
+        // `hasStarted` is republished by the NEW session's start, which is delivered
+        // from a background actor like everything else here — asserting it
+        // synchronously races that delivery.
+        await assertEventually("new session is marked started") { s.hasStarted }
     }
 
     // MARK: - Scenario 1: Offline at launch

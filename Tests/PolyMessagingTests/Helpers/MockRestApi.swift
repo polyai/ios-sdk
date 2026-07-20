@@ -1,7 +1,7 @@
 // Copyright PolyAI Limited
 
 import Foundation
-@testable import PolyMessaging
+@_spi(PolyVoice) @testable import PolyMessaging
 
 /// Three-part base64url-encoded JWT with `alg:none` header, empty payload,
 /// and empty signature. Structurally valid (no `exp` claim = non-expiring

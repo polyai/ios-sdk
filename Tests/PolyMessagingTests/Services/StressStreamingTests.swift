@@ -1,7 +1,7 @@
 // Copyright PolyAI Limited
 
 import XCTest
-@testable import PolyMessaging
+@_spi(PolyVoice) @testable import PolyMessaging
 
 /// Stress probes for `ChatService` streaming-chunk assembly: replayed chunk
 /// index and payloads on the `maxMessageSize` boundary.

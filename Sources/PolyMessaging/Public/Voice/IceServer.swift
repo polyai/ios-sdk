@@ -5,7 +5,7 @@ import Foundation
 /// A STUN/TURN server the WebRTC peer connection uses for ICE.
 ///
 /// Fetched from the gateway per call (TURN relay credentials are short-lived),
-/// then handed to the media engine. Falls back to ``default`` (public STUN) when
+/// then handed to the media engine. Falls back to ``defaultServers`` (public STUN) when
 /// the fetch fails so a call can still connect on open NATs.
 public struct IceServer: Sendable, Equatable {
     public let urls: [String]
@@ -20,7 +20,7 @@ public struct IceServer: Sendable, Equatable {
 
     /// Public STUN — the fallback when the gateway ICE fetch fails. TURN relay
     /// (needed to connect behind symmetric NAT / CGNAT) only comes from the gateway.
-    public static let `default`: [IceServer] = [
+    public static let defaultServers: [IceServer] = [
         IceServer(urls: ["stun:stun.l.google.com:19302"]),
     ]
 }

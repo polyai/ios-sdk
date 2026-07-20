@@ -4,7 +4,7 @@
 // CertificatePinner.swift is revived (see notes there).
 #if false
 import XCTest
-@testable import PolyMessaging
+@_spi(PolyVoice) @testable import PolyMessaging
 
 final class CertificatePinnerTests: XCTestCase {
 

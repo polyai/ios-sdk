@@ -1,7 +1,7 @@
 // Copyright PolyAI Limited
 
 import XCTest
-@testable import PolyMessaging
+@_spi(PolyVoice) @testable import PolyMessaging
 
 /// Stress probes for the handshake + invalid-session path. Two invariants:
 ///  1. Repeated handshake failures must not stack observation tasks — one

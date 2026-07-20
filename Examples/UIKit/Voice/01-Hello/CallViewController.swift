@@ -96,7 +96,7 @@ final class CallViewController: UIViewController {
                 await MainActor.run { self?.state = newState }
             }
         }
-        let audioStates = newCall.audioState
+        let audioStates = newCall.audioStates
         audioObserver = Task { [weak self] in
             for await snapshot in audioStates {
                 await MainActor.run { self?.audioState = snapshot }
@@ -114,9 +114,9 @@ final class CallViewController: UIViewController {
     // iOS keeps one active output + auto-routes accessories; speaker ↔ earpiece is the one
     // output an app reliably controls.
     @objc private func toggleSpeaker() {
-        let isSpeaker = audioState.selectedDevice?.type == .speakerphone
-        let target: AudioDevice.DeviceType = isSpeaker ? .earpiece : .speakerphone
-        if let device = audioState.availableDevices.first(where: { $0.type == target }) {
+        let isSpeaker = audioState.selectedDevice?.kind == .speakerphone
+        let target: AudioDevice.Kind = isSpeaker ? .earpiece : .speakerphone
+        if let device = audioState.availableDevices.first(where: { $0.kind == target }) {
             Task { await call?.setAudioDevice(device) }
         }
     }
@@ -126,7 +126,7 @@ final class CallViewController: UIViewController {
         outputLabel.isHidden = !hasAudio
         speakerButton.isHidden = !hasAudio
         outputLabel.text = audioState.selectedDevice.map { "Output: \($0.name)" }
-        let isSpeaker = audioState.selectedDevice?.type == .speakerphone
+        let isSpeaker = audioState.selectedDevice?.kind == .speakerphone
         speakerButton.setTitle(isSpeaker ? "Speaker: on" : "Speaker: off", for: .normal)
     }
 
