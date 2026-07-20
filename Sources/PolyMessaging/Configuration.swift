@@ -6,7 +6,7 @@ public struct Configuration: Sendable {
     public let apiKey: String
     public let environment: Environment
     /// When nil, defaults to the app's bundle identifier (e.g. `com.yourcompany.app`).
-    /// Must match the host domain registered in Agent Studio when generating the API key.
+    /// Must match the host domain registered in Agent Studio when generating the connector token.
     public let hostIdentifier: String?
     public let streamingEnabled: Bool
     public let logLevel: LogLevel

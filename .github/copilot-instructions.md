@@ -76,7 +76,7 @@ The agent joins and greets automatically. Full walkthrough: README **Step 1**.
   rendering for you.
 - **Suggestion pills** render under the last agent message and clear when the user sends
   (see the example `ChatViewController` / `MessageBubbleView`).
-- **Never log the API key.**
+- **Never log the connector token.**
 
 ## Verifying changes
 
@@ -90,4 +90,4 @@ The agent joins and greets automatically. Full walkthrough: README **Step 1**.
 - **Don't add third-party dependencies** — this package is intentionally dependency-free.
 - When integrating into an app, **consume the public API**; don't edit
   `Sources/PolyMessaging/` to make integration "easier."
-- Keep credentials out of source — set the API key via `initialize(...)`.
+- Keep credentials out of source — set the connector token via `initialize(...)`.

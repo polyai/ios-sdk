@@ -10,7 +10,7 @@ struct PlaygroundApp: App {
         // Configuration from DevSettings on every connect, so this just primes a
         // sane default.
         PolyMessaging.initialize(.init(
-            apiKey: "YOUR_API_KEY",
+            apiKey: "YOUR_CONNECTOR_TOKEN",
             environment: .us
         ))
         if CommandLine.arguments.contains("-uiTestFreshStart") { PolyMessaging.clearResumableSession() }

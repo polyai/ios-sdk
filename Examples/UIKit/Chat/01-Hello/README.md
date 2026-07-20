@@ -12,7 +12,7 @@ open HelloUIKit.xcodeproj   # from this folder
 # Cmd+R on an iPhone simulator
 ```
 
-Set your API key in `AppDelegate.swift` (currently `"YOUR_API_KEY"`).
+Set your connector token in `AppDelegate.swift` (currently `"YOUR_CONNECTOR_TOKEN"`).
 
 ## What this example demonstrates
 
@@ -35,7 +35,7 @@ Configure the SDK once at launch:
 
 ```swift
 PolyMessaging.initialize(.init(
-    apiKey: "YOUR_API_KEY"  // from Agent Studio → Connector Settings
+    apiKey: "YOUR_CONNECTOR_TOKEN"  // from Agent Studio → Connector Settings
     // environment defaults to .us — add .uk / .euw / .cluster("dev") / .custom(...) only if needed
 ))
 ```
@@ -50,7 +50,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
     ) -> Bool {
         PolyMessaging.initialize(.init(
-            apiKey: "YOUR_API_KEY"
+            apiKey: "YOUR_CONNECTOR_TOKEN"
         ))
         return true
     }
@@ -59,7 +59,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
 
 After this, `PolyMessaging.chat()` works from any view controller with no arguments.
 
-**Under the hood:** `initialize` just stashes your API key and environment process-wide — no network happens yet. The work starts when you call `chat()`.
+**Under the hood:** `initialize` just stashes your connector token and environment process-wide — no network happens yet. The work starts when you call `chat()`.
 
 *See [Quick start](../../../../README.md#quick-start).*
 
@@ -184,7 +184,7 @@ In a view controller:
 
 *See [Integration guide › The core pattern](../../../../README.md#the-core-pattern-render-messages-yourself).*
 
-### Catch a bad API key — `ChatViewController.swift`
+### Catch a bad connector token — `ChatViewController.swift`
 
 Detect a terminal failure + offer retry:
 

@@ -11,7 +11,7 @@ open StandardSwiftUI.xcodeproj   # from this folder
 # Cmd+R on an iPhone simulator
 ```
 
-Set your API key in `App/StandardApp.swift` (currently `"YOUR_API_KEY"`).
+Set your connector token in `App/StandardApp.swift` (currently `"YOUR_CONNECTOR_TOKEN"`).
 
 ## What this example demonstrates
 

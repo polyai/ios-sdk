@@ -15,7 +15,7 @@ signaling pipeline.
 ### Added
 - **`PolyVoice.call(config:options:)`** → a `PolyCall` backed by a real WebRTC audio
   engine (audio-only Opus, offer / answer / trickle ICE, mute). `VoiceOptions.webrtcToken`
-  is required — a distinct token from the API key.
+  is required — a distinct token from the connector token.
 - **CallKit support** (`PolyVoice`): opt in with `VoiceOptions(callKit: true)` to run a
   call as a system call. The SDK defers audio-session activation and the WebRTC audio
   unit to CallKit; three new statics forward the `CXProviderDelegate` moments —

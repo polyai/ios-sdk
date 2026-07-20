@@ -14,7 +14,7 @@ open StandardUIKit.xcodeproj   # from this folder
 # Cmd+R on an iPhone simulator
 ```
 
-Set your API key in `App/AppDelegate.swift` (currently `"YOUR_API_KEY"`).
+Set your connector token in `App/AppDelegate.swift` (currently `"YOUR_CONNECTOR_TOKEN"`).
 
 ## What this example demonstrates
 

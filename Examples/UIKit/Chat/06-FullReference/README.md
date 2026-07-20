@@ -12,7 +12,7 @@ open FullReferenceUIKit.xcodeproj   # from this folder
 # Cmd+R on an iPhone simulator
 ```
 
-Set your API key in `AppDelegate.swift` (currently `"YOUR_API_KEY"`).
+Set your connector token in `AppDelegate.swift` (currently `"YOUR_CONNECTOR_TOKEN"`).
 
 ## What this example demonstrates
 
@@ -92,7 +92,7 @@ final class RootViewController: UIViewController {
 }
 ```
 
-**Under the hood:** `initialize` stashes the API key and environment process-wide — no network happens yet. The no-arg facade calls (`chat()`, `start()`, `hasResumableSession()`) reuse that config from any view controller. `chat()` resumes the persisted session when it's still valid; `start()` always discards. `hasResumableSession()` is a pure on-disk probe with no side effects.
+**Under the hood:** `initialize` stashes the connector token and environment process-wide — no network happens yet. The no-arg facade calls (`chat()`, `start()`, `hasResumableSession()`) reuse that config from any view controller. `chat()` resumes the persisted session when it's still valid; `start()` always discards. `hasResumableSession()` is a pure on-disk probe with no side effects.
 
 *See [Integration guide › Quick start](../../../../README.md#quick-start) and [Integration guide › Session lifecycle](../../../../README.md#session-lifecycle).*
 

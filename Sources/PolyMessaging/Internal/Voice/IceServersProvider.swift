@@ -15,7 +15,7 @@ struct StaticIceServersProvider: IceServersProviding {
 }
 
 /// Fetches ICE servers from the gateway (`GET /api/v1/ice-servers?token=…`),
-/// authenticated with the gateway (WebRTC) token. Best-effort: any failure — or
+/// authenticated with the web calling token. Best-effort: any failure — or
 /// an empty list — falls back to public STUN so a call still connects on open
 /// NATs.
 struct GatewayIceServersFetcher: IceServersProviding {

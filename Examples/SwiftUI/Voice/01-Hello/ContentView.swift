@@ -33,11 +33,11 @@ struct ContentView: View {
 
     private func startCall() {
         // Fill in your connector from Agent Studio › Connector Settings.
-        let config = Configuration(apiKey: "YOUR_API_KEY")
+        let config = Configuration(apiKey: "YOUR_CONNECTOR_TOKEN")
         do {
             let newCall = try PolyVoice.call(
                 config: config,
-                options: VoiceOptions(webrtcToken: "YOUR_WEBRTC_TOKEN")
+                options: VoiceOptions(webrtcToken: "YOUR_WEB_CALLING_TOKEN")
             )
             setupFailure = nil
             call = newCall

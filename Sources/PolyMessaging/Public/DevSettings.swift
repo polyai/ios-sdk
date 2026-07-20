@@ -8,7 +8,7 @@ import Combine
 /// and protocol testing. Backed by `UserDefaults`, observable from both
 /// SwiftUI (`@StateObject` / `@ObservedObject`) and UIKit (Combine `sink`).
 ///
-/// The API key is taken from the config you passed to
+/// The connector token is taken from the config you passed to
 /// ``PolyMessaging/initialize(_:)`` — call `initialize` first, then construct
 /// `DevSettings()` with no arguments. The default environment is seeded from
 /// that same config, and the `X-Host` is derived from the selected environment
@@ -79,8 +79,8 @@ open class DevSettings: ObservableObject {
 
     // MARK: - Init
 
-    /// Call ``PolyMessaging/initialize(_:)`` first — the API key and the
-    /// seed environment are read from that config.
+    /// Call ``PolyMessaging/initialize(_:)`` first — the connector token and
+    /// the seed environment are read from that config.
     ///
     /// - Parameters:
     ///   - hostIdentifier: Optional `X-Host` override. nil = derive from the
@@ -200,7 +200,7 @@ open class DevSettings: ObservableObject {
         lastAppliedStreamingEnabled = streamingEnabled
     }
 
-    /// Builds a ``Configuration`` from the `initialize(_:)` API key and
+    /// Builds a ``Configuration`` from the `initialize(_:)` connector token and
     /// the current runtime knobs. The `X-Host` is left to the SDK to derive from
     /// the selected environment unless a `hostIdentifier` override was supplied.
     /// Override this method to customise.

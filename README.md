@@ -78,7 +78,7 @@ targets:
 
 Then initialize once at app launch. The exact placement — SwiftUI's `@main` App init, or UIKit's `AppDelegate.application(_:didFinishLaunchingWithOptions:)` — is shown in full in the [Quick start](#quick-start) below.
 
-> Your app's bundle identifier is sent automatically as the `X-Host` header — it must match the host registered in Agent Studio for your API key.
+> Your app's bundle identifier is sent automatically as the `X-Host` header — it must match the host registered in Agent Studio for your connector token.
 
 ---
 
@@ -97,7 +97,7 @@ import PolyMessaging
 struct MyApp: App {
     init() {
         PolyMessaging.initialize(.init(
-            apiKey: "YOUR_API_KEY"   // Agent Studio → Connector Settings
+            apiKey: "YOUR_CONNECTOR_TOKEN"   // Agent Studio → Connector Settings
         ))
     }
     var body: some Scene { WindowGroup { ContentView() } }
@@ -158,7 +158,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         // Initialize the SDK once at launch. No network happens here —
         // chat() / start() does the work later.
         PolyMessaging.initialize(.init(
-            apiKey: "YOUR_API_KEY"   // Agent Studio → Connector Settings
+            apiKey: "YOUR_CONNECTOR_TOKEN"   // Agent Studio → Connector Settings
         ))
         return true
     }
@@ -257,7 +257,7 @@ final class ViewController: UIViewController, UITableViewDataSource {
 
 ```swift
 PolyMessaging.initialize(.init(
-    apiKey: "YOUR_API_KEY",
+    apiKey: "YOUR_CONNECTOR_TOKEN",
     streamingEnabled: false      // off → completed bubbles only
 ))
 ```
@@ -285,8 +285,8 @@ import PolyMessaging
 import PolyVoice
 
 let call = try PolyVoice.call(
-    config: Configuration(apiKey: "YOUR_API_KEY"),          // connector token
-    options: VoiceOptions(webrtcToken: "YOUR_WEBRTC_TOKEN")  // WebRTC token — distinct; both from Agent Studio
+    config: Configuration(apiKey: "YOUR_CONNECTOR_TOKEN"),        // connector token
+    options: VoiceOptions(webrtcToken: "YOUR_WEB_CALLING_TOKEN")  // web calling token — distinct; both from Agent Studio
 )
 Task { for await state in call.states { render(state) } }   // .connecting → .connected → …
 try await call.start()   // after the microphone permission (NSMicrophoneUsageDescription) is granted
@@ -294,7 +294,7 @@ try await call.start()   // after the microphone permission (NSMicrophoneUsageDe
 
 A call needs **two credentials, both required and distinct**, from
 [Agent Studio](https://studio.poly.ai) › **Connector Settings** (the same connector you use for chat):
-the **API key** (`Configuration.apiKey`, authenticates the connector) and the **WebRTC token**
+the **connector token** (`Configuration.apiKey`, authenticates the connector) and the **web calling token**
 (`VoiceOptions.webrtcToken`, authenticates the media gateway).
 
 Add **`PolyVoice`** via SPM (`.product(name: "PolyVoice", package: "ios-sdk")`) or CocoaPods
@@ -319,7 +319,7 @@ Runnable demos: [`Examples/SwiftUI/Voice`](Examples/SwiftUI/Voice/01-Hello/) ·
 | `agentAvatarUrl` | `URL?` | latest agent / live-agent avatar |
 | `hasStarted` | `Bool` | the conversation has begun |
 | `hasEnded` | `Bool` | conversation is over — swap the composer for a "start new" CTA |
-| `failureReason` | `PolyError?` | non-nil once the chat hits a terminal failure it can't auto-recover from — invalid API key, reconnect budget exhausted, session expired |
+| `failureReason` | `PolyError?` | non-nil once the chat hits a terminal failure it can't auto-recover from — invalid connector token, reconnect budget exhausted, session expired |
 
 **Methods you call:**
 
@@ -471,7 +471,7 @@ The agent's reply arrives as a sequence of chunks. `ChatSession` reassembles the
 
 ```swift
 PolyMessaging.initialize(.init(
-    apiKey: "YOUR_API_KEY",
+    apiKey: "YOUR_CONNECTOR_TOKEN",
     streamingEnabled: true       // default — set to false for complete messages only
 ))
 
@@ -1455,7 +1455,7 @@ Subscribe *before* sending — `events` is lazy-start. Runnable in the **03 Rich
 
 ```swift
 PolyMessaging.initialize(.init(
-    apiKey: "YOUR_API_KEY"
+    apiKey: "YOUR_CONNECTOR_TOKEN"
 ))
 ```
 
@@ -1463,7 +1463,7 @@ PolyMessaging.initialize(.init(
 
 | Field | Default | Description |
 |---|---|---|
-| `apiKey` | — (required) | API key from Agent Studio. Treat as a credential — never log it. |
+| `apiKey` | — (required) | Connector token from Agent Studio. Treat as a credential — never log it. |
 | `environment` | `.us` | Production region (`.us` / `.uk` / `.euw`) or escape hatch (see below) |
 | `hostIdentifier` | Bundle ID | `X-Host` for connector validation; auto-derived from `Bundle.main.bundleIdentifier` |
 | `streamingEnabled` | `true` | `true`: agent replies grow token-by-token (ChatGPT-style). `false`: complete-message bubbles only. See [Streaming](#streaming) |
@@ -1485,7 +1485,7 @@ Most apps don't need to set `environment` at all. Pass it only when targeting a 
 ```swift
 // Run against the dev cluster instead of production US:
 PolyMessaging.initialize(.init(
-    apiKey: "YOUR_API_KEY",
+    apiKey: "YOUR_CONNECTOR_TOKEN",
     environment: .cluster("dev")
 ))
 ```
@@ -1494,7 +1494,7 @@ A fully-specified configuration (every value here has a working default — set 
 
 ```swift
 PolyMessaging.initialize(.init(
-    apiKey: "YOUR_API_KEY",
+    apiKey: "YOUR_CONNECTOR_TOKEN",
     environment: .us,                        // .us (default) | .uk | .euw | .cluster("dev") | .custom(...)
     hostIdentifier: "com.yourapp.ios",       // X-Host for connector validation; defaults to your bundle id
     streamingEnabled: true,                  // server streams agent replies as chunks
@@ -1520,7 +1520,7 @@ do {
 }
 
 switch error {
-case .auth(.unauthorized):                  showError("Invalid API key")
+case .auth(.unauthorized):                  showError("Invalid connector token")
 case .session(.sessionExpired):             showError("Session timed out")
 case .transport(.networkError(let reason)): showError("Network: \(reason)")
 default:                                     showError("\(error)")
@@ -1532,7 +1532,7 @@ Every case `PolyError` can throw, and when:
 | Case | Fires when | Retryable |
 |---|---|---|
 | `.auth(.tokenAcquisitionFailed)` | the access-token request failed | no |
-| `.auth(.unauthorized)` | the API key was rejected (401/403) | no |
+| `.auth(.unauthorized)` | the connector token was rejected (401/403) | no |
 | `.session(.sessionCreationFailed(code))` | the server refused to create a session (`code` says why) | no |
 | `.session(.unexpectedDisconnect(code:reason:))` | the socket dropped unexpectedly | yes |
 | `.session(.maxReconnectAttemptsExceeded)` | reconnects were exhausted (terminal — offer `resume()`) | yes |
@@ -1639,7 +1639,7 @@ A 7-rung ladder — each level builds on the previous one; see its README for wh
 
 A one-screen **tap-to-call** demo on the separate [`PolyVoice`](docs/PolyVoice.md) product — build a
 `PolyCall`, observe its lifecycle, start / mute / end, with a speaker toggle. Set your connector token +
-WebRTC token in the `PolyVoice.call(...)` block. Needs a **physical device** (the simulator can't carry
+web calling token in the `PolyVoice.call(...)` block. Needs a **physical device** (the simulator can't carry
 WebRTC media). See [Voice calling](#voice-calling-polyvoice).
 
 | Level | What it covers | SwiftUI · UIKit |

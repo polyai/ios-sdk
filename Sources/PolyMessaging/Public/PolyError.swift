@@ -109,7 +109,7 @@ extension PolyError: CustomStringConvertible {
         case .auth(.tokenAcquisitionFailed):
             return "Couldn't get an access token. Check your connection and try again."
         case .auth(.unauthorized):
-            return "Your API key was rejected. Please contact support."
+            return "Your connector token was rejected. Please contact support."
 
         case .session(.sessionCreationFailed(let code)):
             // code.rawValue is the human-readable string the backend sent
