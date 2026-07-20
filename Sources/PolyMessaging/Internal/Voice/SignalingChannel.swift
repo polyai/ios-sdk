@@ -61,9 +61,11 @@ final class GatewaySignalingChannel: SignalingChannel, @unchecked Sendable {
             terminated = false
             return generation
         }
-        receiveTask?.cancel()
-        task?.cancel(with: .normalClosure, reason: nil)
-        urlSession?.invalidateAndCancel()
+        // Take ownership of the previous connection's objects under the lock before
+        // releasing them: close() can be running concurrently (teardown races a
+        // reconnect), and these are strong refs — an unsynchronized read/write pair
+        // is a torn refcount, not merely a stale value.
+        releaseConnection()
 
         logger.debug("Opening signaling WS", metadata: ["host": url.host ?? "unknown"])
         let del = SignalingSocketDelegate(
@@ -76,14 +78,28 @@ final class GatewaySignalingChannel: SignalingChannel, @unchecked Sendable {
                 self?.emitTerminal(gen, .failed(.transport(.networkError(error.localizedDescription))))
             }
         )
-        self.delegate = del
-
         let session = URLSession(configuration: .default, delegate: del, delegateQueue: nil)
-        self.urlSession = session
         let t = session.webSocketTask(with: url)
-        self.task = t
+        let receive = makeReceiveLoop(gen, task: t)
+
+        // A close() that latched `terminated` while this connection was being built
+        // owns nothing yet — so release it here rather than storing a socket that
+        // nothing will ever cancel.
+        let superseded: Bool = withLock {
+            guard gen == generation, !terminated else { return true }
+            self.delegate = del
+            self.urlSession = session
+            self.task = t
+            self.receiveTask = receive
+            return false
+        }
+        guard !superseded else {
+            receive.cancel()
+            t.cancel(with: .normalClosure, reason: nil)
+            session.invalidateAndCancel()
+            return
+        }
         t.resume()
-        startReceiveLoop(gen, task: t)
     }
 
     @discardableResult
@@ -101,13 +117,24 @@ final class GatewaySignalingChannel: SignalingChannel, @unchecked Sendable {
 
     func close() async {
         markTerminated()
-        receiveTask?.cancel()
-        receiveTask = nil
-        task?.cancel(with: .normalClosure, reason: nil)
-        task = nil
-        urlSession?.invalidateAndCancel()
-        urlSession = nil
-        delegate = nil
+        releaseConnection()
+    }
+
+    /// Detach the current connection's objects under the lock, then release them
+    /// outside it (cancel/invalidate can call back in). Safe to interleave with
+    /// `open()` — whichever runs second finds the fields already nil.
+    private func releaseConnection() {
+        let (receive, socket, session): (Task<Void, Never>?, URLSessionWebSocketTask?, URLSession?) = withLock {
+            let previous = (receiveTask, task, urlSession)
+            receiveTask = nil
+            task = nil
+            urlSession = nil
+            delegate = nil
+            return previous
+        }
+        receive?.cancel()
+        socket?.cancel(with: .normalClosure, reason: nil)
+        session?.invalidateAndCancel()
     }
 
     // MARK: - Internal
@@ -142,10 +169,12 @@ final class GatewaySignalingChannel: SignalingChannel, @unchecked Sendable {
         caster.emit(event)
     }
 
-    private func startReceiveLoop(_ gen: Int, task t: URLSessionWebSocketTask) {
+    /// Build (but don't store) the receive loop for `t`. The caller publishes it
+    /// under the lock alongside the rest of the connection.
+    private func makeReceiveLoop(_ gen: Int, task t: URLSessionWebSocketTask) -> Task<Void, Never> {
         // Loop over the task captured at open() — never re-read self.task, which
         // may already belong to a newer connection.
-        receiveTask = Task { [weak self] in
+        Task { [weak self] in
             while !Task.isCancelled {
                 do {
                     let message = try await t.receive()

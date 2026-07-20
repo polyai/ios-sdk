@@ -24,6 +24,11 @@ final class WebRTCCallMediaEngine: NSObject, CallMediaEngine, @unchecked Sendabl
     private let lock = NSLock()
     private var peer: RTCPeerConnection?
     private var audioTrack: RTCAudioTrack?
+    // Latched by close(). createOffer() suspends (offer creation, setLocalDescription)
+    // and only publishes `peer` at the end, so a close() landing in that window would
+    // otherwise find `peer == nil`, release nothing, and leave the connection it never
+    // saw running with a live mic track. Every publish point re-checks this latch.
+    private var closed = false
     private var localCandidateHandler: (@Sendable (ICECandidate) -> Void)?
     private var stateHandler: (@Sendable (CallMediaState) -> Void)?
 
@@ -45,6 +50,10 @@ final class WebRTCCallMediaEngine: NSObject, CallMediaEngine, @unchecked Sendabl
         // it off before the call and didActivate opens it — and because signaling
         // takes seconds, CallKit has usually ALREADY activated by the time this
         // runs. Re-gating here would stomp that activation and silence the call.
+        // Already ended before setup even began — don't touch the process-global
+        // audio session or build a peer nobody will ever close.
+        try checkNotClosed()
+
         let rtcSession = RTCAudioSession.sharedInstance()
         rtcSession.useManualAudio = audio.callKitMode
 
@@ -72,7 +81,18 @@ final class WebRTCCallMediaEngine: NSObject, CallMediaEngine, @unchecked Sendabl
         let track = Self.factory.audioTrack(with: source, trackId: "audio0")
         peer.add(track, streamIds: ["stream0"])
 
-        lock.lock(); self.peer = peer; self.audioTrack = track; lock.unlock()
+        // Publish under the same lock that reads `closed`, so a close() either sees
+        // this peer (and releases it) or has already latched (and we release it here).
+        lock.lock()
+        if closed {
+            lock.unlock()
+            peer.close()
+            audio.deactivate()
+            throw PolyError.voice(.mediaFailed("call ended during setup"))
+        }
+        self.peer = peer
+        self.audioTrack = track
+        lock.unlock()
 
         let offerConstraints = RTCMediaConstraints(
             mandatoryConstraints: ["OfferToReceiveAudio": "true"],
@@ -126,11 +146,11 @@ final class WebRTCCallMediaEngine: NSObject, CallMediaEngine, @unchecked Sendabl
 
     func setInterruptionHandler(_ handler: @escaping @Sendable (CallInterruption) -> Void) async {
         // The AVAudioSession interruption observer lives in the audio controller.
-        audio.onInterruption = handler
+        audio.setInterruptionSink(handler)
     }
 
     func setAudioStateHandler(_ handler: @escaping @Sendable (AudioState) -> Void) async {
-        audio.onAudioState = handler
+        audio.setAudioStateSink(handler)
     }
 
     func selectAudioDevice(_ device: AudioDevice?) async {
@@ -143,7 +163,12 @@ final class WebRTCCallMediaEngine: NSObject, CallMediaEngine, @unchecked Sendabl
     }
 
     func close() async {
-        lock.lock(); let peer = self.peer; self.peer = nil; self.audioTrack = nil; lock.unlock()
+        lock.lock()
+        closed = true // latch first: a createOffer() still in flight will release its own peer
+        let peer = self.peer
+        self.peer = nil
+        self.audioTrack = nil
+        lock.unlock()
         peer?.close()
         if audio.callKitMode {
             // Defensive: if the call died without CallKit deactivating (e.g. a
@@ -158,6 +183,11 @@ final class WebRTCCallMediaEngine: NSObject, CallMediaEngine, @unchecked Sendabl
 
     private func currentPeer() -> RTCPeerConnection? {
         lock.lock(); defer { lock.unlock() }; return peer
+    }
+
+    private func checkNotClosed() throws {
+        lock.lock(); let isClosed = closed; lock.unlock()
+        if isClosed { throw PolyError.voice(.mediaFailed("call ended during setup")) }
     }
 
     private func emitState(_ state: CallMediaState) {

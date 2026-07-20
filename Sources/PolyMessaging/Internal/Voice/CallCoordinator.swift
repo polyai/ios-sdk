@@ -47,6 +47,13 @@ actor CallCoordinator {
     private var disconnectGraceTask: Task<Void, Never>?
     private var reconnectTask: Task<Void, Never>?
     private var teardownTask: Task<Void, Never>?
+    // Media states are delivered on WebRTC's signaling thread, back-to-back. A
+    // `Task { }` per event has NO ordering guarantee between tasks, so the routine
+    // ICE blip `.disconnected` → `.connected` could apply in reverse: `lastMediaState`
+    // would settle on `.disconnected` and the grace timer would fail a healthy call.
+    // An AsyncStream gives a single ordered consumer instead.
+    private var mediaStateTask: Task<Void, Never>?
+    private var mediaStateSink: AsyncStream<CallMediaState>.Continuation?
     private var signalingReconnecting = false
     private var signalingConnected = false
 
@@ -98,8 +105,19 @@ actor CallCoordinator {
         await media.setLocalCandidateHandler { [weak self] candidate in
             Task { await self?.handleLocalCandidate(candidate) }
         }
-        await media.setStateHandler { [weak self] mediaState in
-            Task { await self?.handleMediaState(mediaState) }
+        // Ordered hand-off: yields are serialized by the stream's buffer (unbounded,
+        // so nothing is dropped) and drained one at a time by a single consumer.
+        var sink: AsyncStream<CallMediaState>.Continuation!
+        let mediaStates = AsyncStream<CallMediaState> { sink = $0 }
+        let continuation = sink!
+        mediaStateSink = continuation
+        mediaStateTask = Task { [weak self] in
+            for await mediaState in mediaStates {
+                await self?.handleMediaState(mediaState)
+            }
+        }
+        await media.setStateHandler { mediaState in
+            continuation.yield(mediaState)
         }
         await media.setInterruptionHandler { [weak self] interruption in
             Task { await self?.handleInterruption(interruption) }
@@ -219,6 +237,12 @@ actor CallCoordinator {
         case .opened:
             signalingConnected = true
             let reconnected = signalingReconnecting
+            // Clear BEFORE flushing. waitForSignalingConnect() polls on a 100ms tick,
+            // so leaving this set until the reconnect loop notices would send every
+            // candidate gathered in that window down handleLocalCandidate's buffering
+            // branch — with nothing left to flush it, they'd be lost for the whole call
+            // (continual gathering keeps producing relay candidates after connect).
+            signalingReconnecting = false
             // `pendingOfferSDP` is only non-nil while the offer has never made it onto
             // the wire (it's cleared on a successful send) — so this covers both the
             // first open and a reconnect after the initial send failed. An offer that
@@ -276,6 +300,15 @@ actor CallCoordinator {
             guard active else { signalingReconnecting = false; return }
             logger.debug("Reconnecting signaling", metadata: ["attempt": "\(attempt)"])
             await channel.open()
+            // `channel.open()` has no cancellation points, so cancelling `reconnectTask`
+            // in teardown() does NOT stop it — it runs to completion and resumes a socket
+            // AFTER teardown's `channel.close()` already ran. Nothing else would ever
+            // release it, so close what we just opened.
+            guard active else {
+                await channel.close()
+                signalingReconnecting = false
+                return
+            }
             if await waitForSignalingConnect() {
                 logger.debug("Signaling reconnected", metadata: nil)
                 signalingReconnecting = false
@@ -477,6 +510,10 @@ actor CallCoordinator {
         eventLoopTask = nil
         reconnectTask?.cancel()
         reconnectTask = nil
+        mediaStateSink?.finish()
+        mediaStateSink = nil
+        mediaStateTask?.cancel()
+        mediaStateTask = nil
         signalingReconnecting = false
 
         let sid = signalSessionId

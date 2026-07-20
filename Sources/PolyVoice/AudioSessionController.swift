@@ -22,10 +22,33 @@ final class AudioSessionController: @unchecked Sendable {
     // activated it (e.g. start() failed before createOffer).
     private var activated = false
 
+    // Sinks set by the engine (from the coordinator's actor executor) and read from
+    // the AVAudioSession notification thread — so every access is under `handlerLock`.
+    // Unlike `activated`/`selectedDeviceId`, these are outside the
+    // `session.lockForConfiguration()` critical sections that incidentally serialize
+    // the rest of this type. Handlers are always COPIED OUT and invoked after the
+    // lock is released, so a sink can never re-enter this lock.
+    private let handlerLock = NSLock()
+    private var _onInterruption: (@Sendable (CallInterruption) -> Void)?
+    private var _onAudioState: (@Sendable (AudioState) -> Void)?
+
     /// Sink for audio-session interruptions (phone call / Siri / another app), set by the engine.
-    var onInterruption: (@Sendable (CallInterruption) -> Void)?
+    func setInterruptionSink(_ sink: (@Sendable (CallInterruption) -> Void)?) {
+        handlerLock.lock(); _onInterruption = sink; handlerLock.unlock()
+    }
+
     /// Sink for audio-routing snapshots (available outputs + the active one), set by the engine.
-    var onAudioState: (@Sendable (AudioState) -> Void)?
+    func setAudioStateSink(_ sink: (@Sendable (AudioState) -> Void)?) {
+        handlerLock.lock(); _onAudioState = sink; handlerLock.unlock()
+    }
+
+    private var interruptionSink: (@Sendable (CallInterruption) -> Void)? {
+        handlerLock.lock(); defer { handlerLock.unlock() }; return _onInterruption
+    }
+
+    private var audioStateSink: (@Sendable (AudioState) -> Void)? {
+        handlerLock.lock(); defer { handlerLock.unlock() }; return _onAudioState
+    }
     private var selectedDeviceId: String? // nil = automatic (accessory-aware) routing
     private var interruptionObserver: NSObjectProtocol?
     private var routeChangeObserver: NSObjectProtocol?
@@ -58,13 +81,14 @@ final class AudioSessionController: @unchecked Sendable {
         guard let info = note.userInfo,
               let raw = info[AVAudioSessionInterruptionTypeKey] as? UInt,
               let type = AVAudioSession.InterruptionType(rawValue: raw) else { return }
+        let sink = interruptionSink
         switch type {
         case .began:
-            onInterruption?(.began)
+            sink?(.began)
         case .ended:
             let options = (info[AVAudioSessionInterruptionOptionKey] as? UInt)
                 .map(AVAudioSession.InterruptionOptions.init(rawValue:)) ?? []
-            onInterruption?(options.contains(.shouldResume) ? .endedResume : .endedStop)
+            sink?(options.contains(.shouldResume) ? .endedResume : .endedStop)
         @unknown default:
             break
         }
@@ -79,10 +103,17 @@ final class AudioSessionController: @unchecked Sendable {
             if callKitMode {
                 // NEVER self-activate under CallKit: a plain playAndRecord session
                 // activated here blocks CallKit's elevated phone-session activation
-                // and didActivate never fires. Configure only; the route is applied
-                // by the route-change that fires when CallKit activates.
+                // and didActivate never fires. Configure only.
                 try session.setConfiguration(config)
                 activated = true
+                // Route explicitly — do NOT rely on CallKit's activation route-change
+                // to do it. Signaling takes seconds, so CallKit has usually activated
+                // BEFORE this runs, and that route-change was dropped by
+                // handleRouteChange()'s `activated` guard (still false back then).
+                // Applying here covers that ordering; if CallKit hasn't activated yet
+                // this is a no-op on an inactive session and the route-change that
+                // arrives later re-applies it (`activated` is now true).
+                applyRoute()
             } else {
                 try session.setConfiguration(config, active: true)
                 // Only a SUCCESSFUL activation may arm deactivate() — otherwise cleanup
@@ -160,7 +191,7 @@ final class AudioSessionController: @unchecked Sendable {
     }
 
     private func emitAudioState() {
-        onAudioState?(currentAudioState())
+        audioStateSink?(currentAudioState())
     }
 
     /// A snapshot of routable outputs + the active one, from the current `AVAudioSession` route.
@@ -226,7 +257,7 @@ final class AudioSessionController: @unchecked Sendable {
             // would tear down a session the app doesn't own at this priority.
             try? session.setActive(false)
         }
-        onAudioState?(.empty)
+        audioStateSink?(.empty)
     }
 
     /// True when a wired or Bluetooth output is currently connected.

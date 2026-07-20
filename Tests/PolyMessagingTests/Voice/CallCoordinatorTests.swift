@@ -232,6 +232,65 @@ final class CallCoordinatorTests: XCTestCase {
         XCTAssertTrue(delivered, "an ICE candidate from the reconnect gap is (re)sent after reconnect")
     }
 
+    /// Regression: media states must be applied in the order the engine emitted them.
+    /// `.disconnected` → `.connected` is the routine ICE blip; applying it in reverse
+    /// leaves `lastMediaState == .disconnected`, and the grace timer then fails a call
+    /// whose media is perfectly healthy.
+    func test_mediaStateBurst_disconnectThenReconnect_doesNotFailHealthyCall() async throws {
+        let conn = MockConnection()
+        let channel = MockSignalingChannel()
+        let media = StubMediaEngine()
+        let coord = makeCoordinator(
+            conn: conn, channel: channel, media: media,
+            disconnectGraceNanos: 200_000_000 // short grace: a mis-ordered burst fails fast
+        )
+        try await arm(coord, conn: conn)
+        channel.emit(.opened)
+        media.driveState(.connected)
+        _ = await waitUntil { await self.callState(coord) == .connected }
+
+        // Back-to-back, as WebRTC delivers them on its signaling thread.
+        media.driveState(.disconnected)
+        media.driveState(.connected)
+
+        // Well past the grace window the call must still be up.
+        try await Task.sleep(nanoseconds: 600_000_000)
+        let finalState = await self.callState(coord)
+        XCTAssertEqual(finalState, .connected, "an ICE blip that recovers must not fail the call")
+    }
+
+    /// Regression: candidates gathered in the window between the reconnected socket's
+    /// `.opened` and the reconnect loop noticing it (a 100ms poll tick) were buffered
+    /// by `handleLocalCandidate` with nothing left to flush them — lost for the rest of
+    /// the call, which matters because continual gathering keeps producing relay
+    /// candidates after connect.
+    func test_candidateGatheredDuringReconnectConfirmWindow_isSent() async throws {
+        let conn = MockConnection()
+        let channel = MockSignalingChannel()
+        let media = StubMediaEngine()
+        let coord = makeCoordinator(conn: conn, channel: channel, media: media)
+        try await arm(coord, conn: conn)
+        channel.emit(.opened)
+        channel.emit(.message(answerFrame(sessionId: "sig_1", sdp: "v=0")))
+        _ = await waitUntil { media.acceptedAnswer == "v=0" }
+        media.driveState(.connected)
+        _ = await waitUntil { await self.callState(coord) == .connected }
+
+        channel.emit(.closed(code: 1006, reason: "gap"))
+        _ = await waitUntil { channel.openCount >= 2 }
+        channel.emit(.opened) // reconnected — the confirm window opens here
+
+        // Inside the confirm window (shorter than the loop's 100ms poll tick).
+        try await Task.sleep(nanoseconds: 30_000_000)
+        media.emitLocalCandidate(ICECandidate(candidate: "cand:window", sdpMid: "0", sdpMLineIndex: 0))
+
+        let delivered = await waitUntil {
+            channel.sentFrames(ofType: "ice-candidate")
+                .contains { ($0["data"] as? [String: Any])?["candidate"] as? String == "cand:window" }
+        }
+        XCTAssertTrue(delivered, "a candidate gathered during the reconnect-confirm window is still sent")
+    }
+
     func test_iceServers_passedToEngine() async throws {
         let conn = MockConnection()
         let media = StubMediaEngine()
