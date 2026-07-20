@@ -47,6 +47,41 @@ jobs:
       - name: Test
         run: swift test
 
+  # `swift test` above runs on macOS, where the WebRTC dependency and the real
+  # PolyVoice implementation are compiled out (#if os(iOS)). This leg builds and
+  # tests the whole package — including the real WebRTC engine and the
+  # PolyVoiceTests target — against an iOS simulator.
+  ios-build-test:
+    name: ios-build-test
+    runs-on: macos-14
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v6
+      - name: Select stable Xcode
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
+      - name: Test on an iOS simulator
+        run: |
+          set -o pipefail
+          # Select by UDID, not name. A bare `name=` lets xcodebuild default to
+          # OS:latest, which fails when the first-listed iPhone has no simulator
+          # for the newest installed runtime (e.g. iPhone 15 Pro is 17.x-only,
+          # but Xcode's latest runtime is 18.x). A UDID pins device + runtime
+          # together, so any available iPhone works regardless of OS.
+          DEVICE_ID=$(xcrun simctl list devices available | grep 'iPhone' | grep -ioE '[0-9A-F]{8}-([0-9A-F]{4}-){3}[0-9A-F]{12}' | head -1)
+          if [ -z "$DEVICE_ID" ]; then
+            echo "::error::No available iPhone simulator found"
+            xcrun simctl list devices available
+            exit 1
+          fi
+          echo "Using simulator UDID: $DEVICE_ID"
+          xcrun simctl list devices available | grep -i "$DEVICE_ID"
+          xcodebuild -scheme PolyMessaging-Package \
+            -destination "platform=iOS Simulator,id=$DEVICE_ID" \
+            -skipPackagePluginValidation \
+            test
+
   podspec-lint:
     name: podspec-lint
     runs-on: macos-14
@@ -57,8 +92,12 @@ jobs:
         uses: maxim-lobanov/setup-xcode@v1
         with:
           xcode-version: latest-stable
-      # Validates PolyMessaging.podspec compiles for every declared platform.
+      # Validates both podspecs compile for every declared platform.
       # --allow-warnings: the SDK build emits non-fatal compiler warnings that
       # would otherwise fail the lint, which treats warnings as errors.
-      - name: pod lib lint
+      # PolyVoice depends on the sibling PolyMessaging podspec, which may not be
+      # published yet at this version — resolve it locally via --include-podspecs.
+      - name: pod lib lint PolyMessaging
         run: pod lib lint PolyMessaging.podspec --allow-warnings
+      - name: pod lib lint PolyVoice
+        run: pod lib lint PolyVoice.podspec --allow-warnings --include-podspecs=PolyMessaging.podspec

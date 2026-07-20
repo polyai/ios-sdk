@@ -22,12 +22,10 @@ public extension CallState {
 
 /// A voice call.
 ///
-/// Created via ``PolyMessagingClient/voice()`` or ``PolyMessaging/voice()``.
-/// Voice calling is not yet available in the shipped SDK: there is no bundled
-/// media (WebRTC audio) engine, so ``start()`` surfaces
-/// `PolyError.voice(.notImplemented)`. The signaling pipeline behind it is
-/// fully implemented and exercised end-to-end in the test suite; only the
-/// on-device audio engine is outstanding.
+/// The base ``PolyMessaging/voice()`` factory ships **without** a media engine, so its
+/// ``start()`` surfaces `PolyError.voice(.notImplemented)`. The **PolyVoice** product supplies
+/// a real WebRTC audio engine — call `PolyVoice.call(config:options:)` to place audio calls
+/// (it builds this via ``wired(config:webrtcToken:mediaEngine:)``).
 public final class PolyCall: @unchecked Sendable {
 
     private let coordinator: CallCoordinator?
@@ -46,6 +44,12 @@ public final class PolyCall: @unchecked Sendable {
 
     /// Call-state transitions. Late subscribers receive the current state.
     public var states: AsyncStream<CallState> { stateCaster.subscribe() }
+
+    /// Audio-routing snapshots (available outputs + the active one) — drive a device picker.
+    /// Empty until the call's audio is engaged (`start()`).
+    public var audioState: AsyncStream<AudioState> {
+        coordinator?.audioStream ?? AsyncStream { $0.finish() }
+    }
 
     /// Public (gated) initializer: no media engine is bundled, so this call
     /// cannot carry audio yet. `start()` reports `.voice(.notImplemented)`.
@@ -67,6 +71,12 @@ public final class PolyCall: @unchecked Sendable {
 
     deinit {
         relayTask?.cancel()
+        // Dropping a live call must still release the mic, sockets, and the
+        // process-global audio session — the Task retains the coordinator until
+        // its teardown completes.
+        if let coordinator {
+            Task { await coordinator.end() }
+        }
     }
 
     /// Begin the call. Voice calling is not yet available, so for the shipped
@@ -79,7 +89,10 @@ public final class PolyCall: @unchecked Sendable {
         try await coordinator.start()
     }
 
-    /// End the call and release resources. Safe to call at any time.
+    /// End the call and release its resources. Safe to call at any time, and
+    /// returns only once everything (sockets, media engine, audio session) is
+    /// actually released — so a new call started right after can't collide
+    /// with this one's cleanup.
     public func end() async {
         await coordinator?.end()
         if coordinator == nil { setState(.ended) }
@@ -90,10 +103,76 @@ public final class PolyCall: @unchecked Sendable {
         await coordinator?.setMuted(muted)
     }
 
+    /// Whether the local microphone is currently muted.
+    public var isMuted: Bool {
+        get async { await coordinator?.isMuted ?? false }
+    }
+
+    /// Route call audio to `device` (an entry from ``audioState``'s `availableDevices`),
+    /// or `nil` to revert to automatic routing. Confirmed asynchronously via ``audioState``.
+    public func setAudioDevice(_ device: AudioDevice?) async {
+        await coordinator?.selectAudioDevice(device)
+    }
+
     private func setState(_ newState: CallState) {
         lock.lock()
         _state = newState
         lock.unlock()
         stateCaster.emit(newState)
+    }
+}
+
+public extension PolyCall {
+
+    /// Build a fully-wired voice call driven by the supplied media engine.
+    ///
+    /// The base SDK ships no media engine, so `PolyMessaging.voice()` reports
+    /// `.voice(.notImplemented)`. The **PolyVoice** product calls this with a
+    /// WebRTC-backed ``CallMediaEngine`` to place real audio calls — it composes
+    /// the same internal REST/session/signaling pipeline the tests exercise.
+    ///
+    /// - Parameters:
+    ///   - config: the shared messaging `Configuration` (api key, environment, host).
+    ///   - webrtcToken: the WebRTC gateway token (the offer `authToken` + ICE-servers auth).
+    ///   - signalingHost: optional gateway-host override (required for `.custom`).
+    ///   - mediaEngine: the platform WebRTC engine that produces the SDP offer and carries audio.
+    /// - Throws: `PolyError.invalidConfiguration` for a `.custom` environment without a `signalingHost`.
+    static func wired(
+        config: Configuration,
+        webrtcToken: String,
+        signalingHost: String? = nil,
+        mediaEngine: CallMediaEngine
+    ) throws -> PolyCall {
+        let logger = OSLogLogger(level: config.logLevel)
+        let urls = EnvironmentURLs(environment: config.environment)
+        let hostId = config.hostIdentifier ?? Bundle.main.bundleIdentifier ?? ""
+        let api = RestApi(
+            baseURL: urls.restBaseURL,
+            apiKey: config.apiKey,
+            hostIdentifier: hostId,
+            logger: logger
+        )
+        let linker = VoiceSessionLinker(
+            connection: WebSocketTransport(logger: logger),
+            wsBaseURL: urls.wsBaseURL,
+            logger: logger
+        )
+        let voiceEnv = try VoiceEnvironment(environment: config.environment, signalingHost: signalingHost)
+        let channel = GatewaySignalingChannel(url: voiceEnv.signalingURL, logger: logger)
+        let iceServers = GatewayIceServersFetcher(
+            url: voiceEnv.iceServersURL(token: webrtcToken),
+            logger: logger
+        )
+        let coordinator = CallCoordinator(
+            api: api,
+            linker: linker,
+            channel: channel,
+            media: mediaEngine,
+            iceServers: iceServers,
+            authToken: webrtcToken,
+            streamingEnabled: config.streamingEnabled,
+            logger: logger
+        )
+        return PolyCall(coordinator: coordinator)
     }
 }

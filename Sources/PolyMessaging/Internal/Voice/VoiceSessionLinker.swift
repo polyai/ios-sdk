@@ -32,7 +32,9 @@ actor VoiceSessionLinker {
         guard var comps = URLComponents(url: wsBaseURL, resolvingAgainstBaseURL: false) else {
             throw PolyError.voice(.signalingFailed("Invalid voice WS base URL"))
         }
-        comps.queryItems = [
+        // Append to any query the base URL already carries (a `.custom` ws URL may
+        // have its own parameters) instead of replacing it.
+        comps.queryItems = (comps.queryItems ?? []) + [
             URLQueryItem(name: "access_token", value: accessToken),
             URLQueryItem(name: "session_id", value: sessionId),
         ]

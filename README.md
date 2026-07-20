@@ -7,10 +7,11 @@
 ![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)
 [![Develop with Claude Code](https://img.shields.io/badge/Develop%20with-Claude%20Code-DC9E63?logo=claude)](https://claude.ai/download)
 
-Add AI-powered chat to your iOS app. The SDK is **headless** — it handles token auth, the WebSocket, streaming, reconnection, delivery tracking, and live-agent handoff. You bring the UI.
+Add AI-powered **chat** and **voice** to your iOS app. The SDK is **headless** — it handles token auth, the WebSocket, streaming, reconnection, delivery tracking, and live-agent handoff. You bring the UI.
 
 - **[Quick start](#quick-start)** — paste a `ContentView` (SwiftUI) or `ViewController` (UIKit) into a fresh Xcode project and you have a working chat.
 - **[Integration guide](#integration-guide)** — observe one object (`ChatSession`) and render the chat however you like.
+- **[Voice calling](#voice-calling-polyvoice)** — live WebRTC voice calls with the separate `PolyVoice` product.
 
 Reference: [Configuration](#configuration) · [Error handling](#error-handling) · [How it works](#how-it-works) · [Raw transport](#advanced-raw-transport) · [Example apps](#example-apps).
 
@@ -27,6 +28,7 @@ Reference: [Configuration](#configuration) · [Error handling](#error-handling) 
 | 📎 | **Attachments** | Images, link cards, call-to-action phone buttons |
 | 📡 | **Delivery tracking** | Optimistic send → confirmed → failed, per message |
 | 🔧 | **Escape hatch** | Drop to the raw WebSocket transport for advanced use cases |
+| 📞 | **Voice calling** | Live two-way WebRTC calls + audio-output routing ([`PolyVoice`](#voice-calling-polyvoice)) |
 
 ## Install
 
@@ -39,13 +41,13 @@ Add the package by its Git URL, pinned to a version. Pick **one** of the four op
    ```
    https://github.com/polyai/ios-sdk
    ```
-3. Set **Dependency Rule** → *Up to Next Major Version* → `0.8.0`
+3. Set **Dependency Rule** → *Up to Next Major Version* → `0.9.0`
 4. Click **Add Package** → tick the **PolyMessaging** library for your app target → **Add Package** again.
 
 ### Option 2 — [CocoaPods](https://cocoapods.org) (`Podfile`)
 
 ```ruby
-pod 'PolyMessaging', '~> 0.8'
+pod 'PolyMessaging', '~> 0.9'
 ```
 
 Then run `pod install` and open the generated `.xcworkspace`.
@@ -54,7 +56,7 @@ Then run `pod install` and open the generated `.xcworkspace`.
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/polyai/ios-sdk", from: "0.8.0")
+    .package(url: "https://github.com/polyai/ios-sdk", from: "0.9.0")
 ]
 // then add to your target:
 .product(name: "PolyMessaging", package: "ios-sdk")
@@ -66,7 +68,7 @@ dependencies: [
 packages:
   PolyMessaging:
     url: https://github.com/polyai/ios-sdk
-    exactVersion: 0.8.0      # or: upToNextMajorVersion: 0.8.0
+    exactVersion: 0.9.0      # or: upToNextMajorVersion: 0.9.0
 targets:
   YourApp:
     dependencies:
@@ -270,6 +272,36 @@ Full details in [Streaming](#streaming).
 
 The SDK is headless: it gives you one observable object — **`ChatSession`** — and your UI is *whatever you build by observing its state.*
 
+## Voice calling (`PolyVoice`)
+
+Live, two-way **WebRTC voice calls** to a PolyAI agent ship in a **separate** product/pod —
+[`PolyVoice`](docs/PolyVoice.md) — so chat-only apps never link the WebRTC binary (`PolyMessaging`
+stays source-only). It reuses the messaging `Configuration` and the same `CallState` / `PolyError` types.
+
+```swift
+import PolyMessaging
+import PolyVoice
+
+let call = try PolyVoice.call(
+    config: Configuration(apiKey: "YOUR_API_KEY"),          // connector token
+    options: VoiceOptions(webrtcToken: "YOUR_WEBRTC_TOKEN")  // WebRTC token — distinct; both from Agent Studio
+)
+Task { for await state in call.states { render(state) } }   // .connecting → .connected → …
+try await call.start()   // after the microphone permission (NSMicrophoneUsageDescription) is granted
+```
+
+A call needs **two credentials, both required and distinct**, from
+[Agent Studio](https://studio.poly.ai) › **Connector Settings** (the same connector you use for chat):
+the **API key** (`Configuration.apiKey`, authenticates the connector) and the **WebRTC token**
+(`VoiceOptions.webrtcToken`, authenticates the media gateway).
+
+Add **`PolyVoice`** via SPM (`.product(name: "PolyVoice", package: "ios-sdk")`) or CocoaPods
+(`pod 'PolyVoice'`). **📖 Full guide → [`docs/PolyVoice.md`](docs/PolyVoice.md)** — credentials, the
+microphone permission, accessory-aware audio routing, [CallKit](docs/PolyVoice.md#callkit)
+(system call UI via `VoiceOptions(callKit: true)`), and the architecture.
+Runnable demos: [`Examples/SwiftUI/Voice`](Examples/SwiftUI/Voice/01-Hello/) ·
+[`Examples/UIKit/Voice`](Examples/UIKit/Voice/01-Hello/).
+
 ## Meet `ChatSession`
 
 `PolyMessaging.chat()` (or `start()`) returns a `@MainActor` `ChatSession` — an `ObservableObject`. It assembles streaming, tracks delivery, manages typing, dedups resumes, and surfaces handoff — so your UI only ever reads state and calls methods. SwiftUI binds it with `@StateObject`; UIKit sinks its `@Published` properties with Combine.
@@ -453,7 +485,7 @@ let alt = PolyMessaging.chat(streamingEnabled: false)   // this surface only
 
 Either way, your render code — the `switch` over `messages` from [the core pattern](#the-core-pattern-render-messages-yourself) — doesn't change.
 
-*Example app:* [01-Hello (SwiftUI)](Examples/SwiftUI/01-Hello/) · [01-Hello (UIKit)](Examples/UIKit/01-Hello/) — both stream agent replies by default (just `PolyMessaging.chat()` with the default config). For a live toggle to compare with `streamingEnabled: false` side by side, see [07-Playground](Examples/SwiftUI/07-Playground/).
+*Example app:* [01-Hello (SwiftUI)](Examples/SwiftUI/Chat/01-Hello/) · [01-Hello (UIKit)](Examples/UIKit/Chat/01-Hello/) — both stream agent replies by default (just `PolyMessaging.chat()` with the default config). For a live toggle to compare with `streamingEnabled: false` side by side, see [07-Playground](Examples/SwiftUI/Chat/07-Playground/).
 
 ### Connection & reconnect
 **Data:** `session.connection` — show a banner only while `.reconnecting` (drops go `.open → .reconnecting(n) → .open`, no `.closed` flash). `session.failureReason` is terminal — offer `client.resume()`. Use `isConnected` / `isReconnecting` / `isFailed` (full list under [Connection states](#connection-states)).
@@ -496,9 +528,9 @@ override func viewDidLoad() {
 // "Try again" action that calls the closure.
 private func showRetry(_ retry: @escaping () -> Void) { /* … */ }
 ```
-*Example app:* [02-Standard (SwiftUI)](Examples/SwiftUI/02-Standard/) · [02-Standard (UIKit)](Examples/UIKit/02-Standard/)
+*Example app:* [02-Standard (SwiftUI)](Examples/SwiftUI/Chat/02-Standard/) · [02-Standard (UIKit)](Examples/UIKit/Chat/02-Standard/)
 
-**Device offline is a separate signal.** `session.connection` tracks the *socket*, not whether the *phone* lost Wi-Fi. For that, watch the OS network path with `Network.NWPathMonitor` and show a distinct "You're offline" bar — the two can stack: offline (device) on top, reconnecting (socket) below. See [04-Resilience](Examples/SwiftUI/04-Resilience/).
+**Device offline is a separate signal.** `session.connection` tracks the *socket*, not whether the *phone* lost Wi-Fi. For that, watch the OS network path with `Network.NWPathMonitor` and show a distinct "You're offline" bar — the two can stack: offline (device) on top, reconnecting (socket) below. See [04-Resilience](Examples/SwiftUI/Chat/04-Resilience/).
 
 ### Terminal errors
 **Data:** `session.failureReason` (non-nil whenever the chat hits a terminal failure it can't auto-recover from — an invalid `apiKey` rejected at the initial connect, the reconnect budget exhausted, or the session expiring. The one state that needs the user). `PolyError` isn't `LocalizedError`, so use `String(describing: reason)`, not `.localizedDescription`.
@@ -545,7 +577,7 @@ override func viewDidLoad() {
         .store(in: &bag)
 }
 ```
-*Example app:* [04-Resilience (SwiftUI)](Examples/SwiftUI/04-Resilience/) · [04-Resilience (UIKit)](Examples/UIKit/04-Resilience/) (full-screen `TerminalErrorScreen`) · [06-FullReference (SwiftUI)](Examples/SwiftUI/06-FullReference/) · [06-FullReference (UIKit)](Examples/UIKit/06-FullReference/) (in a screen state machine)
+*Example app:* [04-Resilience (SwiftUI)](Examples/SwiftUI/Chat/04-Resilience/) · [04-Resilience (UIKit)](Examples/UIKit/Chat/04-Resilience/) (full-screen `TerminalErrorScreen`) · [06-FullReference (SwiftUI)](Examples/SwiftUI/Chat/06-FullReference/) · [06-FullReference (UIKit)](Examples/UIKit/Chat/06-FullReference/) (in a screen state machine)
 
 ### Loading & empty states
 **Data:** `isReady` (false until connected) + `messages.isEmpty`. Show a skeleton until the first messages arrive, then swap to the transcript.
@@ -582,7 +614,7 @@ override func viewDidLoad() {
         .store(in: &bag)
 }
 ```
-*Example app:* [04-Resilience (SwiftUI)](Examples/SwiftUI/04-Resilience/) · [04-Resilience (UIKit)](Examples/UIKit/04-Resilience/)
+*Example app:* [04-Resilience (SwiftUI)](Examples/SwiftUI/Chat/04-Resilience/) · [04-Resilience (UIKit)](Examples/UIKit/Chat/04-Resilience/)
 
 ### Delivery state & retry
 **Data:** `UserMessage.delivery` is a `Delivery` enum (`.pending` → `.sent` → `.failed`). Restyle the bubble per state; on `.failed`, drop the draft with `removeMessage(draftId:)` then re-send so you don't duplicate. Tip: delay the "Sending…" label ~500 ms so fast confirmations don't flash it.
@@ -664,7 +696,7 @@ final class MessageCell: UITableViewCell {
 
 </details>
 
-*Example app:* [02-Standard (SwiftUI)](Examples/SwiftUI/02-Standard/) · [02-Standard (UIKit)](Examples/UIKit/02-Standard/)
+*Example app:* [02-Standard (SwiftUI)](Examples/SwiftUI/Chat/02-Standard/) · [02-Standard (UIKit)](Examples/UIKit/Chat/02-Standard/)
 
 ### Typing
 **Data:** `isAgentTyping` (+ `agentAvatarUrl`) shows the dots; call `sendTyping()` on every keystroke to tell the agent — throttled, auto-STOPPED after 5 s idle, and `isAgentTyping` clears on the next agent message.
@@ -704,7 +736,7 @@ override func viewDidLoad() {
     }, for: .editingChanged)
 }
 ```
-*Example app:* [02-Standard (SwiftUI)](Examples/SwiftUI/02-Standard/) · [02-Standard (UIKit)](Examples/UIKit/02-Standard/)
+*Example app:* [02-Standard (SwiftUI)](Examples/SwiftUI/Chat/02-Standard/) · [02-Standard (UIKit)](Examples/UIKit/Chat/02-Standard/)
 
 ### Suggestions (quick replies)
 **Data:** `AgentMessage.suggestions` (`[ResponseSuggestion]`, agent-only). Render under the last message; on tap, clear then send. Only the latest agent message shows pills, and they scroll away with history.
@@ -789,7 +821,7 @@ final class MessageCell: UITableViewCell {
 
 </details>
 
-*Example app:* [02-Standard (SwiftUI)](Examples/SwiftUI/02-Standard/) · [02-Standard (UIKit)](Examples/UIKit/02-Standard/)
+*Example app:* [02-Standard (SwiftUI)](Examples/SwiftUI/Chat/02-Standard/) · [02-Standard (UIKit)](Examples/UIKit/Chat/02-Standard/)
 
 ### Rich text & links
 **Data:** `AgentMessage.text` is the agent's text, delivered **raw**. It's usually Markdown — `**bold**`, `*italic*`, `` `code` ``, `[links](https://…)` — but it can also contain a small subset of **HTML** (most commonly `<br>` line breaks), because the backend serves the same message to the web chat widget, which renders it as HTML. The SDK never strips or converts it — you render it (see the HTML note below).
@@ -853,9 +885,9 @@ final class MessageCell: UITableViewCell {
 
 > `AttributedString(markdown:)` doesn't linkify *bare* URLs — add a regex pass if your agent sends them, and be tolerant of half-open Markdown during progressive streaming.
 
-> **Handling HTML (`<br>` & friends).** Because the same agent text is rendered by the web chat widget as HTML, a reply can arrive with literal tags — e.g. `…how can I help?<br><br>Pick an option:`. `AttributedString(markdown:)` does **not** convert HTML, so those tags would render raw. The advanced examples ([`03-RichContent`](Examples/SwiftUI/03-RichContent/), [`06-FullReference`](Examples/SwiftUI/06-FullReference/), and the rest of `03`–`07`, in **both** SwiftUI and UIKit) run a small `normalizeAgentHTML` pass first that mirrors the web widget's DOMPurify allow-list — `a, br, b, i, em, strong, p, ul, ol, li, code` — mapping `<br>`→newline, `<b>`/`<strong>`→`**`, `<i>`/`<em>`→`*`, `<a href>`→`[text](url)`, lists→bullets, decoding HTML entities, and dropping any other tag. The minimal [`01-Hello`](Examples/SwiftUI/01-Hello/) / [`02-Standard`](Examples/SwiftUI/02-Standard/) examples deliberately skip it (they render `m.text` plainly to stay minimal), so they show `<br>` raw — copy `normalizeAgentHTML` from `RichText.swift` / `MessageCell.swift` if your agent emits HTML.
+> **Handling HTML (`<br>` & friends).** Because the same agent text is rendered by the web chat widget as HTML, a reply can arrive with literal tags — e.g. `…how can I help?<br><br>Pick an option:`. `AttributedString(markdown:)` does **not** convert HTML, so those tags would render raw. The advanced examples ([`03-RichContent`](Examples/SwiftUI/Chat/03-RichContent/), [`06-FullReference`](Examples/SwiftUI/Chat/06-FullReference/), and the rest of `03`–`07`, in **both** SwiftUI and UIKit) run a small `normalizeAgentHTML` pass first that mirrors the web widget's DOMPurify allow-list — `a, br, b, i, em, strong, p, ul, ol, li, code` — mapping `<br>`→newline, `<b>`/`<strong>`→`**`, `<i>`/`<em>`→`*`, `<a href>`→`[text](url)`, lists→bullets, decoding HTML entities, and dropping any other tag. The minimal [`01-Hello`](Examples/SwiftUI/Chat/01-Hello/) / [`02-Standard`](Examples/SwiftUI/Chat/02-Standard/) examples deliberately skip it (they render `m.text` plainly to stay minimal), so they show `<br>` raw — copy `normalizeAgentHTML` from `RichText.swift` / `MessageCell.swift` if your agent emits HTML.
 
-*Example app:* [03-RichContent (SwiftUI)](Examples/SwiftUI/03-RichContent/) · [03-RichContent (UIKit)](Examples/UIKit/03-RichContent/)
+*Example app:* [03-RichContent (SwiftUI)](Examples/SwiftUI/Chat/03-RichContent/) · [03-RichContent (UIKit)](Examples/UIKit/Chat/03-RichContent/)
 
 ### Attachments, link cards & call buttons
 An agent message can carry images, link preview-cards, and `tel:` call buttons — all on `AgentMessage`. Filter `attachments` by `contentType` and render each kind; drop `.unknown` (it exists for forward-compat).
@@ -978,7 +1010,7 @@ final class MessageCell: UITableViewCell {
 
 Each link card opens `contentUrl` on tap; call buttons dial a sanitized `tel:` (digits + leading `+`).
 
-*Example app:* [03-RichContent (SwiftUI)](Examples/SwiftUI/03-RichContent/) · [03-RichContent (UIKit)](Examples/UIKit/03-RichContent/)
+*Example app:* [03-RichContent (SwiftUI)](Examples/SwiftUI/Chat/03-RichContent/) · [03-RichContent (UIKit)](Examples/UIKit/Chat/03-RichContent/)
 
 ### Live agent handoff
 **No special listening** — handoff is already in `messages`: progress as `.system` events (your `systemLabel(_:)` from the core pattern renders them), live-agent replies as `.agent` with `agentKind == .live`, live typing via `isAgentTyping`. Just tint the live agent so the user can tell a human took over.
@@ -1055,7 +1087,7 @@ final class MessageCell: UITableViewCell {
 
 `.liveAgentLeft` is terminal (the SDK flips `hasEnded`). To deep-link a handoff route, observe [`client.events`](#side-effects-clientevents).
 
-*Example app:* [05-Handoff (SwiftUI)](Examples/SwiftUI/05-Handoff/) · [05-Handoff (UIKit)](Examples/UIKit/05-Handoff/)
+*Example app:* [05-Handoff (SwiftUI)](Examples/SwiftUI/Chat/05-Handoff/) · [05-Handoff (UIKit)](Examples/UIKit/Chat/05-Handoff/)
 
 ### Message timestamps
 **Data:** `ChatMessage.timestamp` (also on each `UserMessage` / `AgentMessage` / `SystemMessage`).
@@ -1118,7 +1150,7 @@ final class MessageCell: UITableViewCell {
 
 For a date-grouped separator row (when the gap between consecutive messages crosses a date boundary, insert a row with the date), see the playground.
 
-*Example app:* [07-Playground (SwiftUI)](Examples/SwiftUI/07-Playground/) · [07-Playground (UIKit)](Examples/UIKit/07-Playground/)
+*Example app:* [07-Playground (SwiftUI)](Examples/SwiftUI/Chat/07-Playground/) · [07-Playground (UIKit)](Examples/UIKit/Chat/07-Playground/)
 
 ### Avatars & keyboard
 **Data:** `agentAvatarUrl` (latest) and `AgentMessage.avatarUrl` (per-message). Keyboard handling is yours.
@@ -1208,7 +1240,7 @@ final class MessageCell: UITableViewCell {
 
 </details>
 
-*Example app:* [05-Handoff (SwiftUI)](Examples/SwiftUI/05-Handoff/) · [05-Handoff (UIKit)](Examples/UIKit/05-Handoff/)
+*Example app:* [05-Handoff (SwiftUI)](Examples/SwiftUI/Chat/05-Handoff/) · [05-Handoff (UIKit)](Examples/UIKit/Chat/05-Handoff/)
 
 ## Side effects: `client.events`
 
@@ -1583,17 +1615,35 @@ For internal builds, `DevSettings` (a public `ObservableObject`) is a UserDefaul
 
 ## Example apps
 
-Working apps mirrored across SwiftUI and UIKit — open any `.xcodeproj`, set your `apiKey`, and Cmd+R. Each level builds on the previous one; see its README for what's new.
+Examples live under [`Examples/`](Examples/), split by product — **[`Chat/`](Examples/SwiftUI/Chat/)**
+(`PolyMessaging`) and **[`Voice/`](Examples/SwiftUI/Voice/)** (`PolyVoice`) — each mirrored across
+**SwiftUI** and **UIKit**. Open any `.xcodeproj`, set your `apiKey`, and Cmd+R.
+
+### Chat (`Examples/*/Chat`)
+
+A 7-rung ladder — each level builds on the previous one; see its README for what's new.
 
 | Level | What it adds | SwiftUI · UIKit |
 |---|---|---|
-| **01 Hello** | initialize, render, send | [SwiftUI](Examples/SwiftUI/01-Hello/) · [UIKit](Examples/UIKit/01-Hello/) |
-| **02 Standard** | typing, suggestions, delivery, reconnect, end + start-new | [SwiftUI](Examples/SwiftUI/02-Standard/) · [UIKit](Examples/UIKit/02-Standard/) |
-| **03 Rich Content** | attachments, link cards, `tel:` actions, Markdown | [SwiftUI](Examples/SwiftUI/03-RichContent/) · [UIKit](Examples/UIKit/03-RichContent/) |
-| **04 Resilience** | offline banner, loading skeleton, terminal error + retry | [SwiftUI](Examples/SwiftUI/04-Resilience/) · [UIKit](Examples/UIKit/04-Resilience/) |
-| **05 Handoff** | full live-agent ladder | [SwiftUI](Examples/SwiftUI/05-Handoff/) · [UIKit](Examples/UIKit/05-Handoff/) |
-| **06 Full reference** | production resume + start-new flows | [SwiftUI](Examples/SwiftUI/06-FullReference/) · [UIKit](Examples/UIKit/06-FullReference/) |
-| **07 Playground** | diagnostics, runtime config, streaming toggle | [SwiftUI](Examples/SwiftUI/07-Playground/) · [UIKit](Examples/UIKit/07-Playground/) |
+| **01 Hello** | initialize, render, send | [SwiftUI](Examples/SwiftUI/Chat/01-Hello/) · [UIKit](Examples/UIKit/Chat/01-Hello/) |
+| **02 Standard** | typing, suggestions, delivery, reconnect, end + start-new | [SwiftUI](Examples/SwiftUI/Chat/02-Standard/) · [UIKit](Examples/UIKit/Chat/02-Standard/) |
+| **03 Rich Content** | attachments, link cards, `tel:` actions, Markdown | [SwiftUI](Examples/SwiftUI/Chat/03-RichContent/) · [UIKit](Examples/UIKit/Chat/03-RichContent/) |
+| **04 Resilience** | offline banner, loading skeleton, terminal error + retry | [SwiftUI](Examples/SwiftUI/Chat/04-Resilience/) · [UIKit](Examples/UIKit/Chat/04-Resilience/) |
+| **05 Handoff** | full live-agent ladder | [SwiftUI](Examples/SwiftUI/Chat/05-Handoff/) · [UIKit](Examples/UIKit/Chat/05-Handoff/) |
+| **06 Full reference** | production resume + start-new flows | [SwiftUI](Examples/SwiftUI/Chat/06-FullReference/) · [UIKit](Examples/UIKit/Chat/06-FullReference/) |
+| **07 Playground** | diagnostics, runtime config, streaming toggle | [SwiftUI](Examples/SwiftUI/Chat/07-Playground/) · [UIKit](Examples/UIKit/Chat/07-Playground/) |
+
+### Voice (`Examples/*/Voice`)
+
+A one-screen **tap-to-call** demo on the separate [`PolyVoice`](docs/PolyVoice.md) product — build a
+`PolyCall`, observe its lifecycle, start / mute / end, with a speaker toggle. Set your connector token +
+WebRTC token in the `PolyVoice.call(...)` block. Needs a **physical device** (the simulator can't carry
+WebRTC media). See [Voice calling](#voice-calling-polyvoice).
+
+| Level | What it covers | SwiftUI · UIKit |
+|---|---|---|
+| **01 Hello** | `PolyVoice.call()`, `call.states`, start / mute / end, speaker toggle | [SwiftUI](Examples/SwiftUI/Voice/01-Hello/) · [UIKit](Examples/UIKit/Voice/01-Hello/) |
+| **02 CallKit** | the same call as a **system call** — CallKit wiring, lock-screen/AirPods controls, cellular-call hold | [SwiftUI](Examples/SwiftUI/Voice/02-CallKit/) · [UIKit](Examples/UIKit/Voice/02-CallKit/) |
 
 ## Requirements
 

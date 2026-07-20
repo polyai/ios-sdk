@@ -9,6 +9,10 @@ DerivedData/
 *.xcodeproj/xcuserdata/
 *.playground/timeline.xctimeline
 *.playground/playground.xcworkspace
+.idea/
 
 # Dev verification artifacts
 /build-logs
+
+# Internal QA scratch (dev hostnames — never publish)
+/docs/robustness/

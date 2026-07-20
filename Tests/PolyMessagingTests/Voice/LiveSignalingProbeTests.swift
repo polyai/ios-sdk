@@ -43,7 +43,7 @@ final class LiveSignalingProbeTests: XCTestCase {
             logger: logger
         )
         let channel = GatewaySignalingChannel(
-            url: VoiceEnvironment(environment: .us).signalingURL,
+            url: try VoiceEnvironment(environment: .cluster("dev")).signalingURL,
             logger: logger
         )
         let media = StubMediaEngine()  // supplies a valid Opus offer SDP

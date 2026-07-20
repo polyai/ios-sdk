@@ -18,7 +18,11 @@ final class MockSignalingChannel: SignalingChannel, @unchecked Sendable {
 
     private(set) var sentFrames: [Data] = []
     private(set) var openCalled = false
+    private(set) var openCount = 0
     private(set) var closeCalled = false
+    /// While true, send() reports failure (and records nothing) — drives the
+    /// coordinator's keep-buffered / requeue paths.
+    var failSends = false
 
     var events: AsyncStream<SignalingChannelEvent> {
         AsyncStream { cont in
@@ -32,11 +36,16 @@ final class MockSignalingChannel: SignalingChannel, @unchecked Sendable {
     }
 
     func open() async {
-        lock.lock(); openCalled = true; lock.unlock()
+        lock.lock(); openCalled = true; openCount += 1; lock.unlock()
     }
 
-    func send(_ data: Data) async {
-        lock.lock(); sentFrames.append(data); lock.unlock()
+    @discardableResult
+    func send(_ data: Data) async -> Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        if failSends { return false }
+        sentFrames.append(data)
+        return true
     }
 
     func close() async {
@@ -81,6 +90,10 @@ final class StubMediaEngine: CallMediaEngine, @unchecked Sendable {
     private var _closeCount = 0
     private var localHandler: (@Sendable (ICECandidate) -> Void)?
     private var stateHandler: (@Sendable (CallMediaState) -> Void)?
+    private var interruptionHandler: (@Sendable (CallInterruption) -> Void)?
+    private var audioStateHandler: (@Sendable (AudioState) -> Void)?
+    private var _audioDeviceSelections: [AudioDevice?] = []
+    var audioDeviceSelections: [AudioDevice?] { lock.lock(); defer { lock.unlock() }; return _audioDeviceSelections }
 
     init(offerSDP: String = StubMediaEngine.minimalOffer) {
         self.offerSDP = offerSDP
@@ -92,8 +105,11 @@ final class StubMediaEngine: CallMediaEngine, @unchecked Sendable {
     var muted: Bool? { lock.lock(); defer { lock.unlock() }; return _muted }
     var closeCount: Int { lock.lock(); defer { lock.unlock() }; return _closeCount }
 
-    func createOffer() async throws -> String {
-        lock.lock(); _createOfferCount += 1; let err = createOfferError; lock.unlock()
+    private var _lastIceServers: [IceServer] = []
+    var lastIceServers: [IceServer] { lock.lock(); defer { lock.unlock() }; return _lastIceServers }
+
+    func createOffer(iceServers: [IceServer]) async throws -> String {
+        lock.lock(); _createOfferCount += 1; _lastIceServers = iceServers; let err = createOfferError; lock.unlock()
         if let err { throw err }
         return offerSDP
     }
@@ -114,6 +130,18 @@ final class StubMediaEngine: CallMediaEngine, @unchecked Sendable {
         lock.lock(); stateHandler = handler; lock.unlock()
     }
 
+    func setInterruptionHandler(_ handler: @escaping @Sendable (CallInterruption) -> Void) async {
+        lock.lock(); interruptionHandler = handler; lock.unlock()
+    }
+
+    func setAudioStateHandler(_ handler: @escaping @Sendable (AudioState) -> Void) async {
+        lock.lock(); audioStateHandler = handler; lock.unlock()
+    }
+
+    func selectAudioDevice(_ device: AudioDevice?) async {
+        lock.lock(); _audioDeviceSelections.append(device); lock.unlock()
+    }
+
     func setMuted(_ muted: Bool) async {
         lock.lock(); _muted = muted; lock.unlock()
     }
@@ -130,6 +158,16 @@ final class StubMediaEngine: CallMediaEngine, @unchecked Sendable {
 
     func driveState(_ state: CallMediaState) {
         lock.lock(); let h = stateHandler; lock.unlock()
+        h?(state)
+    }
+
+    func driveInterruption(_ interruption: CallInterruption) {
+        lock.lock(); let h = interruptionHandler; lock.unlock()
+        h?(interruption)
+    }
+
+    func driveAudioState(_ state: AudioState) {
+        lock.lock(); let h = audioStateHandler; lock.unlock()
         h?(state)
     }
 

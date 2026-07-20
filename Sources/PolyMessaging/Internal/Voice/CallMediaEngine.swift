@@ -3,13 +3,23 @@
 import Foundation
 
 /// State of the underlying media (WebRTC peer) connection.
-enum CallMediaState: Sendable, Equatable {
+public enum CallMediaState: Sendable, Equatable {
     case new
     case connecting
     case connected
     case disconnected
     case failed
     case closed
+}
+
+/// An audio-session interruption relevant to a live call (phone call, Siri, another app).
+public enum CallInterruption: Sendable, Equatable {
+    /// Audio was taken — mute the mic until the interruption ends.
+    case began
+    /// The interruption ended and the system says it's safe to resume — unmute.
+    case endedResume
+    /// The interruption ended but the system won't let us resume — end the call.
+    case endedStop
 }
 
 /// The media (WebRTC peer-connection) seam that the call pipeline drives.
@@ -24,9 +34,12 @@ enum CallMediaState: Sendable, Equatable {
 /// gateway in the opt-in integration probe — by injecting an engine that
 /// produces a valid SDP offer. When a real engine is supplied, the same
 /// `CallCoordinator` carries audio with no further changes.
-protocol CallMediaEngine: Sendable {
-    /// Acquire the microphone and produce the local SDP offer (audio).
-    func createOffer() async throws -> String
+///
+/// Public so the PolyVoice product can supply a WebRTC-backed implementation.
+public protocol CallMediaEngine: Sendable {
+    /// Acquire the microphone and produce the local SDP offer (audio), building
+    /// the peer connection with the supplied ICE (STUN/TURN) servers.
+    func createOffer(iceServers: [IceServer]) async throws -> String
     /// Apply the remote SDP answer returned by the gateway.
     func acceptAnswer(sdp: String) async throws
     /// Add a remote ICE candidate received from the gateway.
@@ -36,6 +49,12 @@ protocol CallMediaEngine: Sendable {
     func setLocalCandidateHandler(_ handler: @escaping @Sendable (ICECandidate) -> Void) async
     /// Register the sink for media connection-state transitions.
     func setStateHandler(_ handler: @escaping @Sendable (CallMediaState) -> Void) async
+    /// Register the sink for audio-session interruptions (phone calls, Siri, etc.).
+    func setInterruptionHandler(_ handler: @escaping @Sendable (CallInterruption) -> Void) async
+    /// Register the sink for audio-routing snapshots (available outputs + the active one).
+    func setAudioStateHandler(_ handler: @escaping @Sendable (AudioState) -> Void) async
+    /// Route call audio to `device`, or `nil` to revert to automatic routing.
+    func selectAudioDevice(_ device: AudioDevice?) async
     /// Mute / unmute the local microphone track.
     func setMuted(_ muted: Bool) async
     /// Tear down the peer connection and release the microphone.
