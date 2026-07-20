@@ -1,7 +1,7 @@
 // Copyright PolyAI Limited
 
 import XCTest
-@testable import PolyMessaging
+@_spi(PolyVoice) @testable import PolyMessaging
 
 /// Deterministic coverage for `ChatSession` — the public state machine every
 /// example and customer binds to. Drives the real `Coordinator`/`ChatService`

@@ -78,6 +78,7 @@ public final class PolyMessagingClient: @unchecked Sendable {
     /// Voice calling is not yet available: the SDK ships without an on-device
     /// media (WebRTC audio) engine, so `start()` surfaces
     /// `PolyError.voice(.notImplemented)`.
+    @MainActor
     public func voice() -> PolyCall {
         PolyCall(config: config)
     }

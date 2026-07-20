@@ -1,7 +1,7 @@
 // Copyright PolyAI Limited
 
 import XCTest
-@testable import PolyMessaging
+@_spi(PolyVoice) @testable import PolyMessaging
 
 /// Stress probes for connection status emission and cross-batch envelope-id
 /// dedup. Because the reconnect ladder uses jittered exponential backoff, this

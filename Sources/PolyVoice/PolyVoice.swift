@@ -1,7 +1,7 @@
 // Copyright PolyAI Limited
 
 import Foundation
-import PolyMessaging
+@_spi(PolyVoice) import PolyMessaging
 #if os(iOS)
 import AVFAudio
 import WebRTC
@@ -32,6 +32,10 @@ public enum PolyVoice {
     ///   - options: voice options — `VoiceOptions.webrtcToken` is required.
     /// - Throws: `PolyError.invalidConfiguration` if `apiKey`/`webrtcToken` is empty, or the
     ///   environment is `.custom` without `VoiceOptions.signalingHost`.
+    /// > Note: `@MainActor`, matching ``PolyMessaging/voice()`` and
+    /// > ``PolyMessaging/chat()`` — ``PolyCall`` is an `ObservableObject`, so it
+    /// > is created and observed on the main actor like `ChatSession`.
+    @MainActor
     public static func call(config: Configuration, options: VoiceOptions) throws -> PolyCall {
         guard !config.apiKey.isEmpty else {
             throw PolyError.invalidConfiguration("Configuration.apiKey must not be empty")

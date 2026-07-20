@@ -1,7 +1,7 @@
 // Copyright PolyAI Limited
 
 import XCTest
-@testable import PolyMessaging
+@_spi(PolyVoice) @testable import PolyMessaging
 
 /// The ship-readiness resilience matrix. One test per failure-mode the SDK
 /// claims to handle, driven entirely through MockConnection / MockRestApi so

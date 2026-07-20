@@ -1,7 +1,7 @@
 // Copyright PolyAI Limited
 
 import XCTest
-@testable import PolyMessaging
+@_spi(PolyVoice) @testable import PolyMessaging
 
 /// End-to-end *scenario* coverage for the two "complete" example levels
 /// (05-Handoff, 06-FullReference) at the layer those apps actually bind to —

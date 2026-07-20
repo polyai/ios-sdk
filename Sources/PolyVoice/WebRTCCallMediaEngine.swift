@@ -3,7 +3,7 @@
 #if os(iOS)
 import Foundation
 import WebRTC
-import PolyMessaging
+@_spi(PolyVoice) import PolyMessaging
 
 /// Real WebRTC audio engine.
 ///
@@ -29,7 +29,7 @@ final class WebRTCCallMediaEngine: NSObject, CallMediaEngine, @unchecked Sendabl
     // otherwise find `peer == nil`, release nothing, and leave the connection it never
     // saw running with a live mic track. Every publish point re-checks this latch.
     private var closed = false
-    private var localCandidateHandler: (@Sendable (ICECandidate) -> Void)?
+    private var localCandidateHandler: (@Sendable (IceCandidate) -> Void)?
     private var stateHandler: (@Sendable (CallMediaState) -> Void)?
 
     init(audio: AudioSessionController) {
@@ -64,7 +64,7 @@ final class WebRTCCallMediaEngine: NSObject, CallMediaEngine, @unchecked Sendabl
         config.continualGatheringPolicy = .gatherContinually
         // Gateway-provided STUN/TURN (falls back to public STUN when the fetch failed);
         // TURN entries carry credentials, STUN entries don't.
-        config.iceServers = (iceServers.isEmpty ? IceServer.default : iceServers).map { server in
+        config.iceServers = (iceServers.isEmpty ? IceServer.defaultServers : iceServers).map { server in
             if let username = server.username, let credential = server.credential {
                 return RTCIceServer(urlStrings: server.urls, username: username, credential: credential)
             }
@@ -122,7 +122,7 @@ final class WebRTCCallMediaEngine: NSObject, CallMediaEngine, @unchecked Sendabl
         }
     }
 
-    func addRemoteCandidate(_ candidate: ICECandidate) async throws {
+    func addRemoteCandidate(_ candidate: IceCandidate) async throws {
         guard let peer = currentPeer() else { return }
         let rtc = RTCIceCandidate(
             sdp: candidate.candidate,
@@ -136,7 +136,7 @@ final class WebRTCCallMediaEngine: NSObject, CallMediaEngine, @unchecked Sendabl
         }
     }
 
-    func setLocalCandidateHandler(_ handler: @escaping @Sendable (ICECandidate) -> Void) async {
+    func setLocalCandidateHandler(_ handler: @escaping @Sendable (IceCandidate) -> Void) async {
         lock.lock(); localCandidateHandler = handler; lock.unlock()
     }
 
@@ -202,7 +202,7 @@ extension WebRTCCallMediaEngine: RTCPeerConnectionDelegate {
 
     func peerConnection(_ pc: RTCPeerConnection, didGenerate candidate: RTCIceCandidate) {
         lock.lock(); let handler = localCandidateHandler; lock.unlock()
-        handler?(ICECandidate(
+        handler?(IceCandidate(
             candidate: candidate.sdp,
             sdpMid: candidate.sdpMid,
             sdpMLineIndex: Int(candidate.sdpMLineIndex)

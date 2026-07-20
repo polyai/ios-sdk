@@ -1,7 +1,7 @@
 // Copyright PolyAI Limited
 
 import XCTest
-@testable import PolyMessaging
+@_spi(PolyVoice) @testable import PolyMessaging
 
 /// Unit tests for `VoiceSessionLinker` — the messaging-WS leg of a voice call —
 /// against a `MockConnection`. Previously this component was only exercised by

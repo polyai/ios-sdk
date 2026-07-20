@@ -1,7 +1,7 @@
 // Copyright PolyAI Limited
 
 import XCTest
-@testable import PolyMessaging
+@_spi(PolyVoice) @testable import PolyMessaging
 
 /// End-to-end *scenario* coverage for voice at the layer the example apps bind
 /// to — the public `PolyCall` surface (the voice twin of the chat
@@ -10,6 +10,7 @@ import XCTest
 /// `MockConnection` + `MockSignalingChannel` + `StubMediaEngine` (no network,
 /// no WebRTC stack) and asserts what the app observes: `states`, `state`,
 /// `isMuted`, and `audioState`.
+@MainActor
 final class VoiceE2EScenarioTests: XCTestCase {
 
     private struct Stack {
@@ -73,7 +74,7 @@ final class VoiceE2EScenarioTests: XCTestCase {
         ])))
         _ = await waitUntil { stack.media.acceptedAnswer == "v=0-answer" }
         stack.media.driveState(.connected)
-        let connected = await waitUntil { stack.call.state == .connected }
+        let connected = await waitUntil { await MainActor.run { stack.call.state == .connected } }
         XCTAssertTrue(connected, "the public state reaches .connected")
     }
 
@@ -153,12 +154,12 @@ final class VoiceE2EScenarioTests: XCTestCase {
         try await startCall(stack)
         await connect(stack)
 
-        let speaker = AudioDevice(type: .speakerphone, name: "Speaker", id: "builtin.speaker")
+        let speaker = AudioDevice(kind: .speakerphone, name: "Speaker", id: "builtin.speaker")
         await stack.call.setAudioDevice(speaker)
         XCTAssertEqual(stack.media.audioDeviceSelections.first ?? nil, speaker)
 
         let snapshot = AudioState(availableDevices: [speaker], selectedDevice: speaker)
-        let stream = stack.call.audioState
+        let stream = stack.call.audioStates
         stack.media.driveAudioState(snapshot)
         var received: AudioState?
         for await state in stream {
@@ -179,7 +180,7 @@ final class VoiceE2EScenarioTests: XCTestCase {
         try await startCall(stack)
         XCTAssertEqual(stack.call.state, .connecting)
         await stack.call.end()
-        let ended = await waitUntil { stack.call.state == .ended }
+        let ended = await waitUntil { await MainActor.run { stack.call.state == .ended } }
         XCTAssertTrue(ended)
     }
 }

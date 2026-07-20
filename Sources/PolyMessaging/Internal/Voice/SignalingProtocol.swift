@@ -2,26 +2,11 @@
 
 import Foundation
 
-/// An ICE candidate exchanged with the WebRTC signaling gateway.
-///
-/// Public so the PolyVoice product's WebRTC engine can produce and consume them.
-public struct ICECandidate: Sendable, Equatable {
-    public let candidate: String
-    public let sdpMid: String?
-    public let sdpMLineIndex: Int?
-
-    public init(candidate: String, sdpMid: String?, sdpMLineIndex: Int?) {
-        self.candidate = candidate
-        self.sdpMid = sdpMid
-        self.sdpMLineIndex = sdpMLineIndex
-    }
-}
-
 /// A parsed inbound signal from the WebRTC signaling gateway
 /// (`/api/v1/webrtc/signal`).
 enum InboundSignal: Sendable, Equatable {
     case answer(sessionId: String?, sdp: String)
-    case iceCandidate(ICECandidate)
+    case iceCandidate(IceCandidate)
     case error(message: String)
     case pong
     /// Backend-initiated session close (e.g. the agent finished its turn).
@@ -47,7 +32,7 @@ enum SignalingProtocol {
             return .answer(sessionId: json.string("sessionId"), sdp: sdp)
         case "ice-candidate":
             guard let payload = json.dict("data"), let candidate = payload.string("candidate") else { return nil }
-            return .iceCandidate(ICECandidate(
+            return .iceCandidate(IceCandidate(
                 candidate: candidate,
                 sdpMid: payload.string("sdpMid"),
                 sdpMLineIndex: payload.int("sdpMLineIndex")
@@ -83,7 +68,7 @@ enum SignalingProtocol {
     }
 
     /// An outbound local ICE candidate (sent once the session ID is known).
-    static func iceCandidate(_ candidate: ICECandidate, sessionId: String) -> Data? {
+    static func iceCandidate(_ candidate: IceCandidate, sessionId: String) -> Data? {
         // Explicit JSON null when absent (matches the web client's wire shape).
         let data: [String: Any] = [
             "candidate": candidate.candidate,

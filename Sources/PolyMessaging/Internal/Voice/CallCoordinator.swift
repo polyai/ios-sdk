@@ -34,8 +34,8 @@ actor CallCoordinator {
     private var callSid: String?
     private var signalSessionId: String?
     private var pendingOfferSDP: String?
-    private var pendingLocalIce: [ICECandidate] = []
-    private var pendingRemoteIce: [ICECandidate] = []
+    private var pendingLocalIce: [IceCandidate] = []
+    private var pendingRemoteIce: [IceCandidate] = []
     private var remoteAnswerApplied = false
     private var lastMediaState: CallMediaState = .new
     private var hasConnected = false
@@ -386,7 +386,7 @@ actor CallCoordinator {
 
     // MARK: - ICE
 
-    private func handleLocalCandidate(_ candidate: ICECandidate) async {
+    private func handleLocalCandidate(_ candidate: IceCandidate) async {
         guard active else { return }
         // Buffer until the session id is known, and also while the signaling socket is
         // reconnecting — otherwise a candidate would be sent into a dead socket and lost.
@@ -409,7 +409,7 @@ actor CallCoordinator {
         // flush instead of being wiped by a post-loop removeAll.
         let batch = pendingLocalIce
         pendingLocalIce.removeAll()
-        var requeue: [ICECandidate] = []
+        var requeue: [IceCandidate] = []
         var socketDead = false
         for candidate in batch {
             guard !socketDead else { requeue.append(candidate); continue }

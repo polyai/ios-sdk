@@ -1,7 +1,7 @@
 // Copyright PolyAI Limited
 
 import Foundation
-@testable import PolyMessaging
+@_spi(PolyVoice) @testable import PolyMessaging
 
 struct NoopLogger: PolyLogger {
     func debug(_ message: String, metadata: [String: any Sendable]?) {}

@@ -1,7 +1,7 @@
 // Copyright PolyAI Limited
 
 import Foundation
-@testable import PolyMessaging
+@_spi(PolyVoice) @testable import PolyMessaging
 
 final class MockConnection: Connection, @unchecked Sendable {
 

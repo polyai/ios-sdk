@@ -41,7 +41,7 @@ Add the package by its Git URL, pinned to a version. Pick **one** of the four op
    ```
    https://github.com/polyai/ios-sdk
    ```
-3. Set **Dependency Rule** → *Up to Next Major Version* → `0.9.0`
+3. Set **Dependency Rule** → *Up to Next Minor Version* → `0.9.0` (pre-1.0, breaking changes bump the **minor**)
 4. Click **Add Package** → tick the **PolyMessaging** library for your app target → **Add Package** again.
 
 ### Option 2 — [CocoaPods](https://cocoapods.org) (`Podfile`)
@@ -56,7 +56,8 @@ Then run `pod install` and open the generated `.xcworkspace`.
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/polyai/ios-sdk", from: "0.9.0")
+    // Pre-1.0: breaking changes bump the MINOR version, so pin to next-minor.
+    .package(url: "https://github.com/polyai/ios-sdk", .upToNextMinor(from: "0.9.0"))
 ]
 // then add to your target:
 .product(name: "PolyMessaging", package: "ios-sdk")
@@ -68,7 +69,7 @@ dependencies: [
 packages:
   PolyMessaging:
     url: https://github.com/polyai/ios-sdk
-    exactVersion: 0.9.0      # or: upToNextMajorVersion: 0.9.0
+    exactVersion: 0.9.0      # or: upToNextMinorVersion: 0.9.0  (pre-1.0: minor bumps can break)
 targets:
   YourApp:
     dependencies:
@@ -276,7 +277,8 @@ The SDK is headless: it gives you one observable object — **`ChatSession`** �
 
 Live, two-way **WebRTC voice calls** to a PolyAI agent ship in a **separate** product/pod —
 [`PolyVoice`](docs/PolyVoice.md) — so chat-only apps never link the WebRTC binary (`PolyMessaging`
-stays source-only). It reuses the messaging `Configuration` and the same `CallState` / `PolyError` types.
+stays source-only; note that SPM still *resolves* the xcframework for the graph, while a
+CocoaPods chat-only install pulls nothing extra). It reuses the messaging `Configuration` and the same `CallState` / `PolyError` types.
 
 ```swift
 import PolyMessaging

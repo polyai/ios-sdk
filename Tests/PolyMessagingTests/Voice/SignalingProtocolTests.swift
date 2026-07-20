@@ -1,7 +1,7 @@
 // Copyright PolyAI Limited
 
 import XCTest
-@testable import PolyMessaging
+@_spi(PolyVoice) @testable import PolyMessaging
 
 /// Unit tests for the WebRTC signaling wire framing — the pure parser/builder
 /// that the live gateway round-trip depends on.
@@ -89,7 +89,7 @@ final class SignalingProtocolTests: XCTestCase {
     }
 
     func test_iceCandidate_shape() throws {
-        let candidate = ICECandidate(candidate: "candidate:xyz", sdpMid: "0", sdpMLineIndex: 1)
+        let candidate = IceCandidate(candidate: "candidate:xyz", sdpMid: "0", sdpMLineIndex: 1)
         let data = try XCTUnwrap(SignalingProtocol.iceCandidate(candidate, sessionId: "sig_1"))
         let obj = try decode(data)
         XCTAssertEqual(obj["type"] as? String, "ice-candidate")

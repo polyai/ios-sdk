@@ -1,7 +1,7 @@
 // Copyright PolyAI Limited
 
 import XCTest
-@testable import PolyMessaging
+@_spi(PolyVoice) @testable import PolyMessaging
 
 /// Opt-in **live** messaging integration probe. Drives the real public path —
 /// `PolyMessaging.start` → `ChatSession` → the live WebSocket — and asserts

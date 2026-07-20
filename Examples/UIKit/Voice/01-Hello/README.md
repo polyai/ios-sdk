@@ -20,7 +20,7 @@ Mic permission (`NSMicrophoneUsageDescription`) and the `audio` background mode 
 - `for await state in call.states` — `.idle → .connecting → .connected → .ended / .failed`
 - `try await call.start()` after the mic permission, `await call.end()` any time
 - `call.setMuted(_:)` for the local microphone
-- `call.audioState` + `call.setAudioDevice(_:)` — the speaker ↔ earpiece toggle
+- `call.audioState` (published) + `call.setAudioDevice(_:)` — the speaker ↔ earpiece toggle
 
 `PolyVoice` is a separate product so chat-only apps never link the WebRTC binary; it reuses `Configuration`, `CallState`, and `PolyError` from `PolyMessaging` — hence the two imports at the top of `CallViewController.swift`. The full reference is the [voice guide](../../../../docs/PolyVoice.md).
 
@@ -127,7 +127,7 @@ The controller keeps a local `muted` flag for the button title and pushes it:
 ### Speaker toggle — `CallViewController.swift`
 
 ```swift
-call.audioState                    // AsyncStream<AudioState> — availableDevices + selectedDevice;
+call.audioStates                   // AsyncStream<AudioState> — availableDevices + selectedDevice;
                                    // .empty until the call's audio is engaged by start()
 await call.setAudioDevice(device)  // route to an entry from availableDevices (nil = automatic)
 ```
@@ -136,9 +136,9 @@ A second observer `Task` folds `audioState` into a `didSet`-rendering property, 
 
 ```swift
 @objc private func toggleSpeaker() {
-    let isSpeaker = audioState.selectedDevice?.type == .speakerphone
-    let target: AudioDevice.DeviceType = isSpeaker ? .earpiece : .speakerphone
-    if let device = audioState.availableDevices.first(where: { $0.type == target }) {
+    let isSpeaker = audioState.selectedDevice?.kind == .speakerphone
+    let target: AudioDevice.Kind = isSpeaker ? .earpiece : .speakerphone
+    if let device = audioState.availableDevices.first(where: { $0.kind == target }) {
         Task { await call?.setAudioDevice(device) }
     }
 }

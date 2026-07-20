@@ -1,7 +1,7 @@
 // Copyright PolyAI Limited
 
 import XCTest
-@testable import PolyMessaging
+@_spi(PolyVoice) @testable import PolyMessaging
 
 /// Stress probes for the reconnect state machine in `ConnectionService`. A
 /// "reconnect storm" is a burst of 1006 closes arriving faster than backoff can

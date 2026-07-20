@@ -1,6 +1,7 @@
 // Copyright PolyAI Limited
 
 import Foundation
+import Combine
 
 /// Lifecycle state of a voice call.
 public enum CallState: Sendable, Equatable {
@@ -22,34 +23,42 @@ public extension CallState {
 
 /// A voice call.
 ///
+/// Observable the same way ``ChatSession`` is — `@MainActor` + `ObservableObject`, so
+/// SwiftUI can bind straight to ``state`` and ``audioState`` with no manual
+/// `for await` plumbing. The ``states`` / ``audioStates`` streams remain for UIKit
+/// and other non-SwiftUI consumers.
+///
 /// The base ``PolyMessaging/voice()`` factory ships **without** a media engine, so its
 /// ``start()`` surfaces `PolyError.voice(.notImplemented)`. The **PolyVoice** product supplies
-/// a real WebRTC audio engine — call `PolyVoice.call(config:options:)` to place audio calls
-/// (it builds this via ``wired(config:webrtcToken:mediaEngine:)``).
-public final class PolyCall: @unchecked Sendable {
+/// a real WebRTC audio engine — call `PolyVoice.call(config:options:)` to place audio calls.
+@MainActor
+public final class PolyCall: ObservableObject {
 
     private let coordinator: CallCoordinator?
     private let config: Configuration?
 
     private let stateCaster = Multicaster<CallState>(replayLastValue: true)
-    private let lock = NSLock()
-    private var _state: CallState = .idle
+    private let audioCaster = Multicaster<AudioState>(replayLastValue: true)
     private var relayTask: Task<Void, Never>?
+    private var audioRelayTask: Task<Void, Never>?
 
     /// Current call state.
-    public var state: CallState {
-        lock.lock(); defer { lock.unlock() }
-        return _state
-    }
+    @Published public private(set) var state: CallState = .idle
 
-    /// Call-state transitions. Late subscribers receive the current state.
-    public var states: AsyncStream<CallState> { stateCaster.subscribe() }
+    /// Current audio routing (available outputs + the active one) — drive a device
+    /// picker from this. Empty until the call's audio is engaged (``start()``).
+    @Published public private(set) var audioState: AudioState = .empty
 
-    /// Audio-routing snapshots (available outputs + the active one) — drive a device picker.
-    /// Empty until the call's audio is engaged (`start()`).
-    public var audioState: AsyncStream<AudioState> {
-        coordinator?.audioStream ?? AsyncStream { $0.finish() }
-    }
+    /// Call-state transitions, for non-SwiftUI consumers. Late subscribers receive
+    /// the current state.
+    ///
+    /// > Note: each access returns a NEW subscription — read it once and iterate,
+    /// > don't call it twice expecting the same stream.
+    public nonisolated var states: AsyncStream<CallState> { stateCaster.subscribe() }
+
+    /// Audio-routing snapshots, for non-SwiftUI consumers. Same
+    /// one-subscription-per-access caveat as ``states``.
+    public nonisolated var audioStates: AsyncStream<AudioState> { audioCaster.subscribe() }
 
     /// Public (gated) initializer: no media engine is bundled, so this call
     /// cannot carry audio yet. `start()` reports `.voice(.notImplemented)`.
@@ -63,14 +72,19 @@ public final class PolyCall: @unchecked Sendable {
     init(coordinator: CallCoordinator) {
         self.config = nil
         self.coordinator = coordinator
-        let stream = coordinator.stateStream
+        let states = coordinator.stateStream
+        let audio = coordinator.audioStream
         relayTask = Task { [weak self] in
-            for await newState in stream { self?.setState(newState) }
+            for await newState in states { await self?.setState(newState) }
+        }
+        audioRelayTask = Task { [weak self] in
+            for await newAudio in audio { await self?.setAudioState(newAudio) }
         }
     }
 
     deinit {
         relayTask?.cancel()
+        audioRelayTask?.cancel()
         // Dropping a live call must still release the mic, sockets, and the
         // process-global audio session — the Task retains the coordinator until
         // its teardown completes.
@@ -115,10 +129,13 @@ public final class PolyCall: @unchecked Sendable {
     }
 
     private func setState(_ newState: CallState) {
-        lock.lock()
-        _state = newState
-        lock.unlock()
+        state = newState
         stateCaster.emit(newState)
+    }
+
+    private func setAudioState(_ newAudioState: AudioState) {
+        audioState = newAudioState
+        audioCaster.emit(newAudioState)
     }
 }
 
@@ -137,6 +154,12 @@ public extension PolyCall {
     ///   - signalingHost: optional gateway-host override (required for `.custom`).
     ///   - mediaEngine: the platform WebRTC engine that produces the SDP offer and carries audio.
     /// - Throws: `PolyError.invalidConfiguration` for a `.custom` environment without a `signalingHost`.
+    ///
+    /// > Important: SPI, not API. This hard-codes the SDK's entire internal composition
+    /// > (`RestApi`, `VoiceSessionLinker`, `GatewaySignalingChannel`, `GatewayIceServersFetcher`,
+    /// > `CallCoordinator`) in its signature. As public API that shape could never change
+    /// > without a major bump; as SPI it stays ours to refactor.
+    @_spi(PolyVoice)
     static func wired(
         config: Configuration,
         webrtcToken: String,

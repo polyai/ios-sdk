@@ -1,7 +1,7 @@
 // Copyright PolyAI Limited
 
 import XCTest
-@testable import PolyMessaging
+@_spi(PolyVoice) @testable import PolyMessaging
 
 /// Robustness / stress probes for `WireDecoder` against malformed wire payloads.
 /// Every assertion captures the decoder's CURRENT behaviour (no source changes).

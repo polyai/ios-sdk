@@ -97,10 +97,12 @@ public enum PolyMessaging {
 
     // MARK: - Voice
 
+    @MainActor
     public static func voice() -> PolyCall {
         voice(currentConfig)
     }
 
+    @MainActor
     public static func voice(_ config: Configuration) -> PolyCall {
         PolyCall(config: config)
     }

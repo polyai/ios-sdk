@@ -1,7 +1,7 @@
 // Copyright PolyAI Limited
 
 import XCTest
-@testable import PolyMessaging
+@_spi(PolyVoice) @testable import PolyMessaging
 
 /// Echo-dedup stress coverage. `prepareUserMessage` doesn't surface the
 /// internal `clientEventId`, so tests can't reconstruct `local_id` and these

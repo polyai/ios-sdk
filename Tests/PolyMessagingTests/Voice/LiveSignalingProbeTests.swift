@@ -1,7 +1,7 @@
 // Copyright PolyAI Limited
 
 import XCTest
-@testable import PolyMessaging
+@_spi(PolyVoice) @testable import PolyMessaging
 
 /// Opt-in live integration probe: runs the **real** voice-call signaling
 /// pipeline against the dev backend and asserts the gateway returns an SDP

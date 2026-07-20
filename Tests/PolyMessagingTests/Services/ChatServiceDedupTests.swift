@@ -1,7 +1,7 @@
 // Copyright PolyAI Limited
 
 import XCTest
-@testable import PolyMessaging
+@_spi(PolyVoice) @testable import PolyMessaging
 
 /// Regression tests for the user-message echo dedup path. The audit flagged
 /// `firstIndex(where: text == ...)` as broken for burst-identical sends

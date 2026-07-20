@@ -1,7 +1,7 @@
 // Copyright PolyAI Limited
 
 import XCTest
-@testable import PolyMessaging
+@_spi(PolyVoice) @testable import PolyMessaging
 
 /// Stress / race probes for the voice-call lifecycle (the voice twin of the
 /// chat `StressLifecycleRace` / `StressReconnectStorm` suites). Invariants:
@@ -139,7 +139,7 @@ final class StressCallLifecycleTests: XCTestCase {
 
             // A candidate generated inside the gap must be buffered, then
             // delivered once the reconnect lands.
-            media.emitLocalCandidate(ICECandidate(candidate: "cand:gap-\(cycle)", sdpMid: "0", sdpMLineIndex: 0))
+            media.emitLocalCandidate(IceCandidate(candidate: "cand:gap-\(cycle)", sdpMid: "0", sdpMLineIndex: 0))
             channel.emit(.opened)
             let delivered = await waitUntil {
                 channel.sentFrames(ofType: "ice-candidate")
