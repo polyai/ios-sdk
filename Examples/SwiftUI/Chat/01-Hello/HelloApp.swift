@@ -17,7 +17,7 @@ struct HelloApp: App {
         // works anywhere in the app with no arguments.
         // Replace with your connector token from Agent Studio before shipping.
         PolyMessaging.initialize(.init(
-            apiKey: "YOUR_API_KEY"
+            apiKey: "YOUR_CONNECTOR_TOKEN"
         ))
         if CommandLine.arguments.contains("-uiTestFreshStart") { PolyMessaging.clearResumableSession() }
     }

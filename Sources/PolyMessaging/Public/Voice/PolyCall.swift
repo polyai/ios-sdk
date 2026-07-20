@@ -149,8 +149,8 @@ public extension PolyCall {
     /// the same internal REST/session/signaling pipeline the tests exercise.
     ///
     /// - Parameters:
-    ///   - config: the shared messaging `Configuration` (api key, environment, host).
-    ///   - webrtcToken: the WebRTC gateway token (the offer `authToken` + ICE-servers auth).
+    ///   - config: the shared messaging `Configuration` (connector token, environment, host).
+    ///   - webrtcToken: the web calling token (the offer `authToken` + ICE-servers auth).
     ///   - signalingHost: optional gateway-host override (required for `.custom`).
     ///   - mediaEngine: the platform WebRTC engine that produces the SDP offer and carries audio.
     /// - Throws: `PolyError.invalidConfiguration` for a `.custom` environment without a `signalingHost`.

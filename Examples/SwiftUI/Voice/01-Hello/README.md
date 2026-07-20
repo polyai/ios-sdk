@@ -9,7 +9,7 @@ open VoiceSwiftUI.xcodeproj   # from this folder
 ```
 
 1. Set your team under **Signing & Capabilities** (a device build needs one).
-2. In `ContentView.swift`, fill in both credentials from **Agent Studio › Connector Settings**: `apiKey` (your connector token, currently `"YOUR_API_KEY"`) and `webrtcToken` (the gateway token — a **distinct** value, currently `"YOUR_WEBRTC_TOKEN"`).
+2. In `ContentView.swift`, fill in both credentials from **Agent Studio › Connector Settings**: `apiKey` (your connector token, currently `"YOUR_CONNECTOR_TOKEN"`) and `webrtcToken` (the web calling token — a **distinct** value, currently `"YOUR_WEB_CALLING_TOKEN"`).
 3. Run on a **physical iPhone** — the simulator can't carry WebRTC media. Allow the microphone, tap **Start call**, and talk.
 
 Mic permission (`NSMicrophoneUsageDescription`) and the `audio` background mode are already configured via `project.yml`, so the call keeps running when you background the app.
@@ -32,8 +32,8 @@ Each subsection leads with **the SDK call** (the actual API), then shows **how i
 
 ```swift
 let call = try PolyVoice.call(
-    config: Configuration(apiKey: "YOUR_API_KEY"),            // connector token
-    options: VoiceOptions(webrtcToken: "YOUR_WEBRTC_TOKEN")   // gateway token — a distinct value
+    config: Configuration(apiKey: "YOUR_CONNECTOR_TOKEN"),         // connector token
+    options: VoiceOptions(webrtcToken: "YOUR_WEB_CALLING_TOKEN")   // web calling token — a distinct value
 )   // throws PolyError.invalidConfiguration on a blank token,
     // or a .custom environment without VoiceOptions.signalingHost
 ```
@@ -50,7 +50,7 @@ do {
 call = newCall
 ```
 
-**Under the hood:** building the call does no network work — it validates the tokens and wires the WebRTC engine to the same REST/session/signaling pipeline the SDK's tests exercise. Everything starts at `start()`. The two tokens do different jobs: the API key authenticates the call session, the WebRTC token authenticates the signaling offer and the ICE-servers fetch.
+**Under the hood:** building the call does no network work — it validates the tokens and wires the WebRTC engine to the same REST/session/signaling pipeline the SDK's tests exercise. Everything starts at `start()`. The two tokens do different jobs: the connector token authenticates the call session, the web calling token authenticates the signaling offer and the ICE-servers fetch.
 
 *See [voice guide › Credentials](../../../../docs/PolyVoice.md#credentials).*
 

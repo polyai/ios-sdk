@@ -10,7 +10,7 @@ public enum PolyMessaging {
 
     public static func initialize(_ config: Configuration) {
         guard !config.apiKey.isEmpty else {
-            fatalError("PolyMessaging: apiKey must not be empty. Get your key from Agent Studio.")
+            fatalError("PolyMessaging: apiKey must not be empty. Get your connector token from Agent Studio.")
         }
         configLock.lock()
         _config = config
@@ -37,7 +37,7 @@ public enum PolyMessaging {
 
     private static func makeClient(_ config: Configuration) -> PolyMessagingClient {
         guard !config.apiKey.isEmpty else {
-            fatalError("PolyMessaging: apiKey must not be empty. Get your key from Agent Studio.")
+            fatalError("PolyMessaging: apiKey must not be empty. Get your connector token from Agent Studio.")
         }
         return PolyMessagingClient(config: config)
     }

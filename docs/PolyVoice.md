@@ -37,8 +37,8 @@ import PolyMessaging
 import PolyVoice
 
 let call = try PolyVoice.call(
-    config: Configuration(apiKey: "YOUR_API_KEY"),          // connector token — Agent Studio › Connector Settings
-    options: VoiceOptions(webrtcToken: "YOUR_WEBRTC_TOKEN")  // WebRTC token — same place, a distinct value
+    config: Configuration(apiKey: "YOUR_CONNECTOR_TOKEN"),        // connector token — Agent Studio › Connector Settings
+    options: VoiceOptions(webrtcToken: "YOUR_WEB_CALLING_TOKEN")  // web calling token — same place, a distinct value
 )   // throws PolyError.invalidConfiguration on a blank token or a .custom env without signalingHost
 
 // Observe the lifecycle: .idle → .connecting → .connected → .ended / .failed
@@ -128,8 +128,8 @@ you use for chat):
 
 | Value | What it is | Sent as |
 |---|---|---|
-| **API key** — `Configuration.apiKey` | your connector token | `X-Token` (authenticates the call) |
-| **WebRTC token** — `VoiceOptions.webrtcToken` | the gateway auth token — a **distinct** token from the API key | the offer `authToken` + ICE-servers fetch |
+| **Connector token** — `Configuration.apiKey` | your connector token | `X-Token` (authenticates the call) |
+| **Web calling token** — `VoiceOptions.webrtcToken` | the media-gateway auth token — a **distinct** token from the connector token | the offer `authToken` + ICE-servers fetch |
 
 > **Region:** calls default to the US gateway. For a UK / EUW / other-region (or dev) agent, set the
 > environment on the shared `Configuration` — e.g. `Configuration(apiKey: …, environment: .cluster("…"))`,
@@ -166,7 +166,7 @@ Both example apps ship a **speaker toggle**.
 
 ## Troubleshooting
 
-- **"API key was rejected" / fails while connecting** — both tokens come from the *same*
+- **"Connector token was rejected" / fails while connecting** — both tokens come from the *same*
   connector in Agent Studio › Connector Settings, and the `Configuration` must match that
   connector's **environment** (region/cluster) and registered **host** (`hostIdentifier` /
   the app's bundle id). A token from one environment silently 401s on another.
@@ -212,4 +212,4 @@ signaling pipeline (auth → session → link → signaling → offer/answer/ICE
 **Example:** a one-screen tap-to-call demo in both toolkits —
 [`Examples/SwiftUI/Voice/01-Hello`](../Examples/SwiftUI/Voice/01-Hello) ·
 [`Examples/UIKit/Voice/01-Hello`](../Examples/UIKit/Voice/01-Hello). Drop your connector token +
-WebRTC token into the `PolyVoice.call(...)` block and run.
+web calling token into the `PolyVoice.call(...)` block and run.

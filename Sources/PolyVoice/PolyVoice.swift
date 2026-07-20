@@ -28,7 +28,7 @@ public enum PolyVoice {
     /// it — observe `PolyCall.states` and call `PolyCall.start()`.
     ///
     /// - Parameters:
-    ///   - config: the shared messaging `Configuration` (api key, environment, host).
+    ///   - config: the shared messaging `Configuration` (connector token, environment, host).
     ///   - options: voice options — `VoiceOptions.webrtcToken` is required.
     /// - Throws: `PolyError.invalidConfiguration` if `apiKey`/`webrtcToken` is empty, or the
     ///   environment is `.custom` without `VoiceOptions.signalingHost`.

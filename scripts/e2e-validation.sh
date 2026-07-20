@@ -8,7 +8,7 @@
 #      × 03/06/07, then (3b) the reboot/resume-dedupe test on SwiftUI 06.
 #   4. Drops everything into /tmp/poly-e2e/ + prints a pass/fail summary.
 #
-# The API key MUST be provided via POLY_CONNECTOR_TOKEN env var —
+# The connector token MUST be provided via POLY_CONNECTOR_TOKEN env var —
 # never hard-coded.
 #
 # Usage:
@@ -136,7 +136,7 @@ echo "==> Using simulator UDID: $BOOTED_UDID"
 # ---------------------------------------------------------------------------
 # Patch token into all example App.swift files
 # ---------------------------------------------------------------------------
-echo "==> Patching API key into example App.swift files (will revert on exit)"
+echo "==> Patching connector token into example App.swift files (will revert on exit)"
 mkdir -p "$BACKUP_DIR"
 
 # patch_app <abs-app-path>
@@ -159,7 +159,7 @@ import os, re, sys
 path = sys.argv[1]
 tok, env, host = os.environ["TOKEN"], os.environ.get("ENVV",""), os.environ.get("HOSTID","")
 s = open(path).read()
-s = s.replace("YOUR_API_KEY", tok)
+s = s.replace("YOUR_CONNECTOR_TOKEN", tok)
 if env:
     fields = [f'apiKey: "{tok}"', f'environment: {env}']
     if host:

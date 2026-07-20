@@ -4,12 +4,12 @@ import Foundation
 
 /// Options for ``PolyVoice/call(config:options:)``.
 ///
-/// `webrtcToken` is **required** — every voice call needs the WebRTC gateway
-/// token, a distinct value from the API key (both come from Agent Studio ›
-/// Connector Settings).
+/// `webrtcToken` is **required** — every voice call needs the web calling
+/// token, a distinct value from the connector token (both come from Agent
+/// Studio › Connector Settings).
 public struct VoiceOptions: Sendable {
 
-    /// The connector's WebRTC token — authenticates the signaling offer + the
+    /// The connector's web calling token — authenticates the signaling offer + the
     /// ICE-servers fetch. Always distinct from `Configuration.apiKey`.
     public let webrtcToken: String
 
