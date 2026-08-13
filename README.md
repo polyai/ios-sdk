@@ -47,7 +47,7 @@ Add the package by its Git URL, pinned to a version. Pick **one** of the four op
 ### Option 2 — [CocoaPods](https://cocoapods.org) (`Podfile`)
 
 ```ruby
-pod 'PolyMessaging', '~> 0.9'
+pod 'PolyMessaging', '~> 0.9.0'
 ```
 
 Then run `pod install` and open the generated `.xcworkspace`.
