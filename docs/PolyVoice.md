@@ -159,7 +159,7 @@ await call.setAudioDevice(earpieceDevice)   // .kind == .earpiece
 let muted = await call.isMuted
 ```
 
-`audioState.availableDevices` also lists connected headsets/Bluetooth (`.type` is
+`audioState.availableDevices` also lists connected headsets/Bluetooth (`.kind` is
 `.earpiece / .speakerphone / .wiredHeadset / .bluetooth`) for display. To let users pick *among*
 connected outputs the iOS-standard way, drop in the system route picker (`AVRoutePickerView`).
 Both example apps ship a **speaker toggle**.
