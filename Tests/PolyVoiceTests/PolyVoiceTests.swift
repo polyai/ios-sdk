@@ -193,6 +193,12 @@ final class CallKitAudioSeamTests: XCTestCase {
 /// description, the mic transceiver's mid, and remote-track control.
 final class WebRTCBridgeCapabilityTests: XCTestCase {
 
+    func test_localIceUfrag_stripsCRLFLineEnding() {
+        let sdp = "v=0\r\na=ice-ufrag:generation-123\r\nm=audio 9 UDP/TLS/RTP/SAVPF 111\r\n"
+
+        XCTAssertEqual(localIceUfrag(in: sdp), "generation-123")
+    }
+
     /// The heart of the non-trickle change: after the wait, the local description
     /// must already carry candidates, because the bridge's SDP proxy has no
     /// candidate channel to trickle them down later.
