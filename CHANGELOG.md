@@ -4,6 +4,17 @@ All notable changes to the PolyMessaging iOS SDK are documented here.
 This project adheres to [Semantic Versioning](https://semver.org). While the SDK
 is pre-1.0, breaking changes bump the **minor** version.
 
+## [0.11.1] - 2026-09-10
+
+### Fixed
+- **Faster voice-call startup on iOS** — parse CRLF-delimited WebRTC SDP correctly when matching
+  ICE generations, preventing candidate gathering from unnecessarily reaching its timeout cap.
+
+### Changed
+- Create the messaging session alongside bridge provisioning, and gather the local WebRTC offer
+  while the messaging session links. Required bridge ordering is unchanged: provisioning still
+  supplies the call id used by the link, and SDP is posted only after linking completes.
+
 ## [0.11.0] - 2026-09-09
 
 ### Added
