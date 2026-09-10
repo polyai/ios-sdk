@@ -235,13 +235,7 @@ final class WebRTCCallMediaEngine: NSObject, CallMediaEngine, @unchecked Sendabl
 
     private func currentIceUfrag() -> String? {
         guard let sdp = currentPeer()?.localDescription?.sdp else { return nil }
-        for line in sdp.split(separator: "\n") {
-            let trimmed = line.trimmingCharacters(in: .whitespaces)
-            if trimmed.hasPrefix("a=ice-ufrag:") {
-                return String(trimmed.dropFirst("a=ice-ufrag:".count))
-            }
-        }
-        return nil
+        return localIceUfrag(in: sdp)
     }
 
     func close() async {
@@ -277,6 +271,19 @@ final class WebRTCCallMediaEngine: NSObject, CallMediaEngine, @unchecked Sendabl
         lock.lock(); let handler = stateHandler; lock.unlock()
         handler?(state)
     }
+}
+
+/// Extract the local ICE generation key from SDP. WebRTC emits CRLF-delimited
+/// SDP, so the whole line ending must be removed before the value is compared
+/// with the whitespace-delimited ufrag carried by ICE candidates.
+func localIceUfrag(in sdp: String) -> String? {
+    for line in sdp.split(whereSeparator: \.isNewline) {
+        let trimmed = line.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard trimmed.hasPrefix("a=ice-ufrag:") else { continue }
+        let value = trimmed.dropFirst("a=ice-ufrag:".count)
+        return value.isEmpty ? nil : String(value)
+    }
+    return nil
 }
 
 // MARK: - RTCPeerConnectionDelegate

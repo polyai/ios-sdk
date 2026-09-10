@@ -17,8 +17,9 @@ import Foundation
 ///
 /// Pipeline:
 ///   1. access token                    (`RestApiPort.obtainAccessToken`)
-///   2. messaging session               (`RestApiPort.createSession`)
-///   3. provision the call              (`BridgeApiPort.provision`) — **before** the link,
+///   2. messaging session + call provision in parallel
+///                                      (`RestApiPort.createSession`, `BridgeApiPort.provision`)
+///   3. provision completes             — **before** the link,
 ///      because the bridge mints the identifier the link has to carry
 ///   4. link the messaging session      (`VoiceSessionLinker`, with the bridge's `callId`)
 ///   5. offer, gathered, over HTTPS     (`CallMediaEngine` → `POST {connectUrl}`)
@@ -105,26 +106,37 @@ actor BridgeCallCoordinator {
             let token = try await api.obtainAccessToken().accessToken
             try ensureActive()
 
-            let session = try await api.createSession(
+            // Session creation and bridge provisioning are independent once
+            // authentication succeeds. Await provision first so any allocated
+            // call is retained for teardown if session creation then fails.
+            async let sessionRequest = api.createSession(
                 context: SessionContext(
                     platform: "ios",
                     deviceType: DeviceTypeDetector.detect().rawValue,
                     streamingEnabled: streamingEnabled
                 )
             )
-            try ensureActive()
+            async let provisionRequest = bridge.provision()
 
-            // Provision BEFORE the link: the bridge mints `call-<8 hex>` and
-            // accepts no client identifier, so the id the messaging session must
-            // be linked to doesn't exist until this call returns.
-            let call = try await bridge.provision()
+            let call = try await provisionRequest
             provision = call
             try ensureActive()
-
-            try await linker.open(accessToken: token, sessionId: session.sessionId, callSid: call.callId)
+            let session = try await sessionRequest
             try ensureActive()
 
-            try await negotiate(call)
+            // Linking the messaging session and gathering the local WebRTC
+            // offer are independent. Run them together, but wait for both
+            // before POSTing SDP so the call is linked before media starts.
+            async let link: Void = linker.open(
+                accessToken: token,
+                sessionId: session.sessionId,
+                callSid: call.callId
+            )
+            let offer = try await prepareOffer(call)
+            try await link
+            try ensureActive()
+
+            try await negotiate(call, offer: offer)
             logger.debug("Bridge offer answered — waiting for media", metadata: ["callId": call.callId])
         } catch {
             let mapped = mapError(error)
@@ -155,13 +167,8 @@ actor BridgeCallCoordinator {
 
     // MARK: - Negotiation
 
-    /// Steps 5-6: the gathered offer over HTTPS, and the answer applied.
-    ///
-    /// `start()` returns once this completes — with the call `.connecting`, exactly
-    /// as it did on the gateway, so the caller watches `states` for `.connected`.
-    /// Everything after needs a connected peer (the SFU rejects the agent-track
-    /// pull before that), so ``finishNegotiation(_:)`` runs it on for the caller.
-    private func negotiate(_ call: BridgeProtocol.Provision) async throws {
+    /// Prepare the gathered local offer while the messaging session links.
+    private func prepareOffer(_ call: BridgeProtocol.Provision) async throws -> (sdp: String, mid: String) {
         let iceServers = call.credentials.iceServers.isEmpty
             ? IceServer.defaultServers
             : call.credentials.iceServers
@@ -172,14 +179,25 @@ actor BridgeCallCoordinator {
         await media.awaitIceGathering(quiet: iceQuiet, cap: iceCap)
         try ensureActive()
 
-        guard let offer = await media.localDescriptionSDP() else {
+        guard let sdp = await media.localDescriptionSDP() else {
             throw PolyError.voice(.mediaFailed("no gathered offer to send to the bridge"))
         }
         // "0" matches the browser client's fallback; the bridge prefers the mid
         // it reads out of the offer anyway.
-        let mid = await media.audioMid() ?? "0"
+        return (sdp, await media.audioMid() ?? "0")
+    }
 
-        let answer = try await bridge.sendOffer(call, sdp: offer, mid: mid)
+    /// POST the prepared offer and apply the bridge's answer.
+    ///
+    /// `start()` returns once this completes — with the call `.connecting`, exactly
+    /// as it did on the gateway, so the caller watches `states` for `.connected`.
+    /// Everything after needs a connected peer (the SFU rejects the agent-track
+    /// pull before that), so ``finishNegotiation(_:)`` runs it on for the caller.
+    private func negotiate(
+        _ call: BridgeProtocol.Provision,
+        offer: (sdp: String, mid: String)
+    ) async throws {
+        let answer = try await bridge.sendOffer(call, sdp: offer.sdp, mid: offer.mid)
         try ensureActive()
         try await media.acceptAnswer(sdp: answer)
 

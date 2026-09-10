@@ -110,6 +110,25 @@ final class BridgeCallCoordinatorTests: XCTestCase {
         await coord.end()
     }
 
+    func test_offerPreparationOverlapsTheMessagingLink() async throws {
+        let bridge = FakeBridgeApi()
+        let conn = MockConnection()
+        let media = StubMediaEngine()
+        let coord = makeCoordinator(bridge: bridge, conn: conn, media: media)
+
+        let startTask = Task { try await coord.start() }
+        let linked = await waitUntil { conn.connectCalls.count == 1 }
+        XCTAssertTrue(linked, "linker opens the messaging WS")
+
+        let offerPrepared = await waitUntil { media.gatherWaits == 1 }
+        XCTAssertTrue(offerPrepared, "local ICE gathering proceeds while SESSION_START is pending")
+        XCTAssertTrue(bridge.sentOffers.isEmpty, "SDP is not posted until the messaging link completes")
+
+        conn.simulateMessage(.sessionStart(makeEnvelope(), makeSessionStartPayload()))
+        try await startTask.value
+        await coord.end()
+    }
+
     /// Non-trickle: what goes to the bridge must be the description read back
     /// *after* the gather wait, never the SDP `createOffer` returned.
     func test_offerPostedIsTheGatheredDescription() async throws {
