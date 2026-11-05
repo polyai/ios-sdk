@@ -23,10 +23,24 @@ final class MockConnection: Connection, @unchecked Sendable {
         get async { _status }
     }
 
-    var openEvents: AsyncStream<Void> { openCaster.subscribe() }
+    /// Lets a test wait for ConnectionService to (re)subscribe before emitting.
+    private(set) var openSubscriptions = 0
+    private(set) var messageSubscriptions = 0
+    private(set) var batchSubscriptions = 0
+
+    var openEvents: AsyncStream<Void> {
+        openSubscriptions += 1
+        return openCaster.subscribe()
+    }
     var closeEvents: AsyncStream<ConnectionCloseEvent> { closeCaster.subscribe() }
-    var messages: AsyncStream<MessagingEvent> { messageCaster.subscribe() }
-    var batchEvents: AsyncStream<[MessagingEvent]> { batchCaster.subscribe() }
+    var messages: AsyncStream<MessagingEvent> {
+        messageSubscriptions += 1
+        return messageCaster.subscribe()
+    }
+    var batchEvents: AsyncStream<[MessagingEvent]> {
+        batchSubscriptions += 1
+        return batchCaster.subscribe()
+    }
     var rawFrames: AsyncStream<Data> { rawFrameCaster.subscribe() }
     var errors: AsyncStream<PolyError> { errorCaster.subscribe() }
 

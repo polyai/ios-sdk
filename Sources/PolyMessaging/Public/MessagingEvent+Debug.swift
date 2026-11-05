@@ -36,6 +36,7 @@ public extension MessagingEvent {
         case .handoffAccepted: return "Handoff accepted"
         case .handoffFailed(_, let p): return "Handoff failed: \(p.reason ?? "unknown")"
         case .handoffTimeout: return "Handoff timeout"
+        case .verifiedContext(let s): return "Verified context: \(s.debugLabel)"
         }
     }
 
@@ -83,10 +84,27 @@ public extension MessagingEvent {
             lines.append("error: \(err?.localizedDescription ?? "none")")
         case .reconnecting(let a):
             lines.append("attempt: \(a)")
+        case .verifiedContext(let s):
+            lines.append("status: \(s.debugLabel)")
+            if case .failed(let reason) = s {
+                lines.append("reason: \(PolyError.verifiedContext(reason).description)")
+            }
         default:
             break
         }
         return lines.joined(separator: "\n")
+    }
+}
+
+private extension VerifiedContextStatus {
+    var debugLabel: String {
+        switch self {
+        case .idle: return "idle"
+        case .pending: return "pending"
+        case .set: return "set"
+        case .declined: return "declined"
+        case .failed(let reason): return "failed (\(reason))"
+        }
     }
 }
 

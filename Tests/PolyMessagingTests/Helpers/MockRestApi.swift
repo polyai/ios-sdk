@@ -44,4 +44,17 @@ final class MockRestApi: RestApiPort, @unchecked Sendable {
     func currentAccessTokenSync() -> String? {
         storedAccessToken
     }
+
+    var submitContextResult: Result<Void, Error> = .success(())
+    /// Delay before `submitContextResult` is returned, for timeout tests.
+    var submitContextDelay: TimeInterval = 0
+    var submittedContexts: [(sessionId: String, token: String, notifyAgent: Bool)] = []
+
+    func submitVerifiedContext(sessionId: String, token: String, notifyAgent: Bool) async throws {
+        submittedContexts.append((sessionId, token, notifyAgent))
+        if submitContextDelay > 0 {
+            try await Task.sleep(nanoseconds: UInt64(submitContextDelay * 1_000_000_000))
+        }
+        try submitContextResult.get()
+    }
 }

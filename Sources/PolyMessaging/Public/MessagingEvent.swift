@@ -49,6 +49,10 @@ public enum MessagingEvent: Sendable {
     case handoffFailed(Envelope, HandoffFailedPayload)
     case handoffTimeout(Envelope, HandoffTimeoutPayload)
 
+    // MARK: - Verified context
+
+    case verifiedContext(VerifiedContextStatus)
+
     // MARK: - Connection lifecycle
 
     case connected
@@ -73,7 +77,8 @@ extension MessagingEvent {
              .handoffTimeout(let e, _):
             return e
         case .connected, .disconnected, .reconnecting,
-             .messagePending, .messageConfirmed, .messageFailed:
+             .messagePending, .messageConfirmed, .messageFailed,
+             .verifiedContext:
             return nil
         }
     }

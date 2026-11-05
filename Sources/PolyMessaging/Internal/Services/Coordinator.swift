@@ -8,6 +8,7 @@ actor Coordinator {
     private let connectionService: ConnectionService
     private let chatService: ChatService
     private let heartbeatService: HeartbeatService
+    private let verifiedContextService: VerifiedContextService?
     private let logger: PolyLogger
     private let networkMonitor: NetworkMonitor
     private let lifecycleObserver: AppLifecycleObserver
@@ -18,12 +19,15 @@ actor Coordinator {
     private var observationTasks: [Task<Void, Never>] = []
     private var started = false
     private var currentSessionId: String?
+    private var currentContext: VerifiedContextRequest?
+    private var verifiedContextInFlightSessionId: String?
 
     init(
         sessionService: SessionService,
         connectionService: ConnectionService,
         chatService: ChatService,
         heartbeatService: HeartbeatService,
+        verifiedContextService: VerifiedContextService? = nil,
         logger: PolyLogger,
         networkMonitor: NetworkMonitor = NetworkMonitor(),
         lifecycleObserver: AppLifecycleObserver = AppLifecycleObserver()
@@ -32,6 +36,7 @@ actor Coordinator {
         self.connectionService = connectionService
         self.chatService = chatService
         self.heartbeatService = heartbeatService
+        self.verifiedContextService = verifiedContextService
         self.logger = logger
         self.networkMonitor = networkMonitor
         self.lifecycleObserver = lifecycleObserver
@@ -403,9 +408,12 @@ actor Coordinator {
         await sessionService.clearError()
 
         let sideEffects = await chatService.handleBatch(events)
-        for effect in sideEffects {
-            await connectionService.send(effect)
-        }
+        let contextId = events.lazy.compactMap { event -> String? in
+            if case .sessionStart(_, let payload) = event { return payload.contextId }
+            return nil
+        }.last
+        recordContextId(contextId)
+        await sendSideEffects(sideEffects, contextId: contextId)
     }
 
     private func handleIncomingMessage(_ event: MessagingEvent) async {
@@ -452,8 +460,83 @@ actor Coordinator {
         }
 
         let sideEffects = await chatService.handleMessage(event)
-        for effect in sideEffects {
+        var contextId: String?
+        if case .sessionStart(_, let payload) = event {
+            contextId = payload.contextId
+        }
+        recordContextId(contextId)
+        await sendSideEffects(sideEffects, contextId: contextId)
+    }
+
+    /// Kept with its session id; once that differs from `currentSessionId` it's stale.
+    private func recordContextId(_ contextId: String?) {
+        guard let contextId, let sessionId = currentSessionId else { return }
+        currentContext = VerifiedContextRequest(sessionId: sessionId, contextId: contextId)
+    }
+
+    /// `REQUEST_POLY_AGENT_JOIN` only appears for a fresh session, so the
+    /// verified-context gate holds it until the token is submitted (≤5s).
+    private func sendSideEffects(_ effects: [OutgoingEvent], contextId: String?) async {
+        for effect in effects {
+            if case .requestPolyAgentJoin = effect {
+                guard await runVerifiedContextGate(contextId: contextId) else { continue }
+            }
             await connectionService.send(effect)
+        }
+    }
+
+    /// `false` if the session changed meanwhile: drop the stale join, the new
+    /// session's SESSION_START sends its own.
+    private func runVerifiedContextGate(contextId: String?) async -> Bool {
+        guard let verifiedContextService, let contextId, let sessionId = currentSessionId else {
+            return true
+        }
+        verifiedContextInFlightSessionId = sessionId
+        defer { clearVerifiedContextInFlight(sessionId) }
+        events.emit(.verifiedContext(.pending))
+        let status = await verifiedContextService.run(
+            VerifiedContextRequest(sessionId: sessionId, contextId: contextId)
+        )
+        guard currentSessionId == sessionId else {
+            logger.info("Session changed during verified context — dropping stale agent join", metadata: nil)
+            return false
+        }
+        events.emit(.verifiedContext(status))
+        return true
+    }
+
+    /// Same rules as the web SDK: ungated, and dropped (not queued) when it can't run.
+    func refreshVerifiedContext(notifyAgent: Bool) async {
+        guard let verifiedContextService else {
+            logger.warn("refreshVerifiedContext ignored — no onContextRequired handler configured", metadata: nil)
+            return
+        }
+        guard let request = currentContext, request.sessionId == currentSessionId else {
+            logger.info("refreshVerifiedContext ignored — no context_id for this session yet", metadata: nil)
+            return
+        }
+        guard verifiedContextInFlightSessionId != request.sessionId else {
+            logger.info("refreshVerifiedContext ignored — a verified-context request is already in flight", metadata: nil)
+            return
+        }
+        verifiedContextInFlightSessionId = request.sessionId
+        defer { clearVerifiedContextInFlight(request.sessionId) }
+        events.emit(.verifiedContext(.pending))
+        let status = await verifiedContextService.run(request, notifyAgent: notifyAgent)
+        guard currentSessionId == request.sessionId else { return }
+        events.emit(.verifiedContext(status))
+    }
+
+    /// Test seam: true while a gate or refresh is running.
+    var hasVerifiedContextInFlight: Bool {
+        verifiedContextInFlightSessionId != nil
+    }
+
+    /// Only the request that set the marker clears it, so an old session's gate
+    /// finishing late can't let a refresh overlap the new session's gate.
+    private func clearVerifiedContextInFlight(_ sessionId: String) {
+        if verifiedContextInFlightSessionId == sessionId {
+            verifiedContextInFlightSessionId = nil
         }
     }
 

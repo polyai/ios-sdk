@@ -235,7 +235,7 @@ enum WireDecoder {
             maxMessageSize: caps.int("max_message_size_bytes") ?? 1_048_576,
             heartbeatIntervalSeconds: caps.int("heartbeat_interval_seconds"),
             maxReconnectAttempts: caps.int("max_reconnect_attempts")
-        ))
+        ), contextId: p.string("context_id").flatMap { $0.isEmpty ? nil : $0 })
     }
 
     private static func decodeAgentMessage(_ p: WireJSON) -> AgentMessagePayload {

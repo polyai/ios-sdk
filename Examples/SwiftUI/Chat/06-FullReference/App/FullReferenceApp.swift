@@ -14,6 +14,10 @@ struct FullReferenceApp: App {
             environment: .us,
             streamingEnabled: true,
             logLevel: .error
+            // Verified context (README § "Verified context"): add
+            //   onContextRequired: { request in try await yourBackend.sign(request.contextId) }
+            // and call session.refreshVerifiedContext() after a mid-chat sign-in.
+            // Left out here so the sample takes the zero-delay path.
         ))
         if CommandLine.arguments.contains("-uiTestFreshStart") { PolyMessaging.clearResumableSession() }
     }
