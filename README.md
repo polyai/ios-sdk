@@ -23,6 +23,7 @@ Reference: [Configuration](#configuration) · [Error handling](#error-handling) 
 | ⚡ | **Streaming** | Real-time chunks, auto-assembled — optionally rendered token-by-token |
 | 🔄 | **Reconnection** | Automatic backoff + jitter, session resume, drops dead sockets the instant the OS reports offline |
 | 🔐 | **Auth** | Token acquisition and session lifecycle — fully managed |
+| 🪪 | **Verified context** | Your backend signs who the user is; the agent knows from turn 1 ([`onContextRequired`](#verified-context-oncontextrequired)) |
 | 👤 | **Live agent** | Seamless handoff to humans with queue status and typing |
 | 💡 | **Suggestions** | Quick-reply pills the agent offers, tap to send |
 | 📎 | **Attachments** | Images, link cards, call-to-action phone buttons |
@@ -331,6 +332,7 @@ Runnable demos: [`Examples/SwiftUI/Voice`](Examples/SwiftUI/Voice/01-Hello/) ·
 | `hasStarted` | `Bool` | the conversation has begun |
 | `hasEnded` | `Bool` | conversation is over — swap the composer for a "start new" CTA |
 | `failureReason` | `PolyError?` | non-nil once the chat hits a terminal failure it can't auto-recover from — invalid connector token, reconnect budget exhausted, session expired |
+| `verifiedContext` | `VerifiedContextStatus` | outcome of [`onContextRequired`](#verified-context-oncontextrequired) for this session — never blocks the chat |
 
 **Methods you call:**
 
@@ -339,6 +341,7 @@ Runnable demos: [`Examples/SwiftUI/Voice`](Examples/SwiftUI/Voice/01-Hello/) ·
 | `send(_:) async throws` | send a user message (optimistic — appears immediately as `.pending`) |
 | `sendTyping() async` | tell the agent you're typing (safe every keystroke; throttled) |
 | `end() async throws` | end the conversation |
+| `refreshVerifiedContext(notifyAgent:) async` | re-sign and resubmit [verified context](#verified-context-oncontextrequired) mid-conversation (e.g. after sign-in) |
 | `removeMessage(draftId:)` | drop a failed draft (call before re-sending on retry) |
 | `clearSuggestions(for:)` | clear one message's quick-reply pills |
 | `clearChat()` | wipe the transcript (e.g. before `startNewSession()`) |
@@ -1255,6 +1258,69 @@ final class MessageCell: UITableViewCell {
 
 *Example app:* [05-Handoff (SwiftUI)](Examples/SwiftUI/Chat/05-Handoff/) · [05-Handoff (UIKit)](Examples/UIKit/Chat/05-Handoff/)
 
+## Verified context (`onContextRequired`)
+
+Pass signed customer context — a customer id, an account tier — into the conversation so the agent knows who the user is without asking. The agent's functions read it as `conv.verified_context`.
+
+The signing key never touches the app. Get a signing key (`key_id` + secret) for your project from PolyAI, keep the secret on **your** server, and have the app ask your server for a token:
+
+```swift
+PolyMessaging.initialize(.init(
+    apiKey: "YOUR_CONNECTOR_TOKEN",
+    onContextRequired: { request in
+        // Your backend signs a JWT with sub = request.contextId. Return nil to skip.
+        var req = URLRequest(url: URL(string: "https://api.yourapp.com/polyai-context")!)
+        req.httpMethod = "POST"
+        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        req.httpBody = try JSONEncoder().encode(["context_id": request.contextId])
+        let (data, _) = try await URLSession.shared.data(for: req)
+        return try JSONDecoder().decode([String: String].self, from: data)["token"]
+    }
+))
+```
+
+**Token your backend signs** (the SDK never decodes or stores it):
+
+```json
+{ "alg": "HS256", "typ": "JWT", "kid": "<key_id, e.g. ck_7f3a2b91>" }
+{ "sub": "<contextId>", "iat": 1779454602, "exp": 1779454632,
+  "ctx": { "customer_id": "usr_12345", "account_tier": "premium", "is_premium": true } }
+```
+
+`exp − iat` ≤ 30 s; `ctx` is a flat object of strings, numbers, booleans or `null`, ≤ 8 KB. The HMAC key is the secret string exactly as the API returned it (don't hex-decode it).
+
+**When it runs:** once per fresh session, after `SESSION_START` and before the agent joins, so the agent has the context on its first turn. It doesn't run on resume (the context was set when the session started) or on a reconnect.
+
+**It never blocks the chat.** The SDK waits at most 4 s for your handler and 5 s for the whole step. Whatever happens, the agent joins. Check the outcome on `session.verifiedContext`:
+
+```swift
+switch session.verifiedContext {
+case .idle, .pending, .set: break
+case .declined:             break                      // handler returned nil
+case .failed(let reason):   analytics.track("verified_context_failed", "\(reason)")
+}
+```
+
+| `.failed(...)` reason | Meaning |
+|---|---|
+| `.callbackTimedOut` | your handler took longer than 4 s |
+| `.callbackFailed(_)` | your handler threw |
+| `.verificationFailed(_)` | PolyAI rejected the token: bad signature, unknown `kid`, expired, malformed claims or `ctx`, or `sub` ≠ `contextId` (HTTP 401 / 403). Carries the server's reason, e.g. `"unknown signing key"`. A reason of `"Invalid access token"` means the session's own access token was rejected, not your signing |
+| `.invalidToken(_)` | the request was refused before the token was checked, e.g. missing token or oversized body (HTTP 400 / 413) |
+| `.submitFailed(_)` | network error, server error, or the 5 s budget ran out |
+
+**Refreshing mid-conversation.** When who the user is changes partway through — they sign in, or upgrade — re-run the same handler against the live session:
+
+```swift
+try await auth.signIn()
+await session.refreshVerifiedContext()                    // store quietly
+await session.refreshVerifiedContext(notifyAgent: true)   // or: let the agent react to the change
+```
+
+Your handler gets the same `contextId`, signs a fresh token, and it replaces the stored context in full. It doesn't hold anything up — the agent is already in the conversation. It's ignored (not queued) when no handler is configured, before `SESSION_START`, or while a request is already in flight; the outcome lands on `session.verifiedContext` as before.
+
+Same contract as the webchat `WebchatAPI.onContextRequired` callback and `refreshVerifiedContext()`.
+
 ## Side effects: `client.events`
 
 Rendering reads `messages`. For **imperative reactions** — navigate, play a haptic, log analytics — observe the typed event stream instead. (This is the lower-level API `ChatSession` is built on; reach for it only for side effects.)
@@ -1483,6 +1549,7 @@ PolyMessaging.initialize(.init(
 | `sessionTimeoutSeconds` | `nil` (600) | Override the idle-timeout (matches the backend's WebSocket idle timeout of 10 min) |
 | `maxReconnectAttempts` | `nil` (10) | Override the reconnect cap |
 | `webrtcToken` | `nil` | The web calling token for [`PolyVoice`](#voice-calling-polyvoice) — set it here once instead of repeating it at every `PolyVoice.call(...)` site. Ignored by chat; `nil` if this app doesn't place calls |
+| `onContextRequired` | `nil` | Returns a signed JWT so the agent knows who the user is. See [Verified context](#verified-context-oncontextrequired). `nil` skips the step with zero delay |
 
 **Environments:**
 
@@ -1514,7 +1581,8 @@ PolyMessaging.initialize(.init(
     heartbeatIntervalSeconds: 30,            // server caps may overrule
     sessionTimeoutSeconds: 600,              // idle timeout before the session expires (matches backend ~10 min)
     maxReconnectAttempts: 10,                // reconnect budget before .failed
-    webrtcToken: nil                         // set if this app also calls PolyVoice — see below
+    webrtcToken: nil,                        // set if this app also calls PolyVoice — see below
+    onContextRequired: nil                   // signed customer context — see "Verified context"
 ))
 ```
 
@@ -1554,6 +1622,7 @@ Every case `PolyError` can throw, and when:
 | `.message(.deliveryFailed(draftId:))` | a sent message never confirmed after retries | no |
 | `.message(.payloadTooLarge(maxBytes:))` | the message exceeds `max_message_size_bytes` | no |
 | `.transport(.networkError(_))` · `.transport(.protocolError(reason:))` | a network / protocol-level failure | yes |
+| `.verifiedContext(_)` | never thrown — reported via `session.verifiedContext` (see [Verified context](#verified-context-oncontextrequired)) | — |
 | `.invalidConfiguration(_)` | bad `Configuration` (e.g. empty token) | no |
 
 Convenience flags: `isAuthError`, `isSessionError`, `isTransportError`, `isSessionExpired`, `isRetryable`.

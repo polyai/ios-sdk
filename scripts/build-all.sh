@@ -2,7 +2,9 @@
 # Build all 18 example apps. Regenerates each xcodeproj with xcodegen, then xcodebuild for the simulator.
 set -uo pipefail
 cd "$(dirname "$0")/.."
-DEST='platform=iOS Simulator,name=iPhone 17 Pro'
+# Generic destination: a build needs no booted device, and a named one fails on
+# machines whose newest iOS runtime doesn't ship that simulator.
+DEST='generic/platform=iOS Simulator'
 LOGDIR="build-logs"
 mkdir -p "$LOGDIR"
 declare -a APPS=(

@@ -10,6 +10,29 @@ struct NoopLogger: PolyLogger {
     func error(_ message: String, metadata: [String: any Sendable]?) {}
 }
 
+/// Records what a verified-context handler was asked for, across concurrency domains.
+actor HandlerRecorder {
+    private(set) var requests: [VerifiedContextRequest] = []
+    func record(_ request: VerifiedContextRequest) { requests.append(request) }
+}
+
+/// Holds a verified-context handler open until the test calls `open()`.
+actor Latch {
+    private var isOpen = false
+    private var waiters: [CheckedContinuation<Void, Never>] = []
+
+    func wait() async {
+        guard !isOpen else { return }
+        await withCheckedContinuation { waiters.append($0) }
+    }
+
+    func open() {
+        isOpen = true
+        waiters.forEach { $0.resume() }
+        waiters.removeAll()
+    }
+}
+
 func makeEnvelope(id: String = "evt_1", sequence: Int? = 1) -> Envelope {
     Envelope(id: id, sequence: sequence, timestamp: Date(), metadata: nil)
 }
@@ -18,14 +41,15 @@ func makeSessionStartPayload(
     streaming: Bool = true,
     maxMessageSize: Int = 65536,
     heartbeatInterval: Int? = 30,
-    maxReconnects: Int? = 10
+    maxReconnects: Int? = 10,
+    contextId: String? = nil
 ) -> SessionStartPayload {
     SessionStartPayload(capabilities: SessionCapabilities(
         streaming: streaming,
         maxMessageSize: maxMessageSize,
         heartbeatIntervalSeconds: heartbeatInterval,
         maxReconnectAttempts: maxReconnects
-    ))
+    ), contextId: contextId)
 }
 
 func makeAgentMessagePayload(

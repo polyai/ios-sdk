@@ -9,6 +9,9 @@ actor RestApi: RestApiPort {
     private let hostIdentifier: String
     private let logger: PolyLogger
     private let urlSession: URLSession
+    /// `urlSession` without a `URLCache`, which would archive the signed
+    /// verified-context token (POST body) to disk.
+    nonisolated let noStoreSession: URLSession
 
     private var accessToken: String?
 
@@ -17,6 +20,7 @@ actor RestApi: RestApiPort {
     private static let maxRetryAfter: TimeInterval = 30
     private static let defaultRetryAfter: TimeInterval = 5
     private static let logBodyMaxBytes = 1024
+    private static let contextEndpoint = "sessions/context"
 
     init(baseURL: URL, apiKey: String, hostIdentifier: String, logger: PolyLogger, urlSession: URLSession = .shared) {
         self.baseURL = baseURL
@@ -24,6 +28,10 @@ actor RestApi: RestApiPort {
         self.hostIdentifier = hostIdentifier
         self.logger = logger
         self.urlSession = urlSession
+        let noStore = (urlSession.configuration.copy() as? URLSessionConfiguration) ?? .ephemeral
+        noStore.urlCache = nil
+        noStore.requestCachePolicy = .reloadIgnoringLocalCacheData
+        self.noStoreSession = URLSession(configuration: noStore)
     }
 
     // MARK: - RestApiPort
@@ -106,17 +114,50 @@ actor RestApi: RestApiPort {
         accessToken
     }
 
+    func submitVerifiedContext(sessionId: String, token: String, notifyAgent: Bool) async throws {
+        guard let accessToken, !accessToken.isEmpty else {
+            throw PolyError.verifiedContext(.submitFailed("No access token"))
+        }
+
+        let url = baseURL.appendingPathComponent("sessions").appendingPathComponent(sessionId).appendingPathComponent("context")
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
+        request.setValue(UUID().uuidString, forHTTPHeaderField: "X-Polyai-Correlation-Id")
+        request.httpBody = try? JSONSerialization.data(
+            withJSONObject: Self.contextRequestBody(token: token, notifyAgent: notifyAgent)
+        )
+
+        do {
+            _ = try await executeWithRetry(request, endpoint: Self.contextEndpoint, logBody: false, session: noStoreSession)
+        } catch let error as PolyError {
+            if case .verifiedContext = error { throw error }
+            throw PolyError.verifiedContext(.submitFailed(error.description))
+        } catch {
+            throw PolyError.verifiedContext(.submitFailed(error.localizedDescription))
+        }
+    }
+
     // MARK: - HTTP execution with retry
 
-    private func executeWithRetry(_ request: URLRequest, endpoint: String) async throws -> (Data, HTTPURLResponse) {
+    private func executeWithRetry(
+        _ request: URLRequest,
+        endpoint: String,
+        logBody: Bool = true,
+        session: URLSession? = nil
+    ) async throws -> (Data, HTTPURLResponse) {
         var lastError: Error?
 
         // maxRetries=3 means 4 total attempts (initial + 3 retries).
         for attempt in 0...Self.maxRetries {
-            logRequest(request, endpoint: endpoint, attempt: attempt)
+            // Stop retrying once the caller has given up (e.g. the 5s context budget).
+            try Task.checkCancellation()
+            logRequest(request, endpoint: endpoint, attempt: attempt, logBody: logBody)
             let started = Date()
             do {
-                let (data, response) = try await urlSession.data(for: request)
+                let (data, response) = try await (session ?? urlSession).data(for: request)
 
                 guard let http = response as? HTTPURLResponse else {
                     throw PolyError.transport(.networkError("Non-HTTP response"))
@@ -154,7 +195,7 @@ actor RestApi: RestApiPort {
 
             } catch let error as PolyError {
                 switch error {
-                case .auth, .session:
+                case .auth, .session, .verifiedContext:
                     throw error
                 default:
                     logger.warn("Request failed, attempt \(attempt + 1)/\(Self.maxRetries + 1)", metadata: ["endpoint": endpoint])
@@ -174,6 +215,10 @@ actor RestApi: RestApiPort {
     }
 
     private func mapClientError(statusCode: Int, data: Data, endpoint: String) -> PolyError {
+        if endpoint == Self.contextEndpoint {
+            return Self.mapContextError(statusCode: statusCode, data: data)
+        }
+
         if statusCode == 401 || statusCode == 403 {
             return .auth(.unauthorized)
         }
@@ -203,6 +248,29 @@ actor RestApi: RestApiPort {
         return .auth(.tokenAcquisitionFailed)
     }
 
+    static func contextRequestBody(token: String, notifyAgent: Bool) -> [String: Any] {
+        notifyAgent ? ["token": token, "notify_agent": true] : ["token": token]
+    }
+
+    /// 401 / 403 = token rejected, 400 / 413 = refused before the check.
+    static func mapContextError(statusCode: Int, data: Data) -> PolyError {
+        let message: String = {
+            guard let json = try? JSONSerialization.jsonObject(with: data) as? WireJSON,
+                  let text = json.string("message") ?? json.string("error"), !text.isEmpty else {
+                return "HTTP \(statusCode)"
+            }
+            return text
+        }()
+        switch statusCode {
+        case 401, 403:
+            return .verifiedContext(.verificationFailed(message))
+        case 400, 413:
+            return .verifiedContext(.invalidToken(message))
+        default:
+            return .verifiedContext(.submitFailed(message))
+        }
+    }
+
     private func parseJSON(_ data: Data) throws -> WireJSON {
         guard let json = try? JSONSerialization.jsonObject(with: data) as? WireJSON else {
             throw PolyError.transport(.protocolError(reason: "Invalid JSON response"))
@@ -212,7 +280,7 @@ actor RestApi: RestApiPort {
 
     // MARK: - Debug logging
 
-    private func logRequest(_ request: URLRequest, endpoint: String, attempt: Int) {
+    private func logRequest(_ request: URLRequest, endpoint: String, attempt: Int, logBody: Bool) {
         let method = request.httpMethod ?? "GET"
         let urlString = request.url?.absoluteString ?? "<no-url>"
         let attemptLabel = attempt == 0 ? "" : " attempt=\(attempt + 1)/\(Self.maxRetries + 1)"
@@ -220,7 +288,7 @@ actor RestApi: RestApiPort {
         for (name, value) in (request.allHTTPHeaderFields ?? [:]).sorted(by: { $0.key < $1.key }) {
             logger.debug("    \(name): \(value)", metadata: nil)
         }
-        if let body = request.httpBody, !body.isEmpty {
+        if logBody, let body = request.httpBody, !body.isEmpty {
             logger.debug("    body: \(Self.previewBody(body))", metadata: nil)
         }
     }

@@ -4,6 +4,28 @@ All notable changes to the PolyMessaging iOS SDK are documented here.
 This project adheres to [Semantic Versioning](https://semver.org). While the SDK
 is pre-1.0, breaking changes bump the **minor** version.
 
+## [Unreleased]
+
+### Added
+- **Verified context — `Configuration.onContextRequired`** (MES-1671). Pass signed customer
+  context (e.g. a customer id) into the conversation so the agent knows who the user is without
+  re-identifying them. At the start of each fresh session the SDK hands your handler
+  `{ sessionId, contextId }`; your backend signs a short-lived JWT (`sub = contextId`) and the
+  handler returns it. The SDK submits it before the agent joins. Same contract as the webchat
+  `onContextRequired` callback. The SDK never signs, decodes or stores the token. Best-effort:
+  the handler is capped at 4s and the whole step at 5s, and the agent always joins.
+- **`refreshVerifiedContext(notifyAgent:)`** on `ChatSession` and `PolyMessagingClient` — re-run
+  the handler mid-conversation (e.g. after sign-in) and resubmit; `notifyAgent: true` lets the agent
+  react to the change. Same as the webchat `refreshVerifiedContext()`.
+- `ChatSession.verifiedContext` / `MessagingEvent.verifiedContext(VerifiedContextStatus)` report
+  the outcome: `.set`, `.declined`, or `.failed(PolyError.VerifiedContext)` with
+  `.callbackTimedOut`, `.callbackFailed`, `.invalidToken`, `.verificationFailed` or `.submitFailed`.
+- `SessionStartPayload.contextId`.
+
+### Changed
+- **Breaking change.** New `MessagingEvent.verifiedContext` and `PolyError.verifiedContext` cases.
+  Exhaustive `switch`es over either enum need a new case (or a `default:`).
+
 ## [0.11.1] - 2026-09-10
 
 ### Fixed

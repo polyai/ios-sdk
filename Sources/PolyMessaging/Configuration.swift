@@ -25,6 +25,9 @@ public struct Configuration: Sendable {
     /// `VoiceOptions.webrtcToken` still wins when both are set. Chat-only apps
     /// leave this `nil`; `PolyMessaging` itself never reads it.
     public let webrtcToken: String?
+    /// Supplies a verified-context JWT signed by your backend at the start of
+    /// each fresh session. `nil` skips the step.
+    public let onContextRequired: VerifiedContextHandler?
     public init(
         apiKey: String,
         environment: Environment = .us,
@@ -34,7 +37,8 @@ public struct Configuration: Sendable {
         heartbeatIntervalSeconds: Int? = nil,
         sessionTimeoutSeconds: Int? = nil,
         maxReconnectAttempts: Int? = nil,
-        webrtcToken: String? = nil
+        webrtcToken: String? = nil,
+        onContextRequired: VerifiedContextHandler? = nil
     ) {
         self.apiKey = apiKey
         self.environment = environment
@@ -45,6 +49,7 @@ public struct Configuration: Sendable {
         self.sessionTimeoutSeconds = sessionTimeoutSeconds
         self.maxReconnectAttempts = maxReconnectAttempts
         self.webrtcToken = webrtcToken
+        self.onContextRequired = onContextRequired
     }
 }
 

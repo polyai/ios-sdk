@@ -48,11 +48,24 @@ public enum PolyError: Error, Sendable, Equatable {
         case interrupted
     }
 
+    /// Reported via `VerifiedContextStatus.failed`; never terminal.
+    public enum VerifiedContext: Sendable, Equatable {
+        case callbackTimedOut
+        case callbackFailed(String)
+        /// HTTP 400 / 413 — refused before the token was checked.
+        case invalidToken(String)
+        /// HTTP 401 / 403 — the token was rejected. Carries the server's reason
+        /// ("Invalid access token" means the session's token, not your JWT).
+        case verificationFailed(String)
+        case submitFailed(String)
+    }
+
     case auth(Auth)
     case session(Session)
     case message(Message)
     case transport(Transport)
     case voice(Voice)
+    case verifiedContext(VerifiedContext)
     case invalidConfiguration(String)
 }
 
@@ -156,6 +169,17 @@ extension PolyError: CustomStringConvertible {
         case .voice(.interrupted):
             return "The call was interrupted. Please try again."
 
+        case .verifiedContext(.callbackTimedOut):
+            return "Verified context handler timed out."
+        case .verifiedContext(.callbackFailed(let reason)):
+            return reason.isEmpty ? "Verified context handler failed." : "Verified context handler failed: \(reason)"
+        case .verifiedContext(.invalidToken(let reason)):
+            return reason.isEmpty ? "Verified context request was invalid." : "Verified context request was invalid: \(reason)"
+        case .verifiedContext(.verificationFailed(let reason)):
+            return reason.isEmpty ? "Verified context token failed verification." : "Verified context token failed verification: \(reason)"
+        case .verifiedContext(.submitFailed(let reason)):
+            return reason.isEmpty ? "Couldn't submit verified context." : "Couldn't submit verified context: \(reason)"
+
         case .invalidConfiguration(let reason):
             return reason.isEmpty ? "Invalid configuration." : "Invalid configuration: \(reason)"
         }
@@ -178,6 +202,7 @@ extension PolyError: CustomDebugStringConvertible {
         case .message(let e):                 return "message(\(e))"
         case .transport(let e):               return "transport(\(e))"
         case .voice(let e):                   return "voice(\(e))"
+        case .verifiedContext(let e):         return "verifiedContext(\(e))"
         case .invalidConfiguration(let r):    return "invalidConfiguration(\(r))"
         }
     }

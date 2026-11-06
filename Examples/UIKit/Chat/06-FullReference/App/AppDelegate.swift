@@ -5,6 +5,7 @@
 //
 //  Mirrors README:
 //    - § "Get started > Initialize once at app launch (UIKit)"
+//    - § "Verified context (`onContextRequired`)"
 //
 
 import UIKit
@@ -25,6 +26,10 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
             environment: .us,
             streamingEnabled: true,
             logLevel: .error
+            // Verified context (README § "Verified context"): add
+            //   onContextRequired: { request in try await yourBackend.sign(request.contextId) }
+            // and call session.refreshVerifiedContext() after a mid-chat sign-in.
+            // Left out here so the sample takes the zero-delay path.
         ))
         // UITests pass -uiTestFreshStart to force a brand-new greeting +
         // suggestions instead of resuming a prior conversation.

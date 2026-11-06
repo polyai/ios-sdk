@@ -37,6 +37,12 @@ public final class PolyMessagingClient: @unchecked Sendable {
         await coordinator.sendTyping()
     }
 
+    /// Re-run `onContextRequired` and resubmit, e.g. after a mid-chat sign-in.
+    /// `notifyAgent: true` lets the agent react to the change.
+    public func refreshVerifiedContext(notifyAgent: Bool = false) async {
+        await coordinator.refreshVerifiedContext(notifyAgent: notifyAgent)
+    }
+
     public func end(reason: String? = "user_ended") async throws {
         await coordinator.end(reason: reason)
     }
@@ -109,6 +115,9 @@ public final class PolyMessagingClient: @unchecked Sendable {
             connectionService: connectionService,
             chatService: chatService,
             heartbeatService: heartbeatService,
+            verifiedContextService: config.onContextRequired.map {
+                VerifiedContextService(handler: $0, api: api, logger: logger)
+            },
             logger: logger
         )
 

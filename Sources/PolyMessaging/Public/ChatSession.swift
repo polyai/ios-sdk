@@ -20,6 +20,8 @@ public final class ChatSession: ObservableObject {
     /// session. UIs typically render this as a full-screen error state with a
     /// manual retry affordance that calls `client.resume()`.
     @Published public private(set) var failureReason: PolyError?
+    /// Outcome of `Configuration.onContextRequired` for the current session.
+    @Published public private(set) var verifiedContext: VerifiedContextStatus = .idle
 
     public let client: PolyMessagingClient
     private let typingTimeout: TimeInterval
@@ -69,6 +71,10 @@ public final class ChatSession: ObservableObject {
 
     public func end() async throws {
         try await client.end()
+    }
+
+    public func refreshVerifiedContext(notifyAgent: Bool = false) async {
+        await client.refreshVerifiedContext(notifyAgent: notifyAgent)
     }
 
     public var userMessages: [UserMessage] {
@@ -332,6 +338,9 @@ public final class ChatSession: ObservableObject {
         case .agentJoined(_, let a):
             if let url = a.avatarUrl { agentAvatarUrl = url }
 
+        case .verifiedContext(let status):
+            verifiedContext = status
+
         case .userTyping, .userEndSession,
              .requestPolyAgentJoin, .heartbeat,
              .agentMessageChunk:
@@ -377,6 +386,7 @@ public final class ChatSession: ObservableObject {
             hasStarted = false
             failureReason = nil
             agentAvatarUrl = nil
+            verifiedContext = .idle
             streamingBubbles.removeAll()
             clearTypingIndicator()
         }

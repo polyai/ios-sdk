@@ -37,4 +37,5 @@ protocol RestApiPort: Sendable {
     func obtainAccessToken() async throws -> AccessTokenResponse
     func createSession(context: SessionContext) async throws -> SessionCreated
     func currentAccessToken() async -> String?
+    func submitVerifiedContext(sessionId: String, token: String, notifyAgent: Bool) async throws
 }
