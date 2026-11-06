@@ -32,7 +32,7 @@ jobs:
 
   build-test:
     name: build-test
-    runs-on: macos-14
+    runs-on: macos-26
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v6
@@ -53,7 +53,7 @@ jobs:
   # PolyVoiceTests target — against an iOS simulator.
   ios-build-test:
     name: ios-build-test
-    runs-on: macos-14
+    runs-on: macos-26
     timeout-minutes: 40
     steps:
       - uses: actions/checkout@v6
@@ -84,7 +84,7 @@ jobs:
 
   podspec-lint:
     name: podspec-lint
-    runs-on: macos-14
+    runs-on: macos-26
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v6
